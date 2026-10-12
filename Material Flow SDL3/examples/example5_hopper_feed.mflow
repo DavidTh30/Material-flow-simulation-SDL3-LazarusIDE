@@ -3,6 +3,8 @@
 # TANK x y water oil fluff sand air% feed%
 # BUCKET x y w h
 # LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
 MFLOW 1
 NAME Hopper feed
 GRAVITY 1.00
@@ -60,5 +62,7 @@ CELL 24 22 drop N 3 S 1 100.00
 CELL 34 22 drop N 3 S 1 100.00
 BUCKET 523.00 716.00 130.00 90.00
 BUCKET 763.00 716.00 130.00 90.00
+FRAME 24.00 0.00 648.00 816.00 0 0 1 1 SAND LINE - hopper + blower
+FRAME 696.00 0.00 360.00 816.00 1 0 1 1 WATER LINE - gravity hopper
 LABEL 120.00 400.00 HOPPER + BLOWER\nSand falls into the funnel,\nthe blower carries it on.
-LABEL 560.00 230.00 GRAVITY HOPPER\nWater falls in and\ndrains straight down.
+LABEL 870.00 330.00 GRAVITY HOPPER\nWater falls in and\ndrains straight down.

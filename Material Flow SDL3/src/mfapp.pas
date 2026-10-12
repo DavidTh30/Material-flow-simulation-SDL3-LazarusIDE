@@ -22,9 +22,10 @@ const
 
 type
   TTool = (tSelect, tPipe, tResize, tErase, tTank, tHopper, tSilo, tBlower, tSuction, tNozzle,
-    tDrop, tCheck, tValve2, tValve3, tValve4, tBucket, tLabel, tLabelDate, tLabelTime);
-  TSelKind = (selNone, selCell, selBucket, selMulti, selLabel);
-  TDrag = (dragNone, dragPipe, dragResize, dragErase, dragBucket, dragBox, dragMove, dragLabel);
+    tDrop, tCheck, tValve2, tValve3, tValve4, tBucket, tLabel, tLabelDate, tLabelTime, tFrame);
+  TSelKind = (selNone, selCell, selBucket, selMulti, selLabel, selFrame);
+  TDrag = (dragNone, dragPipe, dragResize, dragErase, dragBucket, dragBox, dragMove, dragLabel,
+    dragFrameNew, dragFrameMove, dragFrameSize);
   TClipBucket = record
     DX, DY, W, H: Single;   { relative to the block's top-left corner }
   end;
@@ -56,10 +57,10 @@ type
 const
   ToolNames: array[TTool] of string = ('Select', 'Pipe', 'Pipe size', 'Erase',
     'Tank', 'Hopper', 'Silo', 'Blower', 'Suction', 'Push nozzle', 'Drop out', '1-way pipe',
-    '2-way valve', '3-way valve', '4-way valve', 'Bucket', 'Label', 'Date label', 'Time label');
+    '2-way valve', '3-way valve', '4-way valve', 'Bucket', 'Label', 'Date label', 'Time label', 'Frame');
   ToolKinds: array[TTool] of TCellKind = (ckEmpty, ckPipe, ckEmpty, ckEmpty,
     ckSource, ckHopper, ckSilo, ckBlower, ckSuction, ckNozzle, ckDrop, ckCheck, ckValve2, ckValve3, ckValve4,
-    ckEmpty, ckEmpty, ckEmpty, ckEmpty);
+    ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty);
   ToolHints: array[TTool] of string = (
     'Click to edit; drag box to select',
     'Drag to route; start on pipe=branch',
@@ -79,7 +80,8 @@ const
     'Click: place bucket (rim at cursor)',
     'Click: add a label, then type',
     'Click: label showing the date',
-    'Click: label showing the time');
+    'Click: label showing the time',
+    'Drag: frame to group & title parts');
   KindNames: array[TCellKind] of string = ('Empty', 'Pipe', 'Tank', 'Blower',
     'Suction head', 'Push-out nozzle', 'Drop outlet', '1-way pipe', '2-way valve', '3-way valve', '4-way valve',
     'Hopper', 'Silo');
@@ -149,6 +151,12 @@ var
   { label being typed into, or -1 }
   EditLabel: Integer = -1;
   EditField: Integer = 0;       { 0 = the text / caption, 1 = a date / time label's format }
+  { frames: the selected one, the one whose title is being typed, and a drag in progress }
+  SelFr: Integer = -1;
+  EditFrame: Integer = -1;
+  FrDrag: Integer = -1;
+  FrX0, FrY0, FrX1, FrY1: Single;   { drag start / current point (canvas pixels) }
+  FrDX, FrDY: Integer;               { a frame move, in cells }
   SelL: Integer = -1;
   LastClicks: Integer = 1;
   QX: Single;                   { left edge of the property rows being drawn }
@@ -1168,6 +1176,135 @@ begin
   CanvasXf := True;
 end;
 
+{ ---------------------------------------------------------------- frames }
+
+const
+  FRAME_TAB_H = 16;     { title tab height (canvas pixels) }
+  FRAME_EDGE = 5;       { how close to the outline a click grabs the frame }
+  FRAME_HANDLE = 10;    { resize handle in the bottom-right corner }
+
+function SnapCell(v: Single): Single;
+begin
+  Result := Round(v / CELL) * CELL;
+end;
+
+procedure FrameRGB(c: Integer; out r, g, b: Byte);
+begin
+  if c = 0 then
+  begin
+    r := Th.Title.R; g := Th.Title.G; b := Th.Title.B;
+  end
+  else
+    LabelRGB(c, r, g, b);
+end;
+
+{ the frame whose title tab or outline (Part 0, to move it) or corner handle
+  (Part 1, to resize it) is under wx, wy; the inside stays free for the parts }
+function FrameAt(wx, wy: Single; out Part: Integer): Integer;
+var
+  i: Integer;
+  tw: Single;
+begin
+  Part := 0;
+  for i := MAX_FRAMES - 1 downto 0 do
+    with Frames[i] do
+      if Active then
+      begin
+        if (wx >= X + W - FRAME_HANDLE) and (wx <= X + W + 3) and (wy >= Y + H - FRAME_HANDLE) and
+          (wy <= Y + H + 3) then
+        begin
+          Part := 1;
+          Exit(i);
+        end;
+        tw := fmax(48, (Length(Title) * 8 + 12) / Zoom);
+        if (wx >= X) and (wx <= X + tw) and (wy >= Y) and (wy <= Y + FRAME_TAB_H) then Exit(i);
+        if (wx >= X - FRAME_EDGE) and (wx <= X + W + FRAME_EDGE) and (wy >= Y - FRAME_EDGE) and
+          (wy <= Y + H + FRAME_EDGE) and not ((wx > X + FRAME_EDGE) and (wx < X + W - FRAME_EDGE) and
+          (wy > Y + FRAME_EDGE) and (wy < Y + H - FRAME_EDGE)) then Exit(i);
+      end;
+  Result := -1;
+end;
+
+{ the cells a frame covers }
+procedure FrameCells(i: Integer; out x1, y1, x2, y2: Integer);
+begin
+  x1 := EnsureRange(Round(Frames[i].X / CELL), 0, GW - 1);
+  y1 := EnsureRange(Round(Frames[i].Y / CELL), 0, GH - 1);
+  x2 := EnsureRange(Round((Frames[i].X + Frames[i].W) / CELL) - 1, x1, GW - 1);
+  y2 := EnsureRange(Round((Frames[i].Y + Frames[i].H) / CELL) - 1, y1, GH - 1);
+end;
+
+procedure DashedRect(x, y, w, h, dash: Single);
+var
+  t: Single;
+begin
+  t := 0;
+  while t < w do
+  begin
+    LineR(x + t, y, x + fmin(t + dash, w), y);
+    LineR(x + t, y + h, x + fmin(t + dash, w), y + h);
+    t := t + dash * 2;
+  end;
+  t := 0;
+  while t < h do
+  begin
+    LineR(x, y + t, x, y + fmin(t + dash, h));
+    LineR(x + w, y + t, x + w, y + fmin(t + dash, h));
+    t := t + dash * 2;
+  end;
+end;
+
+{ one frame outline at x, y, w, h (also used for the ghost while placing / moving) }
+procedure DrawFrameShape(i: Integer; x, y, w, h: Single; Ghost: Boolean);
+var
+  r, g, b: Byte;
+  tw: Single;
+  s, caret: string;
+  selected: Boolean;
+begin
+  FrameRGB(Frames[i].Color, r, g, b);
+  selected := (SelKind = selFrame) and (SelFr = i);
+  if Frames[i].Fill and not Ghost then
+  begin
+    SetCol(r, g, b, 22);
+    FillR(x, y, w, h);
+  end;
+  if Ghost then SetC(Th.Paste) else if selected then SetC(Th.Select) else SetCol(r, g, b, 210);
+  if Frames[i].Dashed then
+    DashedRect(x, y, w, h, 8)
+  else
+  begin
+    RectR(x, y, w, h);
+    RectR(x + 1, y + 1, w - 2, h - 2);
+  end;
+  if Ghost then Exit;
+  { title tab: text keeps its size when zoomed, the tab follows the text }
+  s := Frames[i].Title;
+  caret := '';
+  if (EditFrame = i) and ((SDL_GetTicksNS div 500000000) mod 2 = 0) then caret := '_';
+  tw := fmax(48, (Length(s + caret) * 8 + 12) / Zoom);
+  if selected then SetC(Th.Select) else SetCol(r, g, b, 230);
+  FillR(x, y, tw, FRAME_TAB_H / Zoom);
+  if Th.Light or (Frames[i].Color in [3, 5]) then SetCol(20, 22, 28) else SetCol(250, 250, 252);
+  if selected then SetCol(20, 22, 28);
+  TextR(x + 6 / Zoom, y + 4 / Zoom, s + caret);
+  if selected then
+  begin
+    { the resize handle }
+    SetC(Th.Select);
+    FillR(x + w - 8, y + h - 8, 8, 8);
+  end;
+end;
+
+procedure DrawFrames;
+var
+  i: Integer;
+begin
+  for i := 0 to MAX_FRAMES - 1 do
+    if Frames[i].Active then
+      DrawFrameShape(i, Frames[i].X, Frames[i].Y, Frames[i].W, Frames[i].H, False);
+end;
+
 { ---------------------------------------------------------------- grid }
 
 procedure GridRGB(out r, g, b: Byte);
@@ -1304,6 +1441,7 @@ begin
   SetC(Th.CanvasBg);
   FillR(0, 0, CANVAS_W, CANVAS_H);
   DrawGrid;
+  DrawFrames;
   SetC(Th.Floor);
   FillR(0, FLOOR_Y, CANVAS_W, CANVAS_H - FLOOR_Y);
 
@@ -1331,6 +1469,15 @@ begin
   for i := 0 to MAX_BUCKETS - 1 do
     if Buckets[i].Active then DrawBucketFront(i);
   DrawLabels;
+  if Drag = dragFrameNew then
+  begin
+    SetC(Th.Paste);
+    RectR(SnapCell(fmin(FrX0, FrX1)), SnapCell(fmin(FrY0, FrY1)),
+      SnapCell(fmax(FrX0, FrX1)) - SnapCell(fmin(FrX0, FrX1)), SnapCell(fmax(FrY0, FrY1)) - SnapCell(fmin(FrY0, FrY1)));
+  end
+  else if (Drag = dragFrameMove) and (FrDrag >= 0) and ((FrDX <> 0) or (FrDY <> 0)) then
+    with Frames[FrDrag] do
+      DrawFrameShape(FrDrag, X + FrDX * CELL, Y + FrDY * CELL, W, H, True);
 
   if SelKind = selCell then
   begin
@@ -2005,6 +2152,7 @@ begin
     selCell: Result := KindNames[Grid[SelX, SelY].Kind];
     selBucket: Result := Format('bucket %d', [SelB + 1]);
     selLabel: Result := 'label';
+    selFrame: Result := 'frame';
     selMulti:
       begin
         CountSelection(np, nb);
@@ -2022,7 +2170,7 @@ var
   x1, y1, x2, y2, x, y, i, n: Integer;
 begin
   Result := False;
-  if SelKind = selNone then Exit;
+  if SelKind in [selNone, selFrame] then Exit;
   SelRect(x1, y1, x2, y2);
   B.W := x2 - x1 + 1;
   B.H := y2 - y1 + 1;
@@ -2328,6 +2476,208 @@ begin
   DeleteSelected;
   s := PlaceBlock(MoveBuf, MoveX1 + MoveDX, MoveY1 + MoveDY, lost);
   SetStatus('Moved ' + s, lost > 0);
+end;
+
+{ ---------------------------------------------------------------- frame editing }
+
+procedure StopEditFrame;
+begin
+  if EditFrame < 0 then Exit;
+  EditFrame := -1;
+  if Win <> nil then SDL_StopTextInput(Win);
+end;
+
+procedure StartEditFrame(i: Integer);
+begin
+  if (i < 0) or not Frames[i].Active then Exit;
+  EditFrame := i;
+  SelKind := selFrame;
+  SelFr := i;
+  OpenMenu := -1;
+  PopupOpen := False;
+  if Win <> nil then SDL_StartTextInput(Win);
+  SetStatus('Type the frame title - Enter or Esc: done');
+end;
+
+procedure FrameTypeText(const s: string);
+var
+  k: Integer;
+begin
+  if EditFrame < 0 then Exit;
+  for k := 1 to Length(s) do
+    if (s[k] >= ' ') and (s[k] <= '~') and (Length(Frames[EditFrame].Title) < 60) then
+      Frames[EditFrame].Title := Frames[EditFrame].Title + s[k];
+end;
+
+procedure FrameKey(key: UInt32);
+var
+  t: string;
+begin
+  if EditFrame < 0 then Exit;
+  t := Frames[EditFrame].Title;
+  case key of
+    SDLK_BACKSPACE:
+      if t <> '' then Frames[EditFrame].Title := Copy(t, 1, Length(t) - 1);
+    SDLK_RETURN, SDLK_KP_ENTER, SDLK_ESCAPE:
+      StopEditFrame;
+  end;
+end;
+
+{ the Frame tool was dragged from FrX0,FrY0 to FrX1,FrY1 (a click gives a default size) }
+procedure FinishFrameNew;
+var
+  x1, y1, x2, y2: Single;
+  i, n: Integer;
+begin
+  x1 := SnapCell(fmin(FrX0, FrX1));
+  y1 := SnapCell(fmin(FrY0, FrY1));
+  x2 := SnapCell(fmax(FrX0, FrX1));
+  y2 := SnapCell(fmax(FrY0, FrY1));
+  if (x2 - x1 < 2 * CELL) or (y2 - y1 < 2 * CELL) then
+  begin
+    x2 := x1 + 8 * CELL;
+    y2 := y1 + 6 * CELL;
+  end;
+  n := 1;
+  for i := 0 to MAX_FRAMES - 1 do
+    if Frames[i].Active then Inc(n);
+  i := AddFrame(x1, y1, x2 - x1, y2 - y1, Format('Group %d', [n]));
+  if i < 0 then
+  begin
+    SetStatus(Format('Too many frames (max %d)', [MAX_FRAMES]), True);
+    Exit;
+  end;
+  StartEditFrame(i);
+end;
+
+{ the frame's title was dragged FrDX, FrDY cells: move it, and (Carry) what is inside it }
+procedure FinishFrameMove;
+var
+  f, x1, y1, x2, y2, lost: Integer;
+  s: string;
+begin
+  f := FrDrag;
+  if (f < 0) or not Frames[f].Active or ((FrDX = 0) and (FrDY = 0)) then Exit;
+  s := '';
+  if Frames[f].Carry then
+  begin
+    FrameCells(f, x1, y1, x2, y2);
+    SelectBox(x1, y1, x2, y2);
+    if SelKind <> selNone then
+    begin
+      CopySelectionTo(MoveBuf);
+      SelRect(x1, y1, x2, y2);
+      DeleteSelected;
+      s := PlaceBlock(MoveBuf, x1 + FrDX, y1 + FrDY, lost);
+    end;
+  end;
+  Frames[f].X := Frames[f].X + FrDX * CELL;
+  Frames[f].Y := Frames[f].Y + FrDY * CELL;
+  SelKind := selFrame;
+  SelFr := f;
+  if s <> '' then SetStatus('Moved the frame with ' + s) else SetStatus('Moved the frame');
+end;
+
+{ while the title is dragged: the move in whole cells, keeping the frame on the canvas }
+procedure UpdateFrameMove;
+var
+  f: Integer;
+begin
+  f := FrDrag;
+  if f < 0 then Exit;
+  FrDX := Round((MWX - FrX0) / CELL);
+  FrDY := Round((MWY - FrY0) / CELL);
+  FrDX := EnsureRange(FrDX, -Round(Frames[f].X / CELL), Round((CANVAS_W - Frames[f].X - Frames[f].W) / CELL));
+  FrDY := EnsureRange(FrDY, -Round(Frames[f].Y / CELL), Round((CANVAS_H - Frames[f].Y - Frames[f].H) / CELL));
+end;
+
+procedure UpdateFrameSize;
+var
+  f: Integer;
+begin
+  f := FrDrag;
+  if f < 0 then Exit;
+  Frames[f].W := fclamp(SnapCell(MWX - Frames[f].X), 2 * CELL, CANVAS_W - Frames[f].X);
+  Frames[f].H := fclamp(SnapCell(MWY - Frames[f].Y), 2 * CELL, CANVAS_H - Frames[f].Y);
+end;
+
+procedure SelectFrameContents(f: Integer);
+var
+  x1, y1, x2, y2, np, nb: Integer;
+begin
+  FrameCells(f, x1, y1, x2, y2);
+  SelectBox(x1, y1, x2, y2);
+  CountSelection(np, nb);
+  if SelKind = selNone then SetStatus('The frame is empty')
+  else SetStatus(Format('Selected %d parts, %d buckets, %d labels in the frame', [np, nb, CountSelLabels]));
+end;
+
+procedure DrawFrameProps(y: Single);
+var
+  f, c, np, nb, x1, y1, x2, y2: Integer;
+  r, g, b: Byte;
+  caret: string;
+begin
+  f := SelFr;
+  SetC(Th.Title);
+  TextR(QX, y, Format('Frame %d', [f + 1]));
+  y := y + 16;
+  Info(y, 'Groups and titles a part of the layout.');
+  y := y + 16;
+  if (EditFrame = f) and ((SDL_GetTicksNS div 500000000) mod 2 = 0) then caret := '_' else caret := '';
+  SetC(Th.OverlayBg);
+  FillR(QX, y, 280, 18);
+  SetC(Th.MenuBorder);
+  RectR(QX, y, 280, 18);
+  SetC(Th.Text);
+  TextR(QX + 4, y + 5, Copy(Frames[f].Title + caret, 1, 34));
+  y := y + 24;
+  if EditFrame = f then
+  begin
+    if Button(270, QX, y, 136, 18, 'Done', True) then StopEditFrame;
+  end
+  else if Button(271, QX, y, 136, 18, 'Edit title') then StartEditFrame(f);
+  if Button(272, QX + 142, y, 136, 18, 'Select contents') then
+  begin
+    SelectFrameContents(f);
+    Exit;
+  end;
+  y := y + 26;
+  Info(y, 'Colour');
+  y := y + 12;
+  for c := 0 to 5 do
+  begin
+    if Button(273 + c, QX + c * 47, y, 44, 18, LabelColorNames[c], Frames[f].Color = c) then Frames[f].Color := c;
+    FrameRGB(c, r, g, b);
+    SetCol(r, g, b);
+    FillR(QX + c * 47 + 2, y + 15, 40, 2);
+  end;
+  y := y + 24;
+  if Button(280, QX, y, 90, 18, 'Solid', not Frames[f].Dashed) then Frames[f].Dashed := False;
+  if Button(281, QX + 94, y, 90, 18, 'Dashed', Frames[f].Dashed) then Frames[f].Dashed := True;
+  if Frames[f].Fill then
+  begin
+    if Button(282, QX + 188, y, 92, 18, 'Tint: on', True) then Frames[f].Fill := False;
+  end
+  else if Button(282, QX + 188, y, 92, 18, 'Tint: off') then Frames[f].Fill := True;
+  y := y + 24;
+  if Frames[f].Carry then
+  begin
+    if Button(283, QX, y, 280, 18, 'Moving it moves its contents: on', True) then Frames[f].Carry := False;
+  end
+  else if Button(283, QX, y, 280, 18, 'Moving it moves its contents: off') then Frames[f].Carry := True;
+  y := y + 26;
+  FrameCells(f, x1, y1, x2, y2);
+  Info(y, Format('Size %d x %d cells at [%d,%d]', [x2 - x1 + 1, y2 - y1 + 1, x1, y1]));
+  SelectBox(x1, y1, x2, y2);
+  CountSelection(np, nb);
+  Info(y + 12, Format('Inside: %d parts, %d buckets, %d labels', [np, nb, CountSelLabels]));
+  SelKind := selFrame;   { counting used the selection; the frame stays selected }
+  SelFr := f;
+  y := y + 30;
+  if Button(284, QX, y, 136, 18, 'Delete (Del)') then DeleteSelected;
+  Info(y + 26, 'Drag its title to move it, the');
+  Info(y + 38, 'corner square to resize it.');
 end;
 
 { ---------------------------------------------------------------- label editing }
@@ -2682,9 +3032,9 @@ begin
         SetStatus('Select parts to rotate first', True);
         Exit;
       end;
-    selBucket, selLabel:
+    selBucket, selLabel, selFrame:
       begin
-        SetStatus('Buckets and labels stay upright - select parts to rotate', True);
+        SetStatus('Buckets, labels and frames stay upright - select parts to rotate', True);
         Exit;
       end;
     selCell:
@@ -3519,6 +3869,7 @@ begin
   if (SelKind = selCell) and (Grid[SelX, SelY].Kind = ckEmpty) then SelKind := selNone;
   if (SelKind = selBucket) and not Buckets[SelB].Active then SelKind := selNone;
   if (SelKind = selLabel) and not Labels[SelL].Active then SelKind := selNone;
+  if (SelKind = selFrame) and ((SelFr < 0) or not Frames[SelFr].Active) then SelKind := selNone;
   if SelKind = selMulti then
   begin
     CountSelection(np, nb);
@@ -3527,6 +3878,7 @@ begin
   case SelKind of
     selCell: DrawCellProps(y0);
     selLabel: DrawLabelProps(y0);
+    selFrame: DrawFrameProps(y0);
     selBucket: DrawBucketProps(y0);
     selMulti: DrawMultiProps(y0);
   else
@@ -3574,7 +3926,7 @@ end;
 
 procedure DrawStatusContent(y0: Single);
 var
-  gx, gy, L: Integer;
+  gx, gy, L, fr, part: Integer;
   c: PCell;
   s: string;
 begin
@@ -3589,8 +3941,11 @@ begin
     gx := Trunc(MWX / CELL);
     gy := Trunc(MWY / CELL);
     L := LabelAt(MWX, MWY);
+    fr := FrameAt(MWX, MWY, part);
     if L >= 0 then
       s := Format('Label %d [%d,%d]', [L + 1, gx, gy])
+    else if fr >= 0 then
+      s := 'Frame: ' + Frames[fr].Title
     else if InGrid(gx, gy) then
     begin
       c := @Grid[gx, gy];
@@ -3742,6 +4097,11 @@ begin
     selCell: EraseCell(SelX, SelY);
     selBucket: DeleteBucket(SelB);
     selLabel: DeleteLabel(SelL);
+    selFrame:
+      begin
+        if EditFrame = SelFr then StopEditFrame;
+        DeleteFrame(SelFr);
+      end;
     selMulti:
       begin
         { buckets first: their test looks at the box, not at the parts }
@@ -3811,7 +4171,7 @@ end;
 
 procedure CanvasPress(Right: Boolean);
 var
-  gx, gy, b, L, sx, sy: Integer;
+  gx, gy, b, L, sx, sy, fr, part: Integer;
 begin
   if (MWX < 0) or (MWY < 0) then Exit;   { outside the layout when zoomed out }
   gx := Trunc(MWX / CELL);
@@ -3820,6 +4180,36 @@ begin
   L := LabelAt(MWX, MWY);
   { clicking anywhere but the label being typed into finishes it }
   if (EditLabel >= 0) and (L <> EditLabel) then StopEditLabel;
+  fr := FrameAt(MWX, MWY, part);
+  if (EditFrame >= 0) and (fr <> EditFrame) then StopEditFrame;
+  { a frame's title / outline / corner (labels on top of it come first) }
+  if (not Right) and (not PasteArmed) and (Tool in [tSelect, tFrame]) and (L < 0) and (fr >= 0) then
+  begin
+    if (part = 0) and (LastClicks >= 2) then
+      StartEditFrame(fr)
+    else
+    begin
+      SelKind := selFrame;
+      SelFr := fr;
+      FrDrag := fr;
+      FrX0 := MWX;
+      FrY0 := MWY;
+      FrDX := 0;
+      FrDY := 0;
+      if part = 1 then Drag := dragFrameSize else Drag := dragFrameMove;
+    end;
+    Exit;
+  end;
+  if (not Right) and (not PasteArmed) and (Tool = tFrame) then
+  begin
+    { drag out a new frame }
+    Drag := dragFrameNew;
+    FrX0 := MWX;
+    FrY0 := MWY;
+    FrX1 := MWX;
+    FrY1 := MWY;
+    Exit;
+  end;
   if (not Right) and (not PasteArmed) and (Tool in [tSelect, tLabel, tLabelDate, tLabelTime]) and (L >= 0) then
   begin
     if (Tool = tLabel) or (LastClicks >= 2) then
@@ -3975,6 +4365,13 @@ begin
         BoxY1 := fclamp(MWY, 0, CANVAS_H - 1);
       end;
     dragMove: UpdateMove;
+    dragFrameNew:
+      begin
+        FrX1 := fclamp(MWX, 0, CANVAS_W);
+        FrY1 := fclamp(MWY, 0, CANVAS_H);
+      end;
+    dragFrameMove: UpdateFrameMove;
+    dragFrameSize: UpdateFrameSize;
     dragLabel:
       if (SelKind = selLabel) and Labels[SelL].Active then
       begin
@@ -4002,7 +4399,7 @@ end;
 
 const
   POPUP_W = 170;
-  CanvasLabels: array[0..5] of string = ('Cut', 'Copy', 'Paste here', 'Delete', 'Rotate', 'Edit label');
+  CanvasLabels: array[0..5] of string = ('Cut', 'Copy', 'Paste here', 'Delete', 'Rotate', 'Edit text');
   CanvasKeys: array[0..5] of string = ('Ctrl+X', 'Ctrl+C', 'Ctrl+V', 'Del', 'R', '2x click');
   PanelLabels: array[0..3] of string = ('Right embed', 'Left embed', 'Float', 'Hide');
 
@@ -4034,7 +4431,7 @@ end;
 
 procedure OpenPopup;
 var
-  gx, gy, b, L, sx, sy: Integer;
+  gx, gy, b, L, sx, sy, fr, part: Integer;
 begin
   gx := EnsureRange(Trunc(MWX / CELL), 0, GW - 1);
   gy := EnsureRange(Trunc(MWY / CELL), 0, GH - 1);
@@ -4043,11 +4440,17 @@ begin
   begin
     b := BucketAt(MWX, MWY);
     L := LabelAt(MWX, MWY);
+    fr := FrameAt(MWX, MWY, part);
     if L >= 0 then
     begin
       if L <> EditLabel then StopEditLabel;
       SelKind := selLabel;
       SelL := L;
+    end
+    else if fr >= 0 then
+    begin
+      SelKind := selFrame;
+      SelFr := fr;
     end
     else if Grid[gx, gy].Kind <> ckEmpty then
       SelectCell(gx, gy)
@@ -4107,7 +4510,7 @@ begin
       key := CanvasKeys[i];
       case i of
         2: en := not ClipEmpty;
-        5: en := SelKind = selLabel;
+        5: en := SelKind in [selLabel, selFrame];
       else
         en := SelKind <> selNone;
       end;
@@ -4144,7 +4547,7 @@ begin
           2: PlacePaste(PopupGX, PopupGY);
           3: DoDelete;
           4: DoRotate(True);
-          5: StartEditLabel(SelL);
+          5: if SelKind = selFrame then StartEditFrame(SelFr) else StartEditLabel(SelL);
         end;
       Exit;
     end;
@@ -4881,6 +5284,91 @@ begin
       (Labels[np].Color = 3) then Inc(nb);
   Check('copy / paste keeps a time label''s format and style', nb = 2);
 
+  { frames: draw one with the tool, title it, move it with what is inside }
+  DoLoadDemo;
+  HistCheck;
+  Tool := tFrame;
+  MX := 2 * CELL + 3;
+  MY := 2 * CELL + 3;
+  MouseDown(SDL_BUTTON_LEFT);
+  MX := 20 * CELL;
+  MY := 12 * CELL;
+  CanvasMotion;
+  FinishFrameNew;
+  Drag := dragNone;
+  MDown := False;
+  MPressed := False;
+  Tool := tSelect;
+  i := SelFr;
+  Check('Frame tool draws a frame snapped to cells', (SelKind = selFrame) and Frames[i].Active and
+    (Frames[i].X = 2 * CELL) and (Frames[i].Y = 2 * CELL) and (Frames[i].W = 18 * CELL) and (Frames[i].H = 10 * CELL));
+  Check('a new frame starts with its title being typed', EditFrame = i);
+  FrameTypeText(' - liquids');
+  FrameKey(SDLK_RETURN);
+  Check('frame title typed', (Frames[i].Title = 'Group 1 - liquids') and (EditFrame = -1));
+  Check('frame grabbed by its title and outline only', (FrameAt(Frames[i].X + 5, Frames[i].Y + 5, np) = i) and
+    (np = 0) and (FrameAt(Frames[i].X + 200, Frames[i].Y + 120, np) = -1) and
+    (FrameAt(Frames[i].X + Frames[i].W - 1, Frames[i].Y + 100, np) = i));
+  Check('frame corner resizes', (FrameAt(Frames[i].X + Frames[i].W - 2, Frames[i].Y + Frames[i].H - 2, np) = i) and (np = 1));
+  HistCheck;
+  FrDrag := i;
+  FrX0 := Frames[i].X + 5;
+  FrY0 := Frames[i].Y + 5;
+  MX := FrX0 + 2 * CELL;
+  MY := FrY0 + 1 * CELL;
+  UpdateFrameMove;
+  FinishFrameMove;
+  Check('moving a frame moves what is inside it', (Frames[i].X = 4 * CELL) and (Frames[i].Y = 3 * CELL) and
+    (Grid[4, 4].Kind = ckSource) and (Grid[2, 3].Kind = ckEmpty) and (Grid[8, 4].Kind = ckBlower));
+  HistCheck;
+  DoUndo;
+  Check('undo the frame move', (Frames[i].X = 2 * CELL) and (Grid[2, 3].Kind = ckSource));
+  Frames[i].Carry := False;
+  FrDrag := i;
+  FrX0 := Frames[i].X + 5;
+  FrY0 := Frames[i].Y + 5;
+  MX := FrX0 + 3 * CELL;
+  MY := FrY0;
+  UpdateFrameMove;
+  FinishFrameMove;
+  Check('carry off: only the frame moves', (Frames[i].X = 5 * CELL) and (Grid[2, 3].Kind = ckSource));
+  FrDrag := i;
+  MX := Frames[i].X + 6 * CELL + 3;
+  MY := Frames[i].Y + 4 * CELL - 2;
+  UpdateFrameSize;
+  Check('resize snaps to cells', (Frames[i].W = 6 * CELL) and (Frames[i].H = 4 * CELL));
+  MX := Frames[i].X;
+  MY := Frames[i].Y;
+  UpdateFrameSize;
+  Check('a frame is at least 2 x 2 cells', (Frames[i].W = 2 * CELL) and (Frames[i].H = 2 * CELL));
+  Frames[i].X := 0;
+  Frames[i].Y := 2 * CELL;
+  Frames[i].W := 22 * CELL;
+  Frames[i].H := 24 * CELL;
+  SelectFrameContents(i);
+  CountSelection(np, nb);
+  Check('Select contents picks what is inside', (SelKind = selMulti) and (np > 10));
+  Frames[i].Color := 2;
+  Frames[i].Dashed := True;
+  Frames[i].Fill := False;
+  Frames[i].Carry := False;
+  Check('save with a frame', SaveLayout(UnicodeString(FileName + '.frame.mflow'), err));
+  Frames[i].Active := False;
+  Check('load with a frame', LoadLayout(UnicodeString(FileName + '.frame.mflow'), err));
+  b := -1;
+  for np := 0 to MAX_FRAMES - 1 do
+    if Frames[np].Active and (Frames[np].Title = 'Group 1 - liquids') then b := np;
+  Check('frame saved with title and style', (b >= 0) and (Frames[b].Color = 2) and Frames[b].Dashed and
+    (not Frames[b].Fill) and (not Frames[b].Carry) and (Frames[b].W = 22 * CELL));
+  MX := Frames[b].X + 5;
+  MY := Frames[b].Y + 5;
+  OpenPopup;
+  Check('right-click a frame title selects it', PopupOpen and (SelKind = selFrame) and (SelFr = b));
+  PopupOpen := False;
+  DoDelete;
+  Check('delete a frame', not Frames[b].Active);
+  DoLoadDemo;
+
   { status and help panels }
   ToggleWin(WIN_STATUS);
   ToggleWin(WIN_HELP);
@@ -5284,9 +5772,14 @@ begin
         SDL_EVENT_KEY_DOWN:
           { while a label is being typed into, keys belong to it }
           if EditLabel >= 0 then LabelKey(ev.key.key)
+          else if EditFrame >= 0 then FrameKey(ev.key.key)
           else HandleKey(ev.key.key, ev.key.mod_);
         SDL_EVENT_TEXT_INPUT:
-          if ev.text.text <> nil then LabelTypeText(string(ev.text.text));
+          if ev.text.text <> nil then
+          begin
+            if EditFrame >= 0 then FrameTypeText(string(ev.text.text))
+            else LabelTypeText(string(ev.text.text));
+          end;
         SDL_EVENT_MOUSE_MOTION:
           begin
             MX := ev.motion.x - OX;
@@ -5325,7 +5818,9 @@ begin
               MDown := False;
               ActiveId := 0;
               if Drag = dragBox then FinishBox
-              else if Drag = dragMove then FinishMove;
+              else if Drag = dragMove then FinishMove
+              else if Drag = dragFrameNew then FinishFrameNew
+              else if Drag = dragFrameMove then FinishFrameMove;
             end
             else if ev.button.button = SDL_BUTTON_RIGHT then
             begin
@@ -5366,7 +5861,9 @@ begin
       if MDown then
       begin
         if Drag = dragBox then FinishBox
-        else if Drag = dragMove then FinishMove;
+        else if Drag = dragMove then FinishMove
+        else if Drag = dragFrameNew then FinishFrameNew
+        else if Drag = dragFrameMove then FinishFrameMove;
       end;
       MDown := False;
       RDown := False;
@@ -5385,7 +5882,7 @@ begin
     WheelIdle := WheelIdle + FrameDt;
     { a finished gesture (nothing held, no drag, wheel at rest) becomes an undo step }
     { (typing into a label becomes one step when the typing is done) }
-    if (not MDown) and (not RDown) and (Drag = dragNone) and (WheelIdle > 0.5) and (EditLabel < 0) then
+    if (not MDown) and (not RDown) and (Drag = dragNone) and (WheelIdle > 0.5) and (EditLabel < 0) and (EditFrame < 0) then
       HistCheck;
 
     SimFrame(fmin(FrameDt, 1 / 30), Running);

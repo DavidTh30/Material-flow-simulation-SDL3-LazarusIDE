@@ -10,6 +10,7 @@ unit layoutio;
   TANK <x> <y> <water> <oil> <fluff> <sand> <air%> <feed%>
   BUCKET <x> <y> <w> <h>
   LABEL <x> <y> <text>            (\n = new line in the text)
+  FRAME <x> <y> <w> <h> <colour> <dashed> <fill> <carry> <title>
   LABEL2 <kind> <x> <y> <colour> <box> <format> <caption>
                                   (kind text/date/time; format: FormatDateTime
                                    codes, \s = space, - = none; box 1/0)
@@ -141,6 +142,7 @@ begin
       WriteLn(f, '# BUCKET x y w h');
       WriteLn(f, '# LABEL x y text   (\n = new line)');
       WriteLn(f, '# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)');
+      WriteLn(f, '# FRAME x y w h colour dashed fill carry title');
       WriteLn(f, 'MFLOW 1');
       if LayoutName <> '' then WriteLn(f, 'NAME ', LayoutName);
       WriteLn(f, 'GRAVITY ', F2S(GravityScale));
@@ -163,6 +165,11 @@ begin
         if Buckets[i].Active then
           WriteLn(f, Format('BUCKET %s %s %s %s', [F2S(Buckets[i].X), F2S(Buckets[i].Y),
             F2S(Buckets[i].W), F2S(Buckets[i].H)]));
+      for i := 0 to MAX_FRAMES - 1 do
+        if Frames[i].Active then
+          WriteLn(f, Format('FRAME %s %s %s %s %d %d %d %d %s', [F2S(Frames[i].X), F2S(Frames[i].Y),
+            F2S(Frames[i].W), F2S(Frames[i].H), Frames[i].Color, Ord(Frames[i].Dashed), Ord(Frames[i].Fill),
+            Ord(Frames[i].Carry), EscapeText(Frames[i].Title)]));
       for i := 0 to MAX_LABELS - 1 do
         if Labels[i].Active then
         begin
@@ -347,6 +354,17 @@ begin
           if not ParseConn(Tok[9], conn) then Fail('bad shut branches "' + Tok[9] + '"');
           c^.Closed := conn;
         end;
+      end
+      else if SameText(Tok[0], 'FRAME') then
+      begin
+        Need(9);
+        for i := 0 to 3 do v[i] := Num(1 + i);
+        i := AddFrame(v[0], v[1], v[2], v[3], UnescapeText(AfterTokens(line, 9)));
+        if i < 0 then Fail(Format('too many frames (max %d)', [MAX_FRAMES]));
+        Frames[i].Color := EnsureRange(Int(5), 0, 5);
+        Frames[i].Dashed := Int(6) <> 0;
+        Frames[i].Fill := Int(7) <> 0;
+        Frames[i].Carry := Int(8) <> 0;
       end
       else if SameText(Tok[0], 'LABEL2') then
       begin

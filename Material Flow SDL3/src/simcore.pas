@@ -36,6 +36,7 @@ const
   MAX_AIR = 2500;
   MAX_BUCKETS = 8;
   MAX_LABELS = 64;
+  MAX_FRAMES = 32;
   LBL_TEXT = 0;
   LBL_DATE = 1;
   LBL_TIME = 2;
@@ -120,6 +121,17 @@ type
     NoBox: Boolean;        { no frame / background behind the text }
   end;
 
+  { a titled frame drawn behind a group of parts, to group and categorise them }
+  TFrameObj = record
+    Active: Boolean;
+    X, Y, W, H: Single;    { canvas pixels }
+    Title: string[60];
+    Color: Byte;           { 0 theme, 1 blue, 2 green, 3 amber, 4 red, 5 white }
+    Dashed: Boolean;       { dashed outline }
+    Fill: Boolean;         { a light tint inside }
+    Carry: Boolean;        { moving the frame moves what is inside it }
+  end;
+
   TIntake = record
     MX, MY, R, CapR, Str: Single;
     CX, CY, D: Integer;
@@ -153,6 +165,7 @@ var
   NAir: Integer = 0;
   Buckets: array[0..MAX_BUCKETS - 1] of TBucket;
   Labels: array[0..MAX_LABELS - 1] of TLabelObj;
+  Frames: array[0..MAX_FRAMES - 1] of TFrameObj;
   Intakes: array[0..63] of TIntake;
   NIntake: Integer = 0;
   Jets: array[0..63] of TJet;
@@ -207,6 +220,8 @@ function BucketFill(i: Integer): Single;
 
 function AddLabel(X, Y: Single; const Text: string): Integer;
 procedure DeleteLabel(i: Integer);
+function AddFrame(X, Y, W, H: Single; const Title: string): Integer;
+procedure DeleteFrame(i: Integer);
 
 procedure LoadDemo;
 
@@ -430,6 +445,8 @@ begin
     Buckets[i].Active := False;
   for i := 0 to MAX_LABELS - 1 do
     Labels[i].Active := False;
+  for i := 0 to MAX_FRAMES - 1 do
+    Frames[i].Active := False;
   ClearParticles;
 end;
 
@@ -456,6 +473,33 @@ end;
 procedure DeleteLabel(i: Integer);
 begin
   if (i >= 0) and (i < MAX_LABELS) then Labels[i].Active := False;
+end;
+
+function AddFrame(X, Y, W, H: Single; const Title: string): Integer;
+var
+  i: Integer;
+begin
+  for i := 0 to MAX_FRAMES - 1 do
+    if not Frames[i].Active then
+    begin
+      Frames[i].Active := True;
+      Frames[i].W := fclamp(W, 2 * CELL, CANVAS_W);
+      Frames[i].H := fclamp(H, 2 * CELL, CANVAS_H);
+      Frames[i].X := fclamp(X, 0, CANVAS_W - Frames[i].W);
+      Frames[i].Y := fclamp(Y, 0, CANVAS_H - Frames[i].H);
+      Frames[i].Title := Title;
+      Frames[i].Color := 0;
+      Frames[i].Dashed := False;
+      Frames[i].Fill := True;
+      Frames[i].Carry := True;
+      Exit(i);
+    end;
+  Result := -1;
+end;
+
+procedure DeleteFrame(i: Integer);
+begin
+  if (i >= 0) and (i < MAX_FRAMES) then Frames[i].Active := False;
 end;
 
 procedure MakePipe(x, y, Dia: Integer);

@@ -3,6 +3,8 @@
 # TANK x y water oil fluff sand air% feed%
 # BUCKET x y w h
 # LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
 MFLOW 1
 NAME 4-way valve switchyard
 GRAVITY 1.00

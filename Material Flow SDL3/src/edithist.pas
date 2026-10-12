@@ -58,6 +58,7 @@ type
     Cells: array[0..GW - 1, 0..GH - 1] of TCellLite;
     Bkts: array[0..MAX_BUCKETS - 1] of TBucketLite;
     Lbls: array[0..MAX_LABELS - 1] of TLabelObj;
+    Frms: array[0..MAX_FRAMES - 1] of TFrameObj;
     Gravity: Single;
   end;
 
@@ -127,6 +128,7 @@ begin
     s^.Bkts[i].H := Buckets[i].H;
   end;
   s^.Lbls := Labels;
+  s^.Frms := Frames;
   s^.Gravity := GravityScale;
 end;
 
@@ -162,6 +164,14 @@ begin
       (Labels[i].Fmt <> s^.Lbls[i].Fmt) or (Labels[i].Color <> s^.Lbls[i].Color) or
       (Labels[i].NoBox <> s^.Lbls[i].NoBox)) then Exit;
   end;
+  for i := 0 to MAX_FRAMES - 1 do
+  begin
+    if Frames[i].Active <> s^.Frms[i].Active then Exit;
+    if Frames[i].Active and ((Frames[i].X <> s^.Frms[i].X) or (Frames[i].Y <> s^.Frms[i].Y) or
+      (Frames[i].W <> s^.Frms[i].W) or (Frames[i].H <> s^.Frms[i].H) or (Frames[i].Title <> s^.Frms[i].Title) or
+      (Frames[i].Color <> s^.Frms[i].Color) or (Frames[i].Dashed <> s^.Frms[i].Dashed) or
+      (Frames[i].Fill <> s^.Frms[i].Fill) or (Frames[i].Carry <> s^.Frms[i].Carry)) then Exit;
+  end;
   Result := True;
 end;
 
@@ -190,6 +200,7 @@ begin
     else if Buckets[i].Active then
       DeleteBucket(i);
   Labels := s^.Lbls;
+  Frames := s^.Frms;
   GravityScale := s^.Gravity;
 end;
 

@@ -86,6 +86,21 @@ A label is a text box on the canvas for describing part of a layout. The demo an
 - Labels are saved in layout files and are part of undo. Typing into a label becomes one undo step when you finish.
 - The built-in font has plain ASCII characters only.
 
+### Frames
+
+A frame is a titled rectangle drawn behind part of the layout. Use it to group parts and give the group a name, for example "SAND LINE" or "Pump room".
+- With the **Frame** tool, drag out a rectangle; it snaps to the cells. A plain click gives an 8 x 6 cell frame. Type its title straight away, and press Enter when done.
+- A frame is grabbed by its **title tab** or its **outline**; clicks inside it still reach the parts. Drag the title to move the frame. By default everything inside moves with it (parts, buckets, labels), keeping their joints. Drag the **corner square** of a selected frame to resize it. Double-click the title to rename it.
+- **Properties:**
+  - **Edit title.**
+  - **Select contents** box-selects everything inside, ready to cut, copy, rotate or delete.
+  - **Colour** (Theme, Blue, Green, Amber, Red, White).
+  - **Solid** or **Dashed** outline.
+  - **Tint** on or off.
+  - **Moving it moves its contents** on or off.
+  - The frame's size and how many parts, buckets and labels it holds.
+- Frames can sit inside other frames. They are saved in layout files as `FRAME` lines and are part of undo. Examples 5 and 6 use them.
+
 ### Date and time labels
 
 The **Date label** and **Time label** tools place a label showing the computer's date or time. It updates live.
@@ -101,7 +116,7 @@ The **Date label** and **Time label** tools place a label showing the computer's
 
 ### Right-click menu
 
-Right-clicking the canvas without moving the mouse opens a popup with **Cut, Copy, Paste here, Delete, Rotate, Edit label**.
+Right-clicking the canvas without moving the mouse opens a popup with **Cut, Copy, Paste here, Delete, Rotate, Edit text**. **Edit text** renames a frame or edits a label.
 - Right-clicking inside a box selection keeps that selection.
 - Right-clicking any other part or bucket selects it first.
 - **Paste here** puts the clipboard at the cell you right-clicked.
@@ -161,7 +176,7 @@ The grid size itself is fixed: one cell is one pipe segment.
 
 **Saved between runs:** the theme and each panel's state (shown or hidden, left or right, embedded or floating, and its floating position) are written to `materialflow.ini` next to the exe. The file is updated whenever a panel moves, and again on exit. Test runs (`--shot`, `--selftest`) never touch it.
 
-**Tool panel:** the 19 tools (the default is **Select**), the tool hint and the pipe size brush.
+**Tool panel:** the 20 tools (the default is **Select**), the tool hint and the pipe size brush.
 
 **Simulation panel:**
 - Run/Pause, Pressure colours and Air dots

@@ -177,7 +177,11 @@ begin
   FloorBucket(34, 130, 90);
 
   AddLabel(120, 400, 'HOPPER + BLOWER'#10'Sand falls into the funnel,'#10'the blower carries it on.');
-  AddLabel(560, 230, 'GRAVITY HOPPER'#10'Water falls in and'#10'drains straight down.');
+  AddLabel(870, 330, 'GRAVITY HOPPER'#10'Water falls in and'#10'drains straight down.');
+  { frames group the two lines }
+  AddFrame(1 * CELL, 0, 27 * CELL, GH * CELL, 'SAND LINE - hopper + blower');
+  AddFrame(29 * CELL, 0, 15 * CELL, GH * CELL, 'WATER LINE - gravity hopper');
+  Frames[1].Color := 1;
 end;
 
 { 6. A blower lifts sand + fluff up a riser and drops it into the top of a
@@ -211,8 +215,13 @@ begin
   Device(36, 25, ckDrop, 100);
   FloorBucket(36, 120, 80);
 
-  AddLabel(560, 120, 'SILO'#10'Sand drops in through the'#10'roof; the gate (30%) lets'#10'it out slowly.');
+  AddLabel(280, 140, 'SILO'#10'Sand drops in through the'#10'roof; the gate (30%) lets'#10'it out slowly.');
   AddLabel(880, 300, 'Pipe-fed silo,'#10'gate shut: it'#10'only stores.');
+  AddFrame(1 * CELL, 0, 27 * CELL, GH * CELL, 'SILO 1 - filled from the roof');
+  AddFrame(29 * CELL, 0, 15 * CELL, GH * CELL, 'SILO 2 - filled by pipe, stores');
+  Frames[0].Color := 3;
+  Frames[1].Color := 1;
+  Frames[1].Dashed := True;
 end;
 
 procedure BuildExample(n: Integer);
