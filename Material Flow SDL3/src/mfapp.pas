@@ -14,15 +14,15 @@ uses
   SysUtils, Math, sdl3min, simcore, layoutio, mfexamples, mftheme, edithist;
 
 const
-  PANEL_X = CANVAS_W;
+  PANEL_X = CANVAS_W;        { the right panel column starts here (when it is open) }
   PANEL_W = 304;
-  WIN_W = CANVAS_W + PANEL_W;
-  WIN_H = CANVAS_H;
+  WIN_H = CANVAS_H;           { height of the area below the menu bar }
+  MENU_H = 24;                { the menu bar across the top of the window }
   PX = PANEL_X + 8;
 
 type
-  TTool = (tSelect, tPipe, tResize, tErase, tTank, tBlower, tSuction, tNozzle,
-    tDrop, tCheck, tValve2, tValve3, tValve4, tBucket, tLabel);
+  TTool = (tSelect, tPipe, tResize, tErase, tTank, tHopper, tSilo, tBlower, tSuction, tNozzle,
+    tDrop, tCheck, tValve2, tValve3, tValve4, tBucket, tLabel, tLabelDate, tLabelTime);
   TSelKind = (selNone, selCell, selBucket, selMulti, selLabel);
   TDrag = (dragNone, dragPipe, dragResize, dragErase, dragBucket, dragBox, dragMove, dragLabel);
   TClipBucket = record
@@ -31,6 +31,9 @@ type
   TClipLabel = record
     DX, DY: Single;
     Text: string;
+    Kind, Color: Byte;
+    Fmt: string;
+    NoBox: Boolean;
   end;
   { a dockable panel window }
   TWin = record
@@ -52,16 +55,19 @@ type
 
 const
   ToolNames: array[TTool] of string = ('Select', 'Pipe', 'Pipe size', 'Erase',
-    'Tank', 'Blower', 'Suction', 'Push nozzle', 'Drop out', '1-way pipe',
-    '2-way valve', '3-way valve', '4-way valve', 'Bucket', 'Label');
+    'Tank', 'Hopper', 'Silo', 'Blower', 'Suction', 'Push nozzle', 'Drop out', '1-way pipe',
+    '2-way valve', '3-way valve', '4-way valve', 'Bucket', 'Label', 'Date label', 'Time label');
   ToolKinds: array[TTool] of TCellKind = (ckEmpty, ckPipe, ckEmpty, ckEmpty,
-    ckSource, ckBlower, ckSuction, ckNozzle, ckDrop, ckCheck, ckValve2, ckValve3, ckValve4, ckEmpty, ckEmpty);
+    ckSource, ckHopper, ckSilo, ckBlower, ckSuction, ckNozzle, ckDrop, ckCheck, ckValve2, ckValve3, ckValve4,
+    ckEmpty, ckEmpty, ckEmpty, ckEmpty);
   ToolHints: array[TTool] of string = (
     'Click to edit; drag box to select',
     'Drag to route; start on pipe=branch',
     'Click/drag pipe: set size (brush)',
     'Click/drag: remove parts, buckets',
     'Click: place a material tank',
+    'Click: hopper (funnel above it)',
+    'Click: silo (needs 3 cells above)',
     'Click pipe: inline blower (blow)',
     'Click pipe end: suction intake',
     'Click pipe end: push-out nozzle',
@@ -71,9 +77,12 @@ const
     'Click tee: 3-way diverter valve',
     'Click cross: 4-way valve',
     'Click: place bucket (rim at cursor)',
-    'Click: add a label, then type');
+    'Click: add a label, then type',
+    'Click: label showing the date',
+    'Click: label showing the time');
   KindNames: array[TCellKind] of string = ('Empty', 'Pipe', 'Tank', 'Blower',
-    'Suction head', 'Push-out nozzle', 'Drop outlet', '1-way pipe', '2-way valve', '3-way valve', '4-way valve');
+    'Suction head', 'Push-out nozzle', 'Drop outlet', '1-way pipe', '2-way valve', '3-way valve', '4-way valve',
+    'Hopper', 'Silo');
   DirNames: array[0..3] of string = ('East', 'South', 'West', 'North');
   GIdx: array[0..5] of LongInt = (0, 1, 2, 0, 2, 3);
 
@@ -103,6 +112,14 @@ var
   PCount: array[TMat] of Integer;
   { menus: -1 closed, 0 File, 1 Edit, 2 Theme }
   OpenMenu: Integer = -1;
+  QuitRequested: Boolean = False;   { File > Exit, Ctrl+Q }
+  { the canvas grid (View > Grid), saved in materialflow.ini }
+  GridShow: Boolean = True;
+  GridStyle: Integer = 0;        { 0 lines, 1 dots, 2 crosses }
+  GridMajor: Integer = 0;        { a stronger line every N cells, 0 = none }
+  GridStrength: Integer = 1;     { 0 faint, 1 normal, 2 strong }
+  GridColor: Integer = 0;        { 0 theme, 1 blue, 2 green, 3 amber, 4 white }
+  GridNumbers: Boolean = False;  { cell numbers along the canvas edges }
   { edit clipboard (one part or one bucket) and pending paste }
   Clip: TBlock;                 { the clipboard }
   { dragging the selection: a copy of it, the press cell and the current offset }
@@ -117,7 +134,9 @@ var
     shifts right by LeftW. Everything works in canvas coordinates; OX is added
     only when drawing and subtracted from mouse positions }
   LeftW: Integer = 0;
+  RightW: Integer = PANEL_W;    { right panel column, open while a panel is embedded there }
   OX: Single = 0;
+  OY: Single = MENU_H;          { everything below the menu bar }
   PopupWin: Integer = -1;       { -1 = canvas popup, else the panel it is for }
   { canvas zoom / pan: world point (wx,wy) shows at ((wx-ViewX)*Zoom, (wy-ViewY)*Zoom)
     of the canvas area; only drawing done while CanvasXf is set is transformed }
@@ -129,6 +148,7 @@ var
   PanLastX, PanLastY: Single;
   { label being typed into, or -1 }
   EditLabel: Integer = -1;
+  EditField: Integer = 0;       { 0 = the text / caption, 1 = a date / time label's format }
   SelL: Integer = -1;
   LastClicks: Integer = 1;
   QX: Single;                   { left edge of the property rows being drawn }
@@ -185,6 +205,27 @@ const
   LABEL_PAD = 5;
   LABEL_LINE = 10;
 
+{ a date / time label's value right now }
+function LabelValue(i: Integer): string;
+begin
+  try
+    Result := FormatDateTime(string(Labels[i].Fmt), Now);
+  except
+    Result := '?';
+  end;
+  if Result = '' then Result := '(empty format)';
+end;
+
+{ what a label shows: its text, or for a date / time label the caption (if any) above the value }
+function LabelDisplay(i: Integer): string;
+begin
+  if Labels[i].Kind = LBL_TEXT then Exit(Labels[i].Text);
+  if Labels[i].Text <> '' then
+    Result := Labels[i].Text + #10 + LabelValue(i)
+  else
+    Result := LabelValue(i);
+end;
+
 procedure LabelLines(const s: string; out Lines: Integer; out Widest: Integer);
 var
   i, cur: Integer;
@@ -209,7 +250,7 @@ procedure LabelBox(i: Integer; out x, y, w, h: Single);
 var
   n, wd: Integer;
 begin
-  LabelLines(Labels[i].Text, n, wd);
+  LabelLines(LabelDisplay(i), n, wd);
   wd := Max(wd + 1, 6);
   x := Labels[i].X;
   y := Labels[i].Y;
@@ -242,6 +283,26 @@ begin
       Result := (Labels[i].X >= SelX1 * CELL) and (Labels[i].X < (SelX2 + 1) * CELL) and
         (Labels[i].Y >= SelY1 * CELL) and (Labels[i].Y < (SelY2 + 1) * CELL);
   end;
+end;
+
+{ the hopper / silo whose drawing (above its outlet cell) is under wx,wy; False if none }
+function StoreAt(wx, wy: Single; out sx, sy: Integer): Boolean;
+var
+  x, y: Integer;
+  x1, y1, x2, y2: Single;
+begin
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+      if (Grid[x, y].Kind in [ckHopper, ckSilo]) and StoreShape(x, y, x1, y1, x2, y2) and
+        (wx >= x1) and (wx <= x2) and (wy >= y1) and (wy <= y2) then
+      begin
+        sx := x;
+        sy := y;
+        Exit(True);
+      end;
+  sx := -1;
+  sy := -1;
+  Result := False;
 end;
 
 function CountSelLabels: Integer;
@@ -428,7 +489,7 @@ end;
 
 function SYf(y: Single): Single; inline;
 begin
-  if CanvasXf then Result := (y - ViewY) * Zoom else Result := y;
+  if CanvasXf then Result := OY + (y - ViewY) * Zoom else Result := y + OY;
 end;
 
 function SSf(len: Single): Single; inline;
@@ -696,6 +757,123 @@ begin
   RectR(x + 1, y, w - 2, 1);
 end;
 
+{ colour of a store's contents: the materials mixed by amount }
+procedure StoreColor(const c: TCell; out r, g, b: Byte);
+var
+  m: TMat;
+  t, fr, fg, fb: Single;
+begin
+  t := StoreTotal(c);
+  if t <= 0 then
+  begin
+    r := 90; g := 90; b := 90;
+    Exit;
+  end;
+  fr := 0; fg := 0; fb := 0;
+  for m := mWater to mSand do
+  begin
+    if m = mFluff then
+    begin
+      fr := fr + Th.Fluff.R * c.Stock[m]; fg := fg + Th.Fluff.G * c.Stock[m]; fb := fb + Th.Fluff.B * c.Stock[m];
+    end
+    else
+    begin
+      fr := fr + MatP[m].R * c.Stock[m]; fg := fg + MatP[m].G * c.Stock[m]; fb := fb + MatP[m].B * c.Stock[m];
+    end;
+  end;
+  r := Round(fr / t); g := Round(fg / t); b := Round(fb / t);
+end;
+
+{ hopper: a funnel above its outlet cell; the fill rises from the narrow end }
+procedure DrawHopper(gx, gy: Integer);
+var
+  c: PCell;
+  cx, top, bot, wt, wb, f, ly, wl: Single;
+  r, g, b: Byte;
+begin
+  c := @Grid[gx, gy];
+  cx := gx * CELL + HALF;
+  top := gy * CELL - 2 * CELL + 4;
+  bot := gy * CELL + 6;
+  wt := 30;
+  wb := HWOf(c^.Dia) + 2;
+  { inside }
+  QuadC(cx - wt, top, cx + wt, top, cx + wb, bot, cx - wb, bot, Th.PipeBore.R, Th.PipeBore.G, Th.PipeBore.B, 230);
+  f := fmin(1, StoreTotal(c^) / HOPPER_CAP);
+  if f > 0 then
+  begin
+    ly := bot - (bot - top) * f;
+    wl := wb + (wt - wb) * f;
+    StoreColor(c^, r, g, b);
+    QuadC(cx - wl, ly, cx + wl, ly, cx + wb, bot, cx - wb, bot, r, g, b);
+  end;
+  { walls and rim }
+  SetC(Th.TankRim);
+  LineR(cx - wt, top, cx - wb, bot);
+  LineR(cx + wt, top, cx + wb, bot);
+  LineR(cx - wt + 1, top, cx - wb + 1, bot);
+  LineR(cx + wt - 1, top, cx + wb - 1, bot);
+  FillR(cx - wt - 3, top - 2, 7, 3);
+  FillR(cx + wt - 4, top - 2, 7, 3);
+end;
+
+{ silo: a tall bin with a cone into its outlet cell and an opening in the roof }
+procedure DrawSilo(gx, gy: Integer);
+const
+  Order: array[0..3] of TMat = (mSand, mWater, mOil, mFluff);
+var
+  c: PCell;
+  cx, top, coneY, bot, hw, x1, x2, yy, lh, h: Single;
+  i: Integer;
+  m: TMat;
+  s: string;
+  r_, g_, b_: Byte;
+begin
+  c := @Grid[gx, gy];
+  cx := gx * CELL + HALF;
+  top := gy * CELL - 3 * CELL;
+  coneY := gy * CELL - 10;
+  bot := gy * CELL + 8;
+  hw := HWOf(c^.Dia) + 2;
+  x1 := cx - 22;
+  x2 := cx + 22;
+  SetC(Th.TankBg);
+  FillR(x1, top, 44, coneY - top);
+  QuadC(x1, coneY, x2, coneY, cx + hw, bot, cx - hw, bot, Th.TankBg.R, Th.TankBg.G, Th.TankBg.B);
+  { contents in layers, heaviest at the bottom (the cone counts as the first part) }
+  h := coneY - top - 4;
+  yy := coneY;
+  if StoreTotal(c^) > 0 then
+  begin
+    StoreColor(c^, r_, g_, b_);
+    QuadC(x1 + 2, coneY, x2 - 2, coneY, cx + hw - 1, bot - 1, cx - hw + 1, bot - 1, r_, g_, b_);
+  end;
+  for i := 0 to 3 do
+  begin
+    m := Order[i];
+    lh := h * c^.Stock[m] / SILO_CAP;
+    if yy - lh < top + 4 then lh := yy - (top + 4);
+    if lh > 0 then
+    begin
+      if m = mFluff then SetC(Th.Fluff) else SetCol(MatP[m].R, MatP[m].G, MatP[m].B);
+      FillR(x1 + 2, yy - lh, 40, lh);
+      yy := yy - lh;
+    end;
+  end;
+  { shell, roof with its opening, cone }
+  SetC(Th.TankRim);
+  LineR(x1, top, x1, coneY);
+  LineR(x2, top, x2, coneY);
+  LineR(x1, coneY, cx - hw, bot);
+  LineR(x2, coneY, cx + hw, bot);
+  { the whole roof is open: only short rims at the corners }
+  FillR(x1 - 2, top - 3, 5, 3);
+  FillR(x2 - 3, top - 3, 5, 3);
+  SetC(Th.Text);
+  s := Format('%.0f%%', [100 * StoreTotal(c^) / SILO_CAP]);
+  TextR(cx - Length(s) * 4, top + 6, s);
+end;
+
 procedure DrawDevice(gx, gy: Integer);
 var
   c: PCell;
@@ -710,6 +888,10 @@ begin
   case c^.Kind of
     ckSource:
       DrawTank(gx, gy);
+    ckHopper:
+      DrawHopper(gx, gy);
+    ckSilo:
+      DrawSilo(gx, gy);
     ckBlower:
       begin
         DiscC(cx, cy, 11, 140, 152, 170);
@@ -902,46 +1084,80 @@ end;
 
 { ---------------------------------------------------------------- labels }
 
+const
+  LabelColorNames: array[0..5] of string = ('Theme', 'Blue', 'Green', 'Amber', 'Red', 'White');
+
+procedure LabelRGB(c: Integer; out r, g, b: Byte);
+begin
+  case c of
+    1: begin r := 90; g := 160; b := 255; end;
+    2: begin r := 80; g := 210; b := 120; end;
+    3: begin r := 240; g := 175; b := 50; end;
+    4: begin r := 240; g := 90; b := 80; end;
+    5: begin r := 240; g := 240; b := 245; end;
+  else
+    begin r := Th.Text.R; g := Th.Text.G; b := Th.Text.B; end;
+  end;
+end;
+
 procedure DrawLabels;
 var
-  i, k, n, wd: Integer;
+  i, k, n, wd, titleLines: Integer;
   ux, uy, w, h: Single;
-  s, line: string;
+  s, line, caret: string;
   editing: Boolean;
+  r, g, b: Byte;
 begin
   CanvasXf := False;   { drawn at screen size, anchored to the zoomed canvas }
+  if (SDL_GetTicksNS div 500000000) mod 2 = 0 then caret := '_' else caret := '';
   for i := 0 to MAX_LABELS - 1 do
   begin
     if not Labels[i].Active then Continue;
     editing := EditLabel = i;
-    s := Labels[i].Text;
-    if editing and ((SDL_GetTicksNS div 500000000) mod 2 = 0) then s := s + '_';
+    { typing into the caption shows a caret at its end }
+    if editing and (EditField = 0) then
+    begin
+      if Labels[i].Kind = LBL_TEXT then s := Labels[i].Text + caret
+      else s := Labels[i].Text + caret + #10 + LabelValue(i);
+    end
+    else
+      s := LabelDisplay(i);
+    { the title lines: the first line of a text label, the caption of a date / time label }
+    if Labels[i].Kind = LBL_TEXT then titleLines := 1
+    else if Labels[i].Text = '' then titleLines := 0
+    else LabelLines(Labels[i].Text, titleLines, wd);
     LabelLines(s, n, wd);
     wd := Max(wd + 1, 6);
     ux := (Labels[i].X - ViewX) * Zoom;
     uy := (Labels[i].Y - ViewY) * Zoom;
     w := wd * 8 + 2 * LABEL_PAD;
     h := n * LABEL_LINE + 2 * LABEL_PAD - 2;
-    SetC(Th.OverlayBg, 225);
-    FillR(ux, uy, w, h);
-    if editing then SetC(Th.Paste)
-    else if SelHasLabel(i) then SetC(Th.Select)
-    else SetC(Th.MenuBorder);
-    RectR(ux, uy, w, h);
-    if SelHasLabel(i) or editing then RectR(ux - 1, uy - 1, w + 2, h + 2);
-    if Labels[i].Text = '' then
+    if not Labels[i].NoBox then
+    begin
+      SetC(Th.OverlayBg, 225);
+      FillR(ux, uy, w, h);
+      SetC(Th.MenuBorder);
+      RectR(ux, uy, w, h);
+    end;
+    if editing then SetC(Th.Paste) else SetC(Th.Select);
+    if SelHasLabel(i) or editing then
+    begin
+      RectR(ux, uy, w, h);
+      RectR(ux - 1, uy - 1, w + 2, h + 2);
+    end;
+    if (Labels[i].Kind = LBL_TEXT) and (Labels[i].Text = '') and not editing then
     begin
       SetC(Th.TextDim);
-      if not editing then TextR(ux + LABEL_PAD, uy + LABEL_PAD, '(empty)');
+      TextR(ux + LABEL_PAD, uy + LABEL_PAD, '(empty)');
     end;
-    SetC(Th.Text);
+    LabelRGB(Labels[i].Color, r, g, b);
     line := '';
     k := 0;
     for n := 1 to Length(s) + 1 do
       if (n > Length(s)) or (s[n] = #10) then
       begin
-        { the first line is the label's title }
-        if k = 0 then SetC(Th.Title) else SetC(Th.Text);
+        { title lines in the accent colour unless the label has its own colour }
+        if (k < titleLines) and (Labels[i].Color = 0) then SetC(Th.Title) else SetCol(r, g, b);
         TextR(ux + LABEL_PAD, uy + LABEL_PAD + k * LABEL_LINE, line);
         line := '';
         Inc(k);
@@ -950,6 +1166,122 @@ begin
         line := line + s[n];
   end;
   CanvasXf := True;
+end;
+
+{ ---------------------------------------------------------------- grid }
+
+procedure GridRGB(out r, g, b: Byte);
+begin
+  case GridColor of
+    1: begin r := 70; g := 140; b := 255; end;
+    2: begin r := 60; g := 200; b := 110; end;
+    3: begin r := 235; g := 170; b := 50; end;
+    4: begin r := 240; g := 240; b := 245; end;
+  else
+    begin r := Th.Text.R; g := Th.Text.G; b := Th.Text.B; end;
+  end;
+end;
+
+function IsMajor(n: Integer): Boolean;
+begin
+  Result := (GridMajor > 0) and (n mod GridMajor = 0);
+end;
+
+{ the cell grid, in the zoomed canvas }
+procedure DrawGrid;
+const
+  ThemeA: array[0..2] of Byte = (12, 24, 48);    { the theme colour is the text colour, kept faint }
+  ColourA: array[0..2] of Byte = (40, 80, 150);
+var
+  x, y: Integer;
+  r, g, b, a, am: Byte;
+  d, arm: Single;
+begin
+  if not GridShow then Exit;
+  GridRGB(r, g, b);
+  if GridColor = 0 then a := ThemeA[GridStrength] else a := ColourA[GridStrength];
+  am := Min(255, a * 2 + 30);
+  case GridStyle of
+    0:
+      begin
+        for x := 0 to GW do
+        begin
+          if IsMajor(x) then SetCol(r, g, b, am) else SetCol(r, g, b, a);
+          LineR(x * CELL, 0, x * CELL, FLOOR_Y);
+        end;
+        for y := 0 to GH do
+          if y * CELL <= FLOOR_Y then
+          begin
+            if IsMajor(y) then SetCol(r, g, b, am) else SetCol(r, g, b, a);
+            LineR(0, y * CELL, CANVAS_W, y * CELL);
+          end;
+      end;
+    1:
+      for y := 0 to GH do
+        if y * CELL <= FLOOR_Y then
+          for x := 0 to GW do
+          begin
+            { dots keep a size on screen whatever the zoom }
+            if IsMajor(x) and IsMajor(y) then
+            begin
+              SetCol(r, g, b, am);
+              d := 3 / Zoom;
+            end
+            else
+            begin
+              SetCol(r, g, b, Min(255, a * 2));
+              d := 2 / Zoom;
+            end;
+            FillR(x * CELL - d / 2, y * CELL - d / 2, d, d);
+          end;
+    2:
+      for y := 0 to GH do
+        if y * CELL <= FLOOR_Y then
+          for x := 0 to GW do
+          begin
+            if IsMajor(x) and IsMajor(y) then
+            begin
+              SetCol(r, g, b, am);
+              arm := 5 / Zoom;
+            end
+            else
+            begin
+              SetCol(r, g, b, Min(255, a * 2));
+              arm := 3 / Zoom;
+            end;
+            LineR(x * CELL - arm, y * CELL, x * CELL + arm, y * CELL);
+            LineR(x * CELL, y * CELL - arm, x * CELL, y * CELL + arm);
+          end;
+  end;
+end;
+
+{ cell numbers along the top and left edges of the canvas area (screen space) }
+procedure DrawGridNumbers;
+var
+  n, step: Integer;
+  u: Single;
+  s: string;
+begin
+  if GridMajor > 0 then step := GridMajor else step := 5;
+  SetC(Th.OverlayBg, 200);
+  FillR(0, 0, CANVAS_W, 11);
+  FillR(0, 11, 18, CANVAS_H - 11);
+  SetC(Th.TextDim);
+  n := 0;
+  while n <= GW do
+  begin
+    u := (n * CELL - ViewX) * Zoom;
+    s := IntToStr(n);
+    if (u >= 18) and (u + Length(s) * 8 <= CANVAS_W) then TextR(u + 2, 2, s);
+    Inc(n, step);
+  end;
+  n := 0;
+  while n <= GH do
+  begin
+    u := (n * CELL - ViewY) * Zoom;
+    if (u >= 11) and (u + 8 <= CANVAS_H) then TextR(1, u + 2, IntToStr(n));
+    Inc(n, step);
+  end;
 end;
 
 procedure DrawCanvas;
@@ -964,18 +1296,14 @@ begin
   FillR(0, 0, CANVAS_W, CANVAS_H);
   { everything on the canvas goes through the zoom and stays inside the canvas area }
   cr.x := Round(OX);
-  cr.y := 0;
+  cr.y := Round(OY);
   cr.w := CANVAS_W;
   cr.h := CANVAS_H;
   SDL_SetRenderClipRect(Ren, @cr);
   CanvasXf := True;
   SetC(Th.CanvasBg);
   FillR(0, 0, CANVAS_W, CANVAS_H);
-  SetC(Th.GridLine);
-  for x := 0 to GW do
-    LineR(x * CELL, 0, x * CELL, FLOOR_Y);
-  for y := 0 to GH do
-    LineR(0, y * CELL, CANVAS_W, y * CELL);
+  DrawGrid;
   SetC(Th.Floor);
   FillR(0, FLOOR_Y, CANVAS_W, CANVAS_H - FLOOR_Y);
 
@@ -1049,6 +1377,7 @@ begin
 
   { overlays below are fixed to the canvas area, not to the zoomed layout }
   CanvasXf := False;
+  if GridShow and GridNumbers then DrawGridNumbers;
   SDL_SetRenderClipRect(Ren, nil);
   if Zoom <> 1 then
   begin
@@ -1272,6 +1601,66 @@ begin
         else if c^.EPf[1] then Info(y + 24, 'Feeding: gravity discharge down')
         else Info(y + 24, 'Idle: add blower/suction or pipe down');
         y := y + 40;
+      end;
+    ckHopper, ckSilo:
+      begin
+        tot := StoreTotal(c^);
+        if c^.Kind = ckHopper then
+        begin
+          Info(y, 'Its funnel catches what falls in');
+          Info(y + 11, 'and passes it on through the gate.');
+        end
+        else
+        begin
+          Info(y, 'Fills through its roof opening or');
+          Info(y + 11, 'from pipes; the gate meters it out.');
+        end;
+        y := y + 26;
+        { level bar }
+        SetC(Th.SliderTrack);
+        FillR(QX, y, 280, 10);
+        SetC(Th.SliderFill);
+        FillR(QX, y, 280 * fmin(1, tot / StoreCap(c^.Kind)), 10);
+        SetC(Th.Text);
+        TextR(QX, y + 14, Format('Contents %.0f of %.0f  (%.0f%%)', [tot, StoreCap(c^.Kind),
+          100 * tot / StoreCap(c^.Kind)]));
+        y := y + 28;
+        if c^.Kind = ckSilo then
+        begin
+          for m := mWater to mSand do
+          begin
+            if m = mFluff then
+              ParamRow(100 + Ord(m) * 3, y, MatP[m].Name, c^.Stock[m], 0, STOCK_MAX, 50,
+                True, Th.Fluff.R, Th.Fluff.G, Th.Fluff.B)
+            else
+              ParamRow(100 + Ord(m) * 3, y, MatP[m].Name, c^.Stock[m], 0, STOCK_MAX, 50,
+                True, MatP[m].R, MatP[m].G, MatP[m].B);
+            y := y + 20;
+          end;
+        end
+        else
+        begin
+          s := 'Holds:';
+          for m := mWater to mSand do
+            if c^.Stock[m] >= 1 then s := s + Format(' %s %.0f', [MatP[m].Name, c^.Stock[m]]);
+          if tot < 1 then s := 'Empty - drop material into it';
+          Info(y, s);
+          y := y + 16;
+        end;
+        ParamRow(123, y, 'Gate %', c^.Feed, 0, 100, 5);
+        y := y + 22;
+        if Button(127, QX, y, 136, 18, 'Empty it') then
+          for m := mWater to mSand do c^.Stock[m] := 0;
+        y := y + 24;
+        q := 0;
+        for d := 0 to 3 do
+          if c^.F[d] > 0 then q := q + c^.F[d];
+        if tot < 1 then Info(y, 'Waiting for material')
+        else if c^.Feed < 1 then Info(y, 'Gate shut: storing')
+        else if q > 0.05 then Info(y, 'Discharging: carried by air flow')
+        else if c^.EPf[1] then Info(y, 'Discharging by gravity')
+        else Info(y, 'Needs a pipe down or air flow');
+        y := y + 16;
       end;
     ckBlower:
       begin
@@ -1667,6 +2056,10 @@ begin
       B.Lbls[n].DX := Labels[i].X - x1 * CELL;
       B.Lbls[n].DY := Labels[i].Y - y1 * CELL;
       B.Lbls[n].Text := Labels[i].Text;
+      B.Lbls[n].Kind := Labels[i].Kind;
+      B.Lbls[n].Fmt := Labels[i].Fmt;
+      B.Lbls[n].Color := Labels[i].Color;
+      B.Lbls[n].NoBox := Labels[i].NoBox;
     end;
   Result := (B.Parts > 0) or (Length(B.Bkts) > 0) or (Length(B.Lbls) > 0);
 end;
@@ -1834,6 +2227,10 @@ begin
     bi := AddLabel(gx * CELL + B.Lbls[i].DX, gy * CELL + B.Lbls[i].DY, B.Lbls[i].Text);
     if bi >= 0 then
     begin
+      Labels[bi].Kind := B.Lbls[i].Kind;
+      Labels[bi].Fmt := B.Lbls[i].Fmt;
+      Labels[bi].Color := B.Lbls[i].Color;
+      Labels[bi].NoBox := B.Lbls[i].NoBox;
       Inc(lbs);
       lastL := bi;
     end
@@ -1935,7 +2332,14 @@ end;
 
 { ---------------------------------------------------------------- label editing }
 
-{ finish typing; a label left empty is removed }
+const
+  { FormatDateTime patterns offered for date / time labels }
+  DatePresets: array[0..6] of string = ('yyyy-mm-dd', 'dd/mm/yyyy', 'mm/dd/yyyy', 'd mmm yyyy',
+    'dddd, d mmmm yyyy', 'dd.mm.yy', 'ddd d mmm');
+  TimePresets: array[0..5] of string = ('hh:nn:ss', 'hh:nn', 'h:nn:ss am/pm', 'h:nn am/pm',
+    'hh:nn:ss.zzz', 'hh"h"nn');
+
+{ finish typing; a text label left empty is removed (a date / time label always shows its value) }
 procedure StopEditLabel;
 var
   i: Integer;
@@ -1943,25 +2347,52 @@ begin
   if EditLabel < 0 then Exit;
   i := EditLabel;
   EditLabel := -1;
+  EditField := 0;
   if Win <> nil then SDL_StopTextInput(Win);
-  if Labels[i].Active and (Trim(Labels[i].Text) = '') then
+  if Labels[i].Active and (Labels[i].Kind = LBL_TEXT) and (Trim(Labels[i].Text) = '') then
   begin
     DeleteLabel(i);
     if (SelKind = selLabel) and (SelL = i) then SelKind := selNone;
   end;
 end;
 
-procedure StartEditLabel(i: Integer);
+procedure BeginEdit(i, Field: Integer);
 begin
   if (i < 0) or not Labels[i].Active then Exit;
   if EditLabel <> i then StopEditLabel;
   EditLabel := i;
+  EditField := Field;
   SelKind := selLabel;
   SelL := i;
   OpenMenu := -1;
   PopupOpen := False;
   if Win <> nil then SDL_StartTextInput(Win);
-  SetStatus('Type the label - Enter: new line, Esc or click away: done');
+end;
+
+{ type into a label's text (for a date / time label: its caption) }
+procedure StartEditLabel(i: Integer);
+begin
+  BeginEdit(i, 0);
+  if (i >= 0) and (Labels[i].Kind <> LBL_TEXT) then
+    SetStatus('Type a caption - Enter: new line, Esc or click away: done')
+  else
+    SetStatus('Type the label - Enter: new line, Esc or click away: done');
+end;
+
+{ type a date / time label's format }
+procedure StartEditFormat(i: Integer);
+begin
+  BeginEdit(i, 1);
+  SetStatus('Type a format, e.g. dd/mm/yyyy or hh:nn - Enter or Esc: done');
+end;
+
+{ a label that shows today's date (LBL_DATE) or the time (LBL_TIME) }
+function AddClockLabel(X, Y: Single; Kind: Integer): Integer;
+begin
+  Result := AddLabel(X, Y, '');
+  if Result < 0 then Exit;
+  Labels[Result].Kind := Kind;
+  if Kind = LBL_DATE then Labels[Result].Fmt := DatePresets[0] else Labels[Result].Fmt := TimePresets[0];
 end;
 
 { typed text (UTF-8 from SDL); the built-in font only has plain ASCII }
@@ -1971,8 +2402,15 @@ var
 begin
   if EditLabel < 0 then Exit;
   for k := 1 to Length(s) do
-    if (s[k] >= ' ') and (s[k] <= '~') and (Length(Labels[EditLabel].Text) < 255) then
-      Labels[EditLabel].Text := Labels[EditLabel].Text + s[k];
+    if (s[k] >= ' ') and (s[k] <= '~') then
+    begin
+      if EditField = 1 then
+      begin
+        if Length(Labels[EditLabel].Fmt) < 40 then Labels[EditLabel].Fmt := Labels[EditLabel].Fmt + s[k];
+      end
+      else if Length(Labels[EditLabel].Text) < 255 then
+        Labels[EditLabel].Text := Labels[EditLabel].Text + s[k];
+    end;
 end;
 
 { keys while typing into a label; True when the key was used }
@@ -1982,6 +2420,17 @@ var
 begin
   Result := EditLabel >= 0;
   if not Result then Exit;
+  if EditField = 1 then
+  begin
+    t := Labels[EditLabel].Fmt;
+    case key of
+      SDLK_BACKSPACE:
+        if t <> '' then Labels[EditLabel].Fmt := Copy(t, 1, Length(t) - 1);
+      SDLK_RETURN, SDLK_KP_ENTER, SDLK_ESCAPE:
+        StopEditLabel;
+    end;
+    Exit;
+  end;
   t := Labels[EditLabel].Text;
   case key of
     SDLK_BACKSPACE:
@@ -1993,45 +2442,140 @@ begin
   end;
 end;
 
-procedure DrawLabelProps(y: Single);
+{ draw up to MaxLines lines of s in a framed box; the first TitleLines in the accent colour }
+procedure PreviewBox(y, h: Single; const s: string; MaxLines, TitleLines: Integer);
 var
-  nx, ny: Single;
-  s, line: string;
   k, n: Integer;
+  line: string;
 begin
-  SetC(Th.Title);
-  TextR(QX, y, Format('Label %d', [SelL + 1]));
-  y := y + 16;
-  Info(y, 'Text (first line is the title):');
-  { a preview of the text, as many lines as fit }
   SetC(Th.OverlayBg);
-  FillR(QX, y + 12, 280, 96);
+  FillR(QX, y, 280, h);
   SetC(Th.MenuBorder);
-  RectR(QX, y + 12, 280, 96);
-  s := Labels[SelL].Text;
+  RectR(QX, y, 280, h);
   line := '';
   n := 0;
   for k := 1 to Length(s) + 1 do
     if (k > Length(s)) or (s[k] = #10) then
     begin
-      if n < 8 then
+      if n < MaxLines then
       begin
-        if n = 0 then SetC(Th.Title) else SetC(Th.Text);
-        TextR(QX + 4, y + 16 + n * 11, Copy(line, 1, 34));
+        if n < TitleLines then SetC(Th.Title) else SetC(Th.Text);
+        TextR(QX + 4, y + 4 + n * 11, Copy(line, 1, 34));
       end;
       line := '';
       Inc(n);
     end
     else
       line := line + s[k];
-  y := y + 114;
+end;
+
+{ colour buttons and the box switch, for any label }
+procedure LabelStyleRows(y: Single);
+var
+  c: Integer;
+  r, g, b: Byte;
+begin
+  for c := 0 to 5 do
+  begin
+    if Button(250 + c, QX + c * 47, y, 44, 18, LabelColorNames[c], Labels[SelL].Color = c) then
+      Labels[SelL].Color := c;
+    if c > 0 then
+    begin
+      LabelRGB(c, r, g, b);
+      SetCol(r, g, b);
+      FillR(QX + c * 47 + 2, y + 15, 40, 2);
+    end;
+  end;
+  if Labels[SelL].NoBox then
+  begin
+    if Button(256, QX, y + 24, 136, 18, 'Box: off') then Labels[SelL].NoBox := False;
+  end
+  else if Button(256, QX, y + 24, 136, 18, 'Box: on', True) then Labels[SelL].NoBox := True;
+  if Button(196, QX + 142, y + 24, 136, 18, 'Delete (Del)') then DeleteSelected;
+end;
+
+procedure DrawClockLabelProps(y: Single);
+var
+  i, n, rows, titles: Integer;
+  s, caret: string;
+  isDate: Boolean;
+begin
+  isDate := Labels[SelL].Kind = LBL_DATE;
+  SetC(Th.Title);
+  if isDate then TextR(QX, y, Format('Date label %d', [SelL + 1]))
+  else TextR(QX, y, Format('Time label %d', [SelL + 1]));
+  y := y + 14;
+  if Labels[SelL].Text = '' then titles := 0 else LabelLines(Labels[SelL].Text, titles, n);
+  PreviewBox(y, 30, LabelDisplay(SelL), 2, titles);
+  y := y + 36;
+  { the format, with a caret while it is being typed }
+  if (EditLabel = SelL) and (EditField = 1) and ((SDL_GetTicksNS div 500000000) mod 2 = 0) then caret := '_'
+  else caret := '';
+  SetC(Th.Text);
+  TextR(QX, y, 'Format: ' + Labels[SelL].Fmt + caret);
+  y := y + 13;
+  if (EditLabel = SelL) and (EditField = 1) then
+  begin
+    if Button(259, QX, y, 136, 18, 'Done', True) then StopEditLabel;
+  end
+  else if Button(257, QX, y, 136, 18, 'Type a format') then StartEditFormat(SelL);
+  if (EditLabel = SelL) and (EditField = 0) then
+  begin
+    if Button(258, QX + 142, y, 136, 18, 'Done', True) then StopEditLabel;
+  end
+  else if Button(258, QX + 142, y, 136, 18, 'Edit caption') then StartEditLabel(SelL);
+  y := y + 24;
+  { presets, two per row }
+  if isDate then n := Length(DatePresets) else n := Length(TimePresets);
+  for i := 0 to n - 1 do
+  begin
+    if isDate then s := DatePresets[i] else s := TimePresets[i];
+    if Button(240 + i, QX + (i mod 2) * 142, y + (i div 2) * 21, 138, 18, s, Labels[SelL].Fmt = s) then
+    begin
+      if EditLabel = SelL then StopEditLabel;
+      Labels[SelL].Fmt := s;
+    end;
+  end;
+  rows := (n + 1) div 2;
+  y := y + rows * 21 + 2;
+  { the codes, for typing a format of one's own }
+  if isDate then
+  begin
+    Info(y, 'd dd ddd dddd   m mm mmm mmmm');
+    Info(y + 11, 'yy yyyy   "text" kept as typed');
+  end
+  else
+  begin
+    Info(y, 'h hh  n nn (minutes)  s ss  z zzz');
+    Info(y + 11, 'am/pm   "text" kept as typed');
+  end;
+  y := y + 27;
+  LabelStyleRows(y);
+end;
+
+procedure DrawLabelProps(y: Single);
+var
+  nx, ny: Single;
+begin
+  if Labels[SelL].Kind <> LBL_TEXT then
+  begin
+    DrawClockLabelProps(y);
+    Exit;
+  end;
+  SetC(Th.Title);
+  TextR(QX, y, Format('Label %d', [SelL + 1]));
+  y := y + 16;
+  Info(y, 'Text (first line is the title):');
+  PreviewBox(y + 12, 74, Labels[SelL].Text, 6, 1);
+  y := y + 92;
   if EditLabel = SelL then
   begin
     if Button(194, QX, y, 136, 18, 'Done typing', True) then StopEditLabel;
   end
   else if Button(195, QX, y, 136, 18, 'Edit text') then StartEditLabel(SelL);
-  if Button(196, QX + 142, y, 136, 18, 'Delete (Del)') then DeleteSelected;
   y := y + 26;
+  LabelStyleRows(y);
+  y := y + 50;
   nx := Labels[SelL].X;
   ny := Labels[SelL].Y;
   ParamRow(197, y, 'Left', nx, 0, CANVAS_W - 16, 4);
@@ -2181,27 +2725,49 @@ type
   TMItem = record
     Lbl, Key: string;
     Enabled, Checked, Sep: Boolean;
+    HasSub: Boolean;       { opens a sub-menu to the side instead of running }
   end;
 
 const
-  MENU_COUNT = 4;
-  MenuNames: array[0..MENU_COUNT - 1] of string = ('File', 'Edit', 'View', 'Theme');
-  MENU_BAR_W = 58;
-  MENU_THEME = 3;
+  MENU_COUNT = 6;
+  MenuNames: array[0..MENU_COUNT - 1] of string = ('File', 'Edit', 'View', 'Panels', 'Examples', 'Theme');
+  MENU_BAR_W = 72;
+  MENU_VIEW = 2;
+  MENU_PANELS = 3;
+  MENU_EXAMPLES = 4;
+  MENU_THEME = 5;
+  VIEW_GRID_ITEM = 5;      { View > Grid > }
+  DEMO_FILE = 'demo_original.mflow';
+  SUB_W = 220;
 
 var
-  MItems: array[0..15] of TMItem;
+  MItems: array[0..23] of TMItem;
   MCount: Integer;
+  SItems: array[0..23] of TMItem;   { the open sub-menu }
+  SCount: Integer;
+  SubOpen: Integer = -1;             { item of the open menu whose sub-menu is shown }
 
 procedure AddItem(const L: string; const K: string = ''; En: Boolean = True;
-  Chk: Boolean = False; Sep: Boolean = False);
+  Chk: Boolean = False; Sep: Boolean = False; Sub: Boolean = False);
 begin
   MItems[MCount].Lbl := L;
   MItems[MCount].Key := K;
   MItems[MCount].Enabled := En;
   MItems[MCount].Checked := Chk;
   MItems[MCount].Sep := Sep;
+  MItems[MCount].HasSub := Sub;
   Inc(MCount);
+end;
+
+procedure AddSubItem(const L: string; const K: string = ''; Chk: Boolean = False; Sep: Boolean = False);
+begin
+  SItems[SCount].Lbl := L;
+  SItems[SCount].Key := K;
+  SItems[SCount].Enabled := True;
+  SItems[SCount].Checked := Chk;
+  SItems[SCount].Sep := Sep;
+  SItems[SCount].HasSub := False;
+  Inc(SCount);
 end;
 
 { ---------------------------------------------------------------- panel windows }
@@ -2231,12 +2797,12 @@ procedure InitWins;
     Wins[i].Dragging := False;
   end;
 begin
-  { docked, they stack down the side panel between the menu bar and STATUS }
-  Setup(WIN_TOOLS, 'TOOL', 40, 180);
-  Setup(WIN_SIM, 'SIMULATION', 222, 124);
-  Setup(WIN_PROPS, 'PROPERTIES', 348, 306);
-  Setup(WIN_STATUS, 'STATUS', 656, 58);
-  Setup(WIN_HELP, 'HELP', 716, 98);
+  { embedded, they stack down a panel column (right or left of the canvas) }
+  Setup(WIN_TOOLS, 'TOOL', 4, 208);
+  Setup(WIN_SIM, 'SIMULATION', 214, 124);
+  Setup(WIN_PROPS, 'PROPERTIES', 340, 298);
+  Setup(WIN_STATUS, 'STATUS', 640, 58);
+  Setup(WIN_HELP, 'HELP', 700, 98);
 end;
 
 { x of panel i's slot: in the right column, or in the left column (left of the canvas) }
@@ -2255,23 +2821,40 @@ begin
   Result := Wins[i].Visible and (Wins[i].Side = 1) and WinDocked(i);
 end;
 
+function EmbeddedRight(i: Integer): Boolean;
+begin
+  Result := Wins[i].Visible and (Wins[i].Side = 0) and WinDocked(i);
+end;
+
+{ right edge of the usable area (canvas plus the right column when it is open) }
+function SceneRight: Single;
+begin
+  Result := CANVAS_W + RightW;
+end;
+
 { open or close the left column to match the panels embedded there, keeping
   the canvas the same size on screen (the window grows / shrinks) }
 procedure ApplyLayout;
 var
-  i, newW, oldTotal, newTotal, ww, wh: Integer;
+  i, newL, newR, oldTotal, newTotal, ww, wh: Integer;
   db: TSDL_Rect;
 begin
-  newW := 0;
+  { a column exists only while a panel is embedded in it }
+  newL := 0;
+  newR := 0;
   for i := 0 to WIN_COUNT - 1 do
-    if EmbeddedLeft(i) then newW := PANEL_W;
-  if newW = LeftW then Exit;
-  oldTotal := WIN_W + LeftW;
-  newTotal := WIN_W + newW;
-  LeftW := newW;
+  begin
+    if EmbeddedLeft(i) then newL := PANEL_W;
+    if EmbeddedRight(i) then newR := PANEL_W;
+  end;
+  if (newL = LeftW) and (newR = RightW) then Exit;
+  oldTotal := CANVAS_W + LeftW + RightW;
+  newTotal := CANVAS_W + newL + newR;
+  LeftW := newL;
+  RightW := newR;
   OX := LeftW;
   if Ren = nil then Exit;
-  SDL_SetRenderLogicalPresentation(Ren, newTotal, WIN_H, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+  SDL_SetRenderLogicalPresentation(Ren, newTotal, WIN_H + MENU_H, SDL_LOGICAL_PRESENTATION_LETTERBOX);
   if SDL_GetWindowSize(Win, @ww, @wh) then
   begin
     ww := Round(ww * newTotal / oldTotal);
@@ -2282,7 +2865,7 @@ begin
   { floating panels stay where they are on the canvas, but inside the window }
   for i := 0 to WIN_COUNT - 1 do
     if not WinDocked(i) then
-      Wins[i].X := fclamp(Wins[i].X, -LeftW, WIN_W - Wins[i].W);
+      Wins[i].X := fclamp(Wins[i].X, -LeftW, SceneRight - Wins[i].W);
 end;
 
 function InWin(i: Integer; x, y: Single): Boolean;
@@ -2365,6 +2948,8 @@ begin
     Rewrite(f);
     try
       WriteLn(f, 'theme=', ThemeIndex);
+      WriteLn(f, Format('grid=%d,%d,%d,%d,%d,%d', [Ord(GridShow), GridStyle, GridMajor, GridStrength,
+        GridColor, Ord(GridNumbers)]));
       for i := 0 to WIN_COUNT - 1 do
         WriteLn(f, Format('panel%d=%d,%d,%d,%d,%d', [i, Ord(Wins[i].Visible), Wins[i].Side,
           Ord(WinDocked(i)), Round(Wins[i].X), Round(Wins[i].Y)]));
@@ -2382,6 +2967,7 @@ var
   s: string;
   i, p, n: Integer;
   v: array[0..4] of Integer;
+  g6: array[0..5] of Integer;
   rest: string;
 begin
   if (SettingsFile = '') or not FileExists(SettingsFile) then Exit;
@@ -2395,6 +2981,27 @@ begin
         s := Trim(s);
         if Pos('theme=', s) = 1 then
           SelectTheme(StrToIntDef(Copy(s, 7, 10), 0))
+        else if Pos('grid=', s) = 1 then
+        begin
+          rest := Copy(s, 6, MaxInt) + ',';
+          n := 0;
+          while (n <= 5) and (rest <> '') do
+          begin
+            p := Pos(',', rest);
+            g6[n] := StrToIntDef(Copy(rest, 1, p - 1), 0);
+            Delete(rest, 1, p);
+            Inc(n);
+          end;
+          if n >= 6 then
+          begin
+            GridShow := g6[0] <> 0;
+            GridStyle := EnsureRange(g6[1], 0, 2);
+            if g6[2] in [0, 4, 5, 10] then GridMajor := g6[2];
+            GridStrength := EnsureRange(g6[3], 0, 2);
+            GridColor := EnsureRange(g6[4], 0, 4);
+            GridNumbers := g6[5] <> 0;
+          end;
+        end
         else if (Pos('panel', s) = 1) and (Length(s) > 7) and (s[7] = '=') then
         begin
           i := StrToIntDef(s[6], -1);
@@ -2433,7 +3040,7 @@ begin
   { floating panels must still be reachable after the layout is known }
   for i := 0 to WIN_COUNT - 1 do
     if not WinDocked(i) then
-      Wins[i].X := fclamp(Wins[i].X, -LeftW, WIN_W - Wins[i].W);
+      Wins[i].X := fclamp(Wins[i].X, -LeftW, SceneRight - Wins[i].W);
 end;
 
 procedure ToggleWin(i: Integer);
@@ -2489,9 +3096,7 @@ begin
         if CurrentFile = '' then s := 'Save (as new file)' else s := 'Save';
         AddItem(s, 'Ctrl+S');
         AddItem('Save as...', 'Ctrl+Shift+S');
-        for i := 1 to EXAMPLE_COUNT do
-          AddItem(Format('Example %d: %s', [i, ExampleTitles[i]]), '', True, False, i = 1);
-        AddItem('Original demo', '', True, False, True);
+        AddItem('Exit', 'Ctrl+Q', True, False, True);
       end;
     1:
       begin
@@ -2504,19 +3109,29 @@ begin
         AddItem('Rotate right', 'R', SelKind <> selNone, False, True);
         AddItem('Rotate left', 'Shift+R', SelKind <> selNone);
       end;
-    2:
+    MENU_VIEW:
+      begin
+        AddItem('Zoom in', 'Ctrl+=', Zoom < ZOOM_MAX);
+        AddItem('Zoom out', 'Ctrl+-', Zoom > ZOOM_MIN);
+        AddItem(Format('Zoom 100%%   (now %.0f%%)', [Zoom * 100]), 'Ctrl+0', Zoom <> 1);
+        AddItem('Pressure colours', 'P', True, ShowPressure, True);
+        AddItem('Air dots', 'A', True, ShowAir);
+        AddItem('Grid', '>', True, GridShow, True, True);   { VIEW_GRID_ITEM }
+      end;
+    MENU_PANELS:
       begin
         AddItem('Tool', WinKeys[WIN_TOOLS], True, Wins[WIN_TOOLS].Visible);
         AddItem('Simulation', WinKeys[WIN_SIM], True, Wins[WIN_SIM].Visible);
         AddItem('Properties', WinKeys[WIN_PROPS], True, Wins[WIN_PROPS].Visible);
         AddItem('Status', WinKeys[WIN_STATUS], True, Wins[WIN_STATUS].Visible);
         AddItem('Help', WinKeys[WIN_HELP], True, Wins[WIN_HELP].Visible);
-        AddItem('Dock all panels', '', not AllDocked);
-        AddItem('Zoom in', 'Ctrl+=', Zoom < ZOOM_MAX, False, True);
-        AddItem('Zoom out', 'Ctrl+-', Zoom > ZOOM_MIN);
-        AddItem(Format('Zoom 100%%   (now %.0f%%)', [Zoom * 100]), 'Ctrl+0', Zoom <> 1);
-        AddItem('Pressure colours', 'P', True, ShowPressure, True);
-        AddItem('Air dots', 'A', True, ShowAir);
+        AddItem('Dock all panels', '', not AllDocked, False, True);
+      end;
+    MENU_EXAMPLES:
+      begin
+        AddItem('Original demo');
+        for i := 1 to EXAMPLE_COUNT do
+          AddItem(Format('%d: %s', [i, ExampleTitles[i]]), '', True, False, i = 1);
       end;
     MENU_THEME:
       for i := 0 to THEME_COUNT - 1 do
@@ -2524,11 +3139,67 @@ begin
   end;
 end;
 
+{ View > Grid >  (radio groups: style, major lines, strength, colour) }
+procedure BuildGridMenu;
+begin
+  SCount := 0;
+  AddSubItem('Show grid', 'G', GridShow);
+  AddSubItem('Style: lines', '', GridStyle = 0, True);
+  AddSubItem('Style: dots', '', GridStyle = 1);
+  AddSubItem('Style: crosses', '', GridStyle = 2);
+  AddSubItem('Major: none', '', GridMajor = 0, True);
+  AddSubItem('Major: every 4 cells', '', GridMajor = 4);
+  AddSubItem('Major: every 5 cells', '', GridMajor = 5);
+  AddSubItem('Major: every 10 cells', '', GridMajor = 10);
+  AddSubItem('Strength: faint', '', GridStrength = 0, True);
+  AddSubItem('Strength: normal', '', GridStrength = 1);
+  AddSubItem('Strength: strong', '', GridStrength = 2);
+  AddSubItem('Colour: theme', '', GridColor = 0, True);
+  AddSubItem('Colour: blue', '', GridColor = 1);
+  AddSubItem('Colour: green', '', GridColor = 2);
+  AddSubItem('Colour: amber', '', GridColor = 3);
+  AddSubItem('Colour: white', '', GridColor = 4);
+  AddSubItem('Cell numbers on edges', '', GridNumbers, True);
+  AddSubItem('Reset grid to default');
+end;
+
+procedure ResetGrid;
+begin
+  GridShow := True;
+  GridStyle := 0;
+  GridMajor := 0;
+  GridStrength := 1;
+  GridColor := 0;
+  GridNumbers := False;
+end;
+
+procedure RunGridItem(i: Integer);
+const
+  Majors: array[4..7] of Integer = (0, 4, 5, 10);
+begin
+  OpenMenu := -1;
+  SubOpen := -1;
+  case i of
+    0: GridShow := not GridShow;
+    1..3: GridStyle := i - 1;
+    4..7: GridMajor := Majors[i];
+    8..10: GridStrength := i - 8;
+    11..15: GridColor := i - 11;
+    16: GridNumbers := not GridNumbers;
+    17: ResetGrid;
+  end;
+  { choosing a look also turns the grid on }
+  if (i > 0) and (i < 17) then GridShow := True;
+  SaveSettings;
+  if GridShow then SetStatus('Grid: ' + SItems[i].Lbl) else SetStatus('Grid hidden - G shows it');
+end;
+
 procedure RunMenuItem(m, i: Integer);
 var
   k: Integer;
 begin
   OpenMenu := -1;
+  SubOpen := -1;
   case m of
     0:
       case i of
@@ -2536,9 +3207,7 @@ begin
         1: DoOpen;
         2: DoSave;
         3: DoSaveAs;
-        7: DoLoadDemo;
-      else
-        DoExample(i - 3);
+        4: QuitRequested := True;
       end;
     1:
       case i of
@@ -2551,17 +3220,22 @@ begin
         6: DoRotate(True);
         7: DoRotate(False);
       end;
-    2:
+    MENU_VIEW:
+      case i of
+        0: ZoomAt(Zoom * 1.25, CANVAS_W / 2, CANVAS_H / 2);
+        1: ZoomAt(Zoom / 1.25, CANVAS_W / 2, CANVAS_H / 2);
+        2: ZoomAt(1, CANVAS_W / 2, CANVAS_H / 2);
+        3: ShowPressure := not ShowPressure;
+        4: ShowAir := not ShowAir;
+      end;
+    MENU_PANELS:
       case i of
         0..4: ToggleWin(i);
         5:
           for k := 0 to WIN_COUNT - 1 do DockWin(k);
-        6: ZoomAt(Zoom * 1.25, CANVAS_W / 2, CANVAS_H / 2);
-        7: ZoomAt(Zoom / 1.25, CANVAS_W / 2, CANVAS_H / 2);
-        8: ZoomAt(1, CANVAS_W / 2, CANVAS_H / 2);
-        9: ShowPressure := not ShowPressure;
-        10: ShowAir := not ShowAir;
       end;
+    MENU_EXAMPLES:
+      if i = 0 then DoLoadDemo else DoExample(i);
     MENU_THEME:
       DoTheme(i);
   end;
@@ -2569,7 +3243,7 @@ end;
 
 function MenuBarX(m: Integer): Single;
 begin
-  Result := PX + m * (MENU_BAR_W + 4);
+  Result := -LeftW + 8 + m * (MENU_BAR_W + 4);
 end;
 
 function MenuW(m: Integer): Single;
@@ -2577,7 +3251,9 @@ begin
   case m of
     0: Result := 288;
     1: Result := 200;
-    2: Result := 270;
+    MENU_VIEW: Result := 270;
+    MENU_PANELS: Result := 200;
+    MENU_EXAMPLES: Result := 240;
   else
     Result := 170;
   end;
@@ -2585,14 +3261,14 @@ end;
 
 function MenuX(m: Integer): Single;
 begin
-  Result := fmin(MenuBarX(m), PX + 288 - MenuW(m));   { keep drop-downs inside the window }
+  Result := fmin(MenuBarX(m), SceneRight - MenuW(m) - 4);   { keep drop-downs inside the window }
 end;
 
 function ItemY(i: Integer): Single;
 var
   k: Integer;
 begin
-  Result := 30;
+  Result := 6;   { first item just below the menu bar }
   for k := 0 to i do
   begin
     if MItems[k].Sep then Result := Result + 9;
@@ -2600,27 +3276,113 @@ begin
   end;
 end;
 
-procedure DrawMenus(Pressed: Boolean);
+{ where the sub-menu of item SubOpen of menu m goes: right of the menu, or left when there is no room }
+function SubX(m: Integer): Single;
+begin
+  Result := MenuX(m) + MenuW(m) - 2;
+  if Result + SUB_W > SceneRight then Result := MenuX(m) - SUB_W + 2;
+end;
+
+function SubTop: Single;
+begin
+  Result := ItemY(SubOpen) - 4;
+end;
+
+function SubItemY(i: Integer): Single;
 var
-  m, i: Integer;
-  bx, x, w, y, top, h: Single;
+  k: Integer;
+begin
+  Result := SubTop + 4;
+  for k := 0 to i do
+  begin
+    if SItems[k].Sep then Result := Result + 9;
+    if k < i then Result := Result + 20;
+  end;
+end;
+
+{ one drop-down list; returns the item clicked (Pressed) or -1 }
+function DrawItemList(const Items: array of TMItem; Count: Integer; x, w, top: Single; IsSub: Boolean;
+  Pressed: Boolean): Integer;
+var
+  i: Integer;
+  y, h: Single;
   hot: Boolean;
 begin
+  Result := -1;
+  if IsSub then h := SubItemY(Count - 1) + 24 - top else h := ItemY(Count - 1) + 24 - top;
+  SetCol(0, 0, 0, 90);
+  FillR(x + 4, top + 4, w, h);
+  SetC(Th.MenuBg);
+  FillR(x, top, w, h);
+  SetC(Th.MenuBorder);
+  RectR(x, top, w, h);
+  for i := 0 to Count - 1 do
+  begin
+    if IsSub then y := SubItemY(i) else y := ItemY(i);
+    if Items[i].Sep then
+    begin
+      SetC(Th.MenuSep);
+      LineR(x + 6, y - 5, x + w - 6, y - 5);
+    end;
+    hot := Items[i].Enabled and Inside(x, y, w, 20);
+    { hovering a sub-menu item opens its sub-menu; hovering another item closes it }
+    if (not IsSub) and Inside(x, y, w, 20) then
+      if Items[i].HasSub then SubOpen := i else SubOpen := -1;
+    if hot or ((not IsSub) and (SubOpen = i)) then
+    begin
+      SetC(Th.MenuHot);
+      FillR(x + 2, y, w - 4, 20);
+    end;
+    if Items[i].Checked then
+    begin
+      if hot then SetC(Th.BtnSelText) else SetC(Th.Title);
+      FillR(x + 7, y + 7, 6, 6);
+    end;
+    if not Items[i].Enabled then SetC(Th.MenuDisabled)
+    else if hot then SetC(Th.BtnSelText)
+    else SetC(Th.Text);
+    TextR(x + 20, y + 6, Items[i].Lbl);
+    if hot then SetC(Th.BtnSelText) else SetC(Th.MenuKey);
+    TextR(x + w - 8 - Length(Items[i].Key) * 8, y + 6, Items[i].Key);
+    if hot and Pressed then Result := i;
+  end;
+end;
+
+function InItemList(Count: Integer; x, w, top: Single; IsSub: Boolean): Boolean;
+var
+  h: Single;
+begin
+  if IsSub then h := SubItemY(Count - 1) + 24 - top else h := ItemY(Count - 1) + 24 - top;
+  Result := Inside(x, top, w, h);
+end;
+
+procedure DrawMenus(Pressed: Boolean);
+var
+  m, i, hit: Integer;
+  bx, x, w, sx: Single;
+  hot, inSub: Boolean;
+begin
+  if OpenMenu < 0 then SubOpen := -1;
   for m := 0 to MENU_COUNT - 1 do
   begin
     bx := MenuBarX(m);
-    hot := Inside(bx, 4, MENU_BAR_W, 18);
+    hot := Inside(bx, -MENU_H + 3, MENU_BAR_W, 18);
     { like a menu bar: with one menu open, hovering another opens that one }
-    if (OpenMenu >= 0) and hot and (OpenMenu <> m) and not Pressed then OpenMenu := m;
+    if (OpenMenu >= 0) and hot and (OpenMenu <> m) and not Pressed then
+    begin
+      OpenMenu := m;
+      SubOpen := -1;
+    end;
     if OpenMenu = m then SetC(Th.BtnSel) else if hot then SetC(Th.BtnHot) else SetC(Th.BtnBg);
-    FillR(bx, 4, MENU_BAR_W, 18);
+    FillR(bx, -MENU_H + 3, MENU_BAR_W, 18);
     if OpenMenu = m then SetC(Th.BtnSelBorder) else SetC(Th.BtnBorder);
-    RectR(bx, 4, MENU_BAR_W, 18);
+    RectR(bx, -MENU_H + 3, MENU_BAR_W, 18);
     if OpenMenu = m then SetC(Th.BtnSelText) else SetC(Th.BtnText);
-    TextR(Round(bx + (MENU_BAR_W - Length(MenuNames[m]) * 8) / 2), 9, MenuNames[m]);
+    TextR(Round(bx + (MENU_BAR_W - Length(MenuNames[m]) * 8) / 2), -MENU_H + 8, MenuNames[m]);
     if Pressed and hot then
     begin
       if OpenMenu = m then OpenMenu := -1 else OpenMenu := m;
+      SubOpen := -1;
       Pressed := False;
     end;
   end;
@@ -2630,48 +3392,46 @@ begin
   BuildMenu(m);
   x := MenuX(m);
   w := MenuW(m);
-  top := 24;
-  h := ItemY(MCount - 1) + 24 - top;
-  SetCol(0, 0, 0, 90);
-  FillR(x + 4, top + 4, w, h);
-  SetC(Th.MenuBg);
-  FillR(x, top, w, h);
-  SetC(Th.MenuBorder);
-  RectR(x, top, w, h);
-  for i := 0 to MCount - 1 do
+  { while the mouse is in the open sub-menu, the parent keeps it open }
+  inSub := False;
+  if SubOpen >= 0 then
   begin
-    y := ItemY(i);
-    if MItems[i].Sep then
+    BuildGridMenu;
+    inSub := InItemList(SCount, SubX(m), SUB_W, SubTop, True);
+  end;
+  if inSub then
+    hit := DrawItemList(MItems, MCount, x, w, 0, False, False)
+  else
+    hit := DrawItemList(MItems, MCount, x, w, 0, False, Pressed);
+  if hit >= 0 then
+  begin
+    if MItems[hit].HasSub then
+      SubOpen := hit           { clicking it just keeps the sub-menu open }
+    else
     begin
-      SetC(Th.MenuSep);
-      LineR(x + 6, y - 5, x + w - 6, y - 5);
-    end;
-    hot := MItems[i].Enabled and Inside(x, y, w, 20);
-    if hot then
-    begin
-      SetC(Th.MenuHot);
-      FillR(x + 2, y, w - 4, 20);
-    end;
-    if MItems[i].Checked then
-    begin
-      if hot then SetC(Th.BtnSelText) else SetC(Th.Title);
-      FillR(x + 7, y + 7, 6, 6);
-    end;
-    if not MItems[i].Enabled then SetC(Th.MenuDisabled)
-    else if hot then SetC(Th.BtnSelText)
-    else SetC(Th.Text);
-    TextR(x + 20, y + 6, MItems[i].Lbl);
-    if hot then SetC(Th.BtnSelText) else SetC(Th.MenuKey);
-    TextR(x + w - 8 - Length(MItems[i].Key) * 8, y + 6, MItems[i].Key);
-    if hot and Pressed then
-    begin
-      RunMenuItem(m, i);
+      RunMenuItem(m, hit);
       Exit;
     end;
+    Pressed := False;
   end;
-  if Pressed and not Inside(x, top, w, h) then OpenMenu := -1;
+  if SubOpen >= 0 then
+  begin
+    BuildGridMenu;
+    sx := SubX(m);
+    i := DrawItemList(SItems, SCount, sx, SUB_W, SubTop, True, Pressed);
+    if i >= 0 then
+    begin
+      RunGridItem(i);
+      Exit;
+    end;
+    if Pressed and InItemList(SCount, sx, SUB_W, SubTop, True) then Pressed := False;
+  end;
+  if Pressed and not InItemList(MCount, x, w, 0, False) then
+  begin
+    OpenMenu := -1;
+    SubOpen := -1;
+  end;
 end;
-
 procedure DrawMultiProps(y: Single);
 var
   np, nb: Integer;
@@ -2703,7 +3463,7 @@ begin
   for t := Low(TTool) to High(TTool) do
   begin
     i := Ord(t);
-    if Button(10 + i, QX + (i mod 3) * 94, y0 + (i div 3) * 23, 90, 20, ToolNames[t], Tool = t) then
+    if Button(10 + i, QX + (i mod 3) * 94, y0 + (i div 3) * 21, 90, 19, ToolNames[t], Tool = t) then
     begin
       Tool := t;
       Drag := dragNone;
@@ -2711,10 +3471,10 @@ begin
   end;
   SetC(Th.Hint);
   if PasteArmed then
-    TextR(QX, y0 + 118, 'Click the canvas to paste (Esc)')
+    TextR(QX, y0 + 151, 'Click the canvas to paste (Esc)')
   else
-    TextR(QX, y0 + 118, ToolHints[Tool]);
-  y := y0 + 134;
+    TextR(QX, y0 + 151, ToolHints[Tool]);
+  y := y0 + 165;
   SetC(Th.Text);
   TextR(QX, y + 4, 'Pipe size');
   if Button(30, QX + 80, y, 18, 16, '-') then BrushDia := Max(1, BrushDia - 1);
@@ -2785,54 +3545,31 @@ end;
 
 { ---------------------------------------------------------------- side panel }
 
+{ the frame around the canvas: the menu bar strip on top, and a column on
+  the right / left only while a panel is embedded there }
 procedure DrawPanel;
-var
-  i: Integer;
-  dy: Single;
 begin
   QX := PX;
+  { menu bar strip (its buttons are drawn last, with the drop-downs) }
   SetC(Th.PanelBg);
-  FillR(PANEL_X, 0, PANEL_W, WIN_H);
+  FillR(-LeftW, -MENU_H, SceneRight + LeftW, MENU_H);
   SetC(Th.PanelLine);
-  LineR(PANEL_X, 0, PANEL_X, WIN_H);
+  LineR(-LeftW, -1, SceneRight, -1);
 
-  { the menu bar buttons are drawn last (with the drop-downs) }
-  SetC(Th.Title);
-  TextR(PX, 28, 'MATERIAL FLOW');
-  SetC(Th.TextDim);
-  TextR(PX + 112, 28, 'pipes, pumps & bulk');
-
-  { a panel that is hidden, floating or embedded left leaves a note in its right slot }
-  for i := 0 to WIN_COUNT - 1 do
-    if not (Wins[i].Visible and WinDocked(i) and (Wins[i].Side = 0)) then
-    begin
-      dy := Wins[i].DockY;
-      Header(dy + 4, Wins[i].Title);
-      if not Wins[i].Visible then
-      begin
-        Info(dy + 20, 'This panel is hidden.');
-        if Button(52 + i * 2, PX, dy + 34, 160, 18, 'Show (' + WinKeys[i] + ')') then ToggleWin(i);
-      end
-      else
-      begin
-        if WinDocked(i) then Info(dy + 20, 'Embedded on the left.')
-        else Info(dy + 20, 'This panel is floating.');
-        if Button(53 + i * 2, PX, dy + 34, 160, 18, 'Embed it here') then EmbedWin(i, 0);
-      end;
-      if Wins[i].H >= 80 then Info(dy + 58, 'Right-click a panel for options.');
-    end;
-
-  { the left column, when a panel is embedded there }
+  if RightW > 0 then
+  begin
+    SetC(Th.PanelBg);
+    FillR(PANEL_X, 0, RightW, WIN_H);
+    SetC(Th.PanelLine);
+    LineR(PANEL_X, 0, PANEL_X, WIN_H);
+  end;
   if LeftW > 0 then
   begin
     SetC(Th.PanelBg);
     FillR(-LeftW, 0, LeftW, WIN_H);
     SetC(Th.PanelLine);
     LineR(-1, 0, -1, WIN_H);
-    SetC(Th.TextDim);
-    TextR(-LeftW + 8, 14, 'Right-click a panel to move it');
   end;
-
 end;
 
 procedure DrawStatusContent(y0: Single);
@@ -2879,8 +3616,9 @@ const
      'Device tool on a pipe: insert', 'Pipe from a pipe: tee/cross'),
     ('Ctrl+wheel / Ctrl +/-: zoom', 'Ctrl+0: zoom 100%', 'Middle-drag or arrows: pan',
      'F1-F5: show / hide panels', 'R-click a panel: embed/float'),
-    ('Ctrl+S save   Ctrl+O open', 'Ctrl+N new layout', 'File menu: 3 examples',
-     'Label tool: click, then type', 'Double-click a label: edit'));
+    ('Ctrl+S save   Ctrl+O open', 'Examples menu: ready layouts',
+     'Label tool: click, then type', 'Double-click a label: edit',
+     'Date/Time label: live clock'));
 
 var
   HelpPage: Integer = 0;
@@ -2913,7 +3651,7 @@ begin
   begin
     if MDown then
     begin
-      Wn^.X := fclamp(MX - Wn^.DOX, -LeftW, WIN_W - Wn^.W);
+      Wn^.X := fclamp(MX - Wn^.DOX, -LeftW, SceneRight - Wn^.W);
       Wn^.Y := fclamp(MY - Wn^.DOY, 0, WIN_H - WIN_TITLE_H);
       { snap into its slot in the right column, or the left one when it is open }
       if Abs(Wn^.Y - Wn^.DockY) < 14 then
@@ -2991,7 +3729,7 @@ end;
 
 function InMenuBar(x, y: Single): Boolean;
 begin
-  Result := (y >= 4) and (y < 22) and (x >= PX) and (x < PX + MENU_COUNT * (MENU_BAR_W + 4));
+  Result := (y >= -MENU_H) and (y < 0);   { the whole menu bar strip }
 end;
 
 { ---------------------------------------------------------------- editing }
@@ -3073,7 +3811,7 @@ end;
 
 procedure CanvasPress(Right: Boolean);
 var
-  gx, gy, b, L: Integer;
+  gx, gy, b, L, sx, sy: Integer;
 begin
   if (MWX < 0) or (MWY < 0) then Exit;   { outside the layout when zoomed out }
   gx := Trunc(MWX / CELL);
@@ -3082,7 +3820,7 @@ begin
   L := LabelAt(MWX, MWY);
   { clicking anywhere but the label being typed into finishes it }
   if (EditLabel >= 0) and (L <> EditLabel) then StopEditLabel;
-  if (not Right) and (not PasteArmed) and (Tool in [tSelect, tLabel]) and (L >= 0) then
+  if (not Right) and (not PasteArmed) and (Tool in [tSelect, tLabel, tLabelDate, tLabelTime]) and (L >= 0) then
   begin
     if (Tool = tLabel) or (LastClicks >= 2) then
       StartEditLabel(L)
@@ -3103,6 +3841,19 @@ begin
     L := AddLabel(MWX, MWY, '');
     if L >= 0 then StartEditLabel(L)
     else SetStatus(Format('Too many labels (max %d)', [MAX_LABELS]), True);
+    Exit;
+  end;
+  if (not Right) and (not PasteArmed) and (Tool in [tLabelDate, tLabelTime]) then
+  begin
+    if Tool = tLabelDate then L := AddClockLabel(MWX, MWY, LBL_DATE) else L := AddClockLabel(MWX, MWY, LBL_TIME);
+    if L < 0 then
+      SetStatus(Format('Too many labels (max %d)', [MAX_LABELS]), True)
+    else
+    begin
+      SelKind := selLabel;
+      SelL := L;
+      SetStatus('Pick or type its format in Properties');
+    end;
     Exit;
   end;
   if PasteArmed then
@@ -3133,6 +3884,12 @@ begin
           { press on a part: select it (unless it is already in the selection),
             then dragging moves the whole selection }
           if not SelHasCell(gx, gy) then SelectCell(gx, gy);
+          StartMove(gx, gy, -1);
+        end
+        else if StoreAt(MWX, MWY, sx, sy) then
+        begin
+          { the body of a silo / funnel of a hopper selects (and drags) it }
+          if not SelHasCell(sx, sy) then SelectCell(sx, sy);
           StartMove(gx, gy, -1);
         end
         else if (b >= 0) and (SelKind = selMulti) and SelHasBucket(b) then
@@ -3173,7 +3930,7 @@ begin
         EraseAt(gx, gy);
         Drag := dragErase;
       end;
-    tTank, tBlower, tSuction, tNozzle, tDrop, tCheck, tValve2, tValve3, tValve4:
+    tTank, tHopper, tSilo, tBlower, tSuction, tNozzle, tDrop, tCheck, tValve2, tValve3, tValve4:
       begin
         if Grid[gx, gy].Kind = ckEmpty then MakePipe(gx, gy, BrushDia);
         if Grid[gx, gy].Kind <> ToolKinds[Tool] then SetKind(gx, gy, ToolKinds[Tool]);
@@ -3262,8 +4019,8 @@ end;
 procedure PlacePopup;
 begin
   OpenMenu := -1;
-  PopupX := fclamp(MX, -LeftW, WIN_W - POPUP_W - 4);
-  PopupY := fmin(MY, WIN_H - PopupH - 4);
+  PopupX := fclamp(MX, -LeftW, SceneRight - POPUP_W - 4);
+  PopupY := fclamp(MY, 0, WIN_H - PopupH - 4);
   PopupOpen := True;
   PopupClick := False;
 end;
@@ -3277,7 +4034,7 @@ end;
 
 procedure OpenPopup;
 var
-  gx, gy, b, L: Integer;
+  gx, gy, b, L, sx, sy: Integer;
 begin
   gx := EnsureRange(Trunc(MWX / CELL), 0, GW - 1);
   gy := EnsureRange(Trunc(MWY / CELL), 0, GH - 1);
@@ -3294,6 +4051,8 @@ begin
     end
     else if Grid[gx, gy].Kind <> ckEmpty then
       SelectCell(gx, gy)
+    else if StoreAt(MWX, MWY, sx, sy) then
+      SelectCell(sx, sy)
     else if b >= 0 then
     begin
       SelKind := selBucket;
@@ -3428,6 +4187,7 @@ begin
       Ord('s'): if (Mods and SDL_KMOD_SHIFT) <> 0 then DoSaveAs else DoSave;
       Ord('o'): DoOpen;
       Ord('n'): DoNew;
+      Ord('q'): QuitRequested := True;
       Ord('z'): if (Mods and SDL_KMOD_SHIFT) <> 0 then DoRedo else DoUndo;
       Ord('y'): DoRedo;
       SDLK_EQUALS, SDLK_KP_PLUS: ZoomAt(Zoom * 1.25, CANVAS_W / 2, CANVAS_H / 2);
@@ -3466,6 +4226,11 @@ begin
     SDLK_RIGHTBRACKET, SDLK_EQUALS: BrushDia := Min(MAX_DIA, BrushDia + 1);
     Ord('r'): DoRotate((Mods and SDL_KMOD_SHIFT) = 0);
     Ord('p'): ShowPressure := not ShowPressure;
+    Ord('g'):
+      begin
+        GridShow := not GridShow;
+        SaveSettings;
+      end;
     Ord('a'): ShowAir := not ShowAir;
     Ord('c'): ClearParticles;
     Ord('1'): Tool := tSelect;
@@ -3491,6 +4256,56 @@ begin
 end;
 
 { ---------------------------------------------------------------- main loop }
+
+{ a mouse button went down at MX, MY }
+procedure MouseDown(Button: Integer);
+begin
+  if Button = SDL_BUTTON_MIDDLE then
+  begin
+    { middle-drag pans the canvas }
+    if (MX >= 0) and (MX < CANVAS_W) and (MY >= 0) and not InAnyWin(MX, MY) then
+    begin
+      Panning := True;
+      PanLastX := MX;
+      PanLastY := MY;
+    end;
+  end
+  else if PopupOpen then
+  begin
+    { the popup takes this click: an item, or closing it }
+    if Inside(PopupX, PopupY, POPUP_W, PopupH) then
+      PopupClick := True
+    else
+      PopupOpen := False;
+  end
+  else if OpenMenu >= 0 then
+  begin
+    { an open drop-down (it may lie over the canvas) takes the click: DrawMenus
+      runs the item under the mouse, or closes the menu when the click is
+      elsewhere. Nothing underneath reacts. }
+    if Button = SDL_BUTTON_LEFT then
+    begin
+      MDown := True;
+      MPressed := True;
+    end
+    else
+      OpenMenu := -1;
+  end
+  else if Button = SDL_BUTTON_LEFT then
+  begin
+    MDown := True;
+    MPressed := True;
+    if (MX >= 0) and (MX < CANVAS_W) and (MY >= 0) and not InAnyWin(MX, MY) then CanvasPress(False);
+  end
+  else if Button = SDL_BUTTON_RIGHT then
+  begin
+    RDown := True;
+    if InAnyWin(MX, MY) then
+      OpenPanelPopup(WinAt(MX, MY))   { panel: Right / Left embed, Float, Hide }
+    else if (MX >= 0) and (MX < CANVAS_W) and (MY >= 0) then
+      CanvasPress(True);
+  end;
+end;
 
 procedure Render;
 var
@@ -3569,6 +4384,28 @@ begin
   CloseFile(f);
 end;
 
+{ what the program shows when it starts: a new, empty layout. Test and
+  screenshot runs start from the demo instead, which their checks rely on. }
+procedure LoadStartupLayout(Testing: Boolean);
+begin
+  if Testing then
+  begin
+    LoadDemo;
+    LayoutName := 'Demo';
+  end
+  else
+  begin
+    ClearAll;
+    GravityScale := 1;
+    LayoutName := '';
+    SetStatus('New layout - draw pipes, or pick one from the Examples menu');
+  end;
+  CurrentFile := '';
+  SelKind := selNone;
+  UpdateTitle;
+  HistReset;
+end;
+
 { --selftest <report.txt> : exercises undo/redo, cut/copy/paste and themes }
 procedure RunSelfTest(const FileName: string);
 var
@@ -3576,6 +4413,44 @@ var
   fails, i, b, np, nb: Integer;
   bx, by: Single;
   err: string;
+
+  { open menu m and click item i through the real mouse path; m = -1 clicks the Edit button on the bar }
+  procedure ClickMenu(m, i: Integer);
+  begin
+    if m < 0 then
+    begin
+      OpenMenu := -1;
+      MX := MenuBarX(1) + 10;
+      MY := -MENU_H + 10;
+    end
+    else
+    begin
+      OpenMenu := m;
+      BuildMenu(m);
+      MX := MenuX(m) + 40;
+      MY := ItemY(i) + 10;
+    end;
+    MouseDown(SDL_BUTTON_LEFT);
+    Render;
+    MDown := False;
+    MPressed := False;
+    ActiveId := 0;
+  end;
+
+  { click item k of View > Grid > through the real mouse path }
+  procedure ClickGrid(k: Integer);
+  begin
+    OpenMenu := MENU_VIEW;
+    BuildMenu(MENU_VIEW);
+    SubOpen := VIEW_GRID_ITEM;
+    BuildGridMenu;
+    MX := SubX(MENU_VIEW) + 40;
+    MY := SubItemY(k) + 10;
+    MouseDown(SDL_BUTTON_LEFT);
+    Render;
+    MDown := False;
+    MPressed := False;
+  end;
 
   procedure Check(const What: string; Ok: Boolean);
   begin
@@ -3945,6 +4820,67 @@ begin
   DoDelete;
   Check('delete a label', not Labels[i].Active);
 
+  { date and time labels }
+  i := AddClockLabel(100, 300, LBL_DATE);
+  Check('date label shows today', (Labels[i].Kind = LBL_DATE) and (LabelDisplay(i) = FormatDateTime('yyyy-mm-dd', Now)));
+  Labels[i].Fmt := 'dddd, d mmmm yyyy';
+  Check('date format: long preset', LabelDisplay(i) = FormatDateTime('dddd, d mmmm yyyy', Now));
+  StartEditFormat(i);
+  for np := 1 to 40 do LabelKey(SDLK_BACKSPACE);
+  LabelTypeText('dd/mm "of" yyyy');
+  LabelKey(SDLK_RETURN);
+  Check('typing a custom date format', (Labels[i].Fmt = 'dd/mm "of" yyyy') and (EditLabel = -1) and
+    (LabelDisplay(i) = FormatDateTime('dd/mm "of" yyyy', Now)));
+  StartEditLabel(i);
+  LabelTypeText('Today');
+  LabelKey(SDLK_ESCAPE);
+  Check('date label caption above the value', LabelDisplay(i) = 'Today'#10 + FormatDateTime('dd/mm "of" yyyy', Now));
+  b := AddClockLabel(300, 300, LBL_TIME);
+  StartEditLabel(b);
+  StopEditLabel;
+  Check('a time label without caption is kept', Labels[b].Active and (Labels[b].Fmt = 'hh:nn:ss'));
+  Labels[b].Fmt := 'h:nn am/pm';
+  Check('time format: 12-hour', (Pos('m', LabelDisplay(b)) > 0) and (Pos(':', LabelDisplay(b)) > 0));
+  Labels[b].Fmt := 'hh:nn';
+  Labels[b].Color := 3;
+  Labels[b].NoBox := True;
+  Labels[i].Fmt := 'd mmm yyyy';
+  Check('save with date / time labels', SaveLayout(UnicodeString(FileName + '.clock.mflow'), err));
+  Labels[i].Active := False;
+  Labels[b].Active := False;
+  Check('load with date / time labels', LoadLayout(UnicodeString(FileName + '.clock.mflow'), err));
+  nb := 0;
+  for np := 0 to MAX_LABELS - 1 do
+    if Labels[np].Active then
+    begin
+      if (Labels[np].Kind = LBL_DATE) and (Labels[np].Fmt = 'd mmm yyyy') and (Labels[np].Text = 'Today') then
+      begin
+        Inc(nb);
+        i := np;
+      end;
+      if (Labels[np].Kind = LBL_TIME) and (Labels[np].Fmt = 'hh:nn') and (Labels[np].Color = 3) and
+        Labels[np].NoBox then
+      begin
+        Inc(nb);
+        b := np;
+      end;
+    end;
+  Check('date / time labels saved with format, caption, colour, box', nb = 2);
+  HistCheck;
+  Labels[i].Fmt := 'yy';
+  HistCheck;
+  DoUndo;
+  Check('undo a format change', Labels[i].Fmt = 'd mmm yyyy');
+  SelKind := selLabel;
+  SelL := b;
+  DoCopy;
+  PlacePaste(30, 28);
+  nb := 0;
+  for np := 0 to MAX_LABELS - 1 do
+    if Labels[np].Active and (Labels[np].Kind = LBL_TIME) and (Labels[np].Fmt = 'hh:nn') and
+      (Labels[np].Color = 3) then Inc(nb);
+  Check('copy / paste keeps a time label''s format and style', nb = 2);
+
   { status and help panels }
   ToggleWin(WIN_STATUS);
   ToggleWin(WIN_HELP);
@@ -3952,7 +4888,98 @@ begin
   ToggleWin(WIN_STATUS);
   ToggleWin(WIN_HELP);
   Check('status and help docked by default', WinDocked(WIN_STATUS) and WinDocked(WIN_HELP) and
-    (WinAt(PANEL_X + 50, 690) = WIN_STATUS) and (WinAt(PANEL_X + 50, 760) = WIN_HELP));
+    (WinAt(PANEL_X + 50, Wins[WIN_STATUS].DockY + 30) = WIN_STATUS) and
+    (WinAt(PANEL_X + 50, Wins[WIN_HELP].DockY + 40) = WIN_HELP));
+
+  { menus clicked the way a user does: mouse down, then a frame is drawn }
+  ClickMenu(-1, -1);   { open Edit from the menu bar }
+  Check('menu bar click opens a menu', OpenMenu = 1);
+  OpenMenu := -1;
+  b := Ord(ShowAir);
+  ClickMenu(MENU_VIEW, 4);    { View > Air dots }
+  Check('View > Air dots works by click', (Ord(ShowAir) <> b) and (OpenMenu = -1));
+  ClickMenu(MENU_VIEW, 4);
+  ClickMenu(MENU_THEME, 2);     { Theme > Daylight }
+  Check('Theme > Daylight works by click', ThemeIndex = 2);
+  ClickMenu(MENU_THEME, 0);
+  Check('Theme > Default works by click', ThemeIndex = 0);
+  ClickMenu(MENU_EXAMPLES, 4); { Examples > 4 }
+  Check('Examples > 4 works by click', LayoutName = '4-way valve switchyard');
+  HistCheck;   { the app commits on the idle frame after each action }
+  EraseCell(16, 21);
+  HistCheck;
+  ClickMenu(1, 0);     { Edit > Undo }
+  Check('Edit > Undo works by click', Grid[16, 21].Kind = ckDrop);
+  ClickMenu(MENU_PANELS, 1);     { Panels > Simulation (hide) }
+  Check('Panels > Simulation works by click', not Wins[WIN_SIM].Visible);
+  ClickMenu(MENU_PANELS, 1);
+  BuildMenu(MENU_PANELS);
+  Check('Panels menu holds the five panels + Dock all', (MCount = 6) and (MItems[5].Lbl = 'Dock all panels'));
+  BuildMenu(MENU_VIEW);
+  Check('View menu: zoom, pressure, air, Grid >', (MCount = 6) and MItems[VIEW_GRID_ITEM].HasSub);
+
+  { View > Grid > : hovering opens the sub-menu, its items work by click }
+  OpenMenu := MENU_VIEW;
+  SubOpen := -1;
+  MX := MenuX(MENU_VIEW) + 40;
+  MY := ItemY(VIEW_GRID_ITEM) + 10;
+  Render;
+  Check('hovering Grid opens its sub-menu', (OpenMenu = MENU_VIEW) and (SubOpen = VIEW_GRID_ITEM));
+  ClickGrid(2);   { Style: dots }
+  Check('Grid > Style: dots', (GridStyle = 1) and (OpenMenu = -1));
+  ClickGrid(6);   { Major: every 5 }
+  Check('Grid > Major every 5', GridMajor = 5);
+  ClickGrid(10);  { Strength: strong }
+  ClickGrid(13);  { Colour: green }
+  ClickGrid(16);  { cell numbers }
+  Check('Grid > strength, colour, numbers', (GridStrength = 2) and (GridColor = 2) and GridNumbers);
+  ClickGrid(0);   { Show grid off }
+  Check('Grid > Show grid toggles', not GridShow);
+  HandleKey(Ord('g'), 0);
+  Check('G shows the grid again', GridShow);
+  SettingsFile := FileName + '.grid.ini';
+  SaveSettings;
+  ResetGrid;
+  LoadSettings;
+  Check('grid look saved in the settings', (GridStyle = 1) and (GridMajor = 5) and (GridStrength = 2) and
+    (GridColor = 2) and GridNumbers);
+  SettingsFile := '';
+  ClickGrid(17);  { reset }
+  Check('Grid > reset', (GridStyle = 0) and (GridMajor = 0) and (GridColor = 0) and not GridNumbers and GridShow);
+  { a click elsewhere closes the menu and does nothing else }
+  OpenMenu := 0;
+  SelectCell(16, 10);
+  MX := 16 * CELL + HALF;
+  MY := 21 * CELL + HALF;
+  MouseDown(SDL_BUTTON_LEFT);
+  Render;
+  MDown := False;
+  MPressed := False;
+  Check('click outside closes the menu only', (OpenMenu = -1) and (SelKind = selCell) and (SelY = 10));
+  ClickMenu(0, 4);   { File > Exit }
+  Check('File > Exit works by click', QuitRequested);
+  QuitRequested := False;
+  Check('File menu: New, Open, Save, Save as, Exit only', (MCount = 5) and (MItems[4].Lbl = 'Exit'));
+  BuildMenu(MENU_EXAMPLES);
+  Check('Examples menu: demo + all examples', (MCount = 1 + EXAMPLE_COUNT) and (MItems[0].Lbl = 'Original demo'));
+  ClickMenu(MENU_EXAMPLES, 0);
+  Check('Examples > Original demo works by click', LayoutName = 'Demo');
+  LoadStartupLayout(False);
+  Check('startup is a new empty layout', (LayoutName = '') and (Grid[2, 3].Kind = ckEmpty) and not Buckets[0].Active);
+  DoLoadDemo;
+
+  { no fixed side panel: the right column exists only while a panel is embedded there }
+  Check('right column open with panels in it', RightW = PANEL_W);
+  for i := 0 to WIN_COUNT - 1 do
+    if Wins[i].Visible then ToggleWin(i);
+  Check('right column closes when it is empty', (RightW = 0) and (LeftW = 0) and (SceneRight = CANVAS_W));
+  FloatWin(WIN_PROPS);
+  Check('a floating panel does not open a column', (RightW = 0) and InWin(WIN_PROPS, Wins[WIN_PROPS].X + 5,
+    Wins[WIN_PROPS].Y + 5) and (Wins[WIN_PROPS].X + Wins[WIN_PROPS].W <= CANVAS_W));
+  EmbedWin(WIN_PROPS, 0);
+  Check('embedding right reopens it', (RightW = PANEL_W) and EmbeddedRight(WIN_PROPS));
+  for i := 0 to WIN_COUNT - 1 do DockWin(i);
+  Check('menu bar is above the canvas', InMenuBar(10, -10) and not InMenuBar(10, 10) and (OY = MENU_H));
 
   { drag box: once the mouse is up the box is gone, the parts stay selected }
   Drag := dragBox;
@@ -3971,6 +4998,50 @@ begin
   DoPaste;
   Check('paste with empty clipboard is refused', not PasteArmed);
 
+  { File menu: examples 4-6 and the demo after them }
+  RunMenuItem(MENU_EXAMPLES, 6);
+  Check('menu loads example 6', LayoutName = 'Silo storage');
+  HandleKey(Ord('q'), SDL_KMOD_CTRL);
+  Check('Ctrl+Q exits', QuitRequested);
+  QuitRequested := False;
+  DoLoadDemo;
+  Check('demo file in examples folder', FileExists(ExtractFilePath(ParamStr(0)) + 'examples' + PathDelim + DEMO_FILE));
+
+  { 4-way valve example routes to the open branches only }
+  RunMenuItem(MENU_EXAMPLES, 4);
+  Check('example 4 has a 4-way valve, north shut', (Grid[16, 10].Kind = ckValve4) and (Grid[16, 10].Closed = 8));
+  ClearParticles;
+  for i := 1 to 900 do SimFrame(1 / 60, True);
+  Check('4-way: east and south buckets fill', (Buckets[0].Count > 0) and (Buckets[1].Count > 0));
+  Check('4-way: shut north branch carries nothing', (Abs(Grid[16, 9].F[3]) < 0.01) and (Abs(Grid[16, 5].F[3]) < 0.01));
+
+  { hopper: catches the falling sand and passes it on }
+  RunMenuItem(MENU_EXAMPLES, 5);
+  Check('example 5 has two hoppers', (Grid[6, 15].Kind = ckHopper) and (Grid[34, 13].Kind = ckHopper));
+  for i := 1 to 900 do SimFrame(1 / 60, True);
+  Check('hopper + blower deliver to the bucket', Buckets[0].Count > 20);
+  Check('gravity hopper drains into its bucket', Buckets[1].Count > 20);
+
+  { silo: fills from the roof and from a pipe, gate meters / holds it }
+  RunMenuItem(MENU_EXAMPLES, 6);
+  Check('example 6 has two silos', (Grid[21, 18].Kind = ckSilo) and (Grid[36, 19].Kind = ckSilo));
+  for i := 1 to 1200 do SimFrame(1 / 60, True);
+  Check('silo fills through its roof', StoreTotal(Grid[21, 18]) > 20);
+  Check('pipe-fed silo fills', StoreTotal(Grid[36, 19]) > 20);
+  Check('gate shut: the silo only stores', Buckets[1].Count = 0);
+  { full silo takes no more }
+  Grid[21, 18].Stock[mSand] := 3000;
+  Grid[21, 18].Stock[mFluff] := 1000;
+  bx := StoreTotal(Grid[21, 18]);
+  for i := 1 to 120 do SimFrame(1 / 60, True);
+  Check('a full silo takes no more', StoreTotal(Grid[21, 18]) <= SILO_CAP);
+  { hopper / silo in a layout file }
+  Grid[36, 19].Stock[mWater] := 777;
+  Check('save with silo', SaveLayout(UnicodeString(FileName + '.mflow'), err));
+  Check('load with silo', LoadLayout(UnicodeString(FileName + '.mflow'), err));
+  Check('silo and its contents saved', (Grid[36, 19].Kind = ckSilo) and (Grid[36, 19].Stock[mWater] = 777) and
+    (Grid[21, 18].Feed = 30));
+
   { themes }
   for i := 0 to THEME_COUNT - 1 do
   begin
@@ -3986,7 +5057,6 @@ end;
 procedure RunApp;
 var
   ev: TSDL_Event;
-  quit: Boolean;
   last, now: UInt64;
   shotFrames, frame: Integer;
   shotFile: string;
@@ -4007,6 +5077,12 @@ begin
   { --export-examples <dir> : write the built-in examples as .mflow files }
   if (ParamCount >= 2) and (ParamStr(1) = '--export-examples') then
   begin
+    { the original demo as a file too }
+    LoadDemo;
+    GravityScale := 1;
+    LayoutName := 'Original demo';
+    if not SaveLayout(UnicodeString(IncludeTrailingPathDelimiter(ParamStr(2)) + DEMO_FILE), err) then
+      raise Exception.Create(err);
     for n := 1 to EXAMPLE_COUNT do
     begin
       BuildExample(n);
@@ -4027,15 +5103,16 @@ begin
     shotFile := ParamStr(3);
   end;
 
-  ww := WIN_W;
-  wh := WIN_H;
+  { starts with the panels in the right column; ApplyLayout adjusts it to the saved layout }
+  ww := CANVAS_W + RightW;
+  wh := WIN_H + MENU_H;
   if SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay, @db) then
   begin
-    sc := fmin(1, fmin((db.w - 20) / WIN_W, (db.h - 60) / WIN_H));
+    sc := fmin(1, fmin((db.w - 20) / ww, (db.h - 60) / wh));
     if sc > 0.3 then
     begin
-      ww := Round(WIN_W * sc);
-      wh := Round(WIN_H * sc);
+      ww := Round(ww * sc);
+      wh := Round(wh * sc);
     end;
   end;
   Win := SDL_CreateWindow('Material Flow Simulator - SDL3', ww, wh, SDL_WINDOW_RESIZABLE);
@@ -4044,7 +5121,7 @@ begin
   Ren := SDL_CreateRenderer(Win, nil);
   if Ren = nil then
     raise Exception.Create('SDL_CreateRenderer failed: ' + string(SDL_GetError));
-  SDL_SetRenderLogicalPresentation(Ren, WIN_W, WIN_H, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+  SDL_SetRenderLogicalPresentation(Ren, CANVAS_W + RightW, WIN_H + MENU_H, SDL_LOGICAL_PRESENTATION_LETTERBOX);
   SDL_SetRenderDrawBlendMode(Ren, SDL_BLENDMODE_BLEND);
   if shotFrames = 0 then SDL_SetRenderVSync(Ren, 1);
 
@@ -4063,10 +5140,7 @@ begin
     SettingsFile := ExtractFilePath(ParamStr(0)) + 'materialflow.ini';
   LoadSettings;
 
-  LoadDemo;
-  LayoutName := 'Demo';
-  UpdateTitle;
-  HistReset;
+  LoadStartupLayout(Copy(ParamStr(1), 1, 2) = '--');
   MX := -1;
   MY := -1;
 
@@ -4091,9 +5165,48 @@ begin
       SelKind := selNone;
     end;
     if ParamStr(5) = 'file' then OpenMenu := 0
+    else if ParamStr(5) = 'examples' then OpenMenu := MENU_EXAMPLES
     else if ParamStr(5) = 'edit' then OpenMenu := 1
-    else if ParamStr(5) = 'view' then OpenMenu := 2
+    else if ParamStr(5) = 'view' then OpenMenu := MENU_VIEW
+    else if ParamStr(5) = 'panels' then OpenMenu := MENU_PANELS
+    else if ParamStr(5) = 'grid' then
+    begin
+      { the Grid sub-menu open, with a customised grid behind it }
+      OpenMenu := MENU_VIEW;
+      SubOpen := VIEW_GRID_ITEM;
+      GridStyle := 0;
+      GridMajor := 5;
+      GridColor := 1;
+      GridStrength := 1;
+      GridNumbers := True;
+      BuildMenu(MENU_VIEW);
+      MX := MenuX(MENU_VIEW) + 40;
+      MY := ItemY(VIEW_GRID_ITEM) + 10;
+    end
     else if ParamStr(5) = 'theme' then OpenMenu := MENU_THEME
+    else if ParamStr(5) = 'clock' then
+    begin
+      { date and time labels in a few styles; the date label selected }
+      n := AddClockLabel(420, 420, LBL_TIME);
+      Labels[n].Fmt := 'hh:nn:ss';
+      Labels[n].Text := 'Shift clock';
+      Labels[n].Color := 2;
+      n := AddClockLabel(420, 470, LBL_TIME);
+      Labels[n].Fmt := 'h:nn am/pm';
+      Labels[n].NoBox := True;
+      Labels[n].Color := 3;
+      n := AddClockLabel(420, 360, LBL_DATE);
+      Labels[n].Fmt := 'dddd, d mmmm yyyy';
+      Labels[n].Text := 'Report date';
+      SelKind := selLabel;
+      SelL := n;
+    end
+    else if ParamStr(5) = 'bare' then
+    begin
+      { every panel hidden: just the menu bar and the canvas }
+      for n := 0 to WIN_COUNT - 1 do
+        if Wins[n].Visible then ToggleWin(n);
+    end
     else if ParamStr(5) = 'zoom' then
     begin
       { a 4-way valve with a label, zoomed in, valve selected }
@@ -4157,9 +5270,9 @@ begin
     Exit;
   end;
 
-  quit := False;
+  QuitRequested := False;
   last := SDL_GetTicksNS;
-  while not quit do
+  while not QuitRequested do
   begin
     MPressed := False;
     while SDL_PollEvent(@ev) do
@@ -4167,7 +5280,7 @@ begin
       SDL_ConvertEventToRenderCoordinates(Ren, @ev);
       case ev.type_ of
         SDL_EVENT_QUIT:
-          quit := True;
+          QuitRequested := True;
         SDL_EVENT_KEY_DOWN:
           { while a label is being typed into, keys belong to it }
           if EditLabel >= 0 then LabelKey(ev.key.key)
@@ -4177,7 +5290,7 @@ begin
         SDL_EVENT_MOUSE_MOTION:
           begin
             MX := ev.motion.x - OX;
-            MY := ev.motion.y;
+            MY := ev.motion.y - OY;
             if Panning then
             begin
               PanBy((PanLastX - MX) / Zoom, (PanLastY - MY) / Zoom);
@@ -4198,42 +5311,9 @@ begin
         SDL_EVENT_MOUSE_BUTTON_DOWN:
           begin
             MX := ev.button.x - OX;
-            MY := ev.button.y;
+            MY := ev.button.y - OY;
             LastClicks := ev.button.clicks;
-            if ev.button.button = SDL_BUTTON_MIDDLE then
-            begin
-              { middle-drag pans the canvas }
-              if (MX >= 0) and (MX < CANVAS_W) and not InAnyWin(MX, MY) then
-              begin
-                Panning := True;
-                PanLastX := MX;
-                PanLastY := MY;
-              end;
-            end
-            else if PopupOpen then
-            begin
-              { the popup takes this click: an item, or closing it }
-              if Inside(PopupX, PopupY, POPUP_W, PopupH) then
-                PopupClick := True
-              else
-                PopupOpen := False;
-            end
-            else if (MX < CANVAS_W) and (OpenMenu >= 0) then
-              OpenMenu := -1        { a click outside the open menu just closes it }
-            else if ev.button.button = SDL_BUTTON_LEFT then
-            begin
-              MDown := True;
-              MPressed := True;
-              if (MX >= 0) and (MX < CANVAS_W) and not InAnyWin(MX, MY) then CanvasPress(False);
-            end
-            else if ev.button.button = SDL_BUTTON_RIGHT then
-            begin
-              RDown := True;
-              if InAnyWin(MX, MY) then
-                OpenPanelPopup(WinAt(MX, MY))   { panel: Right / Left embed, Float, Hide }
-              else if (MX >= 0) and (MX < CANVAS_W) then
-                CanvasPress(True);
-            end;
+            MouseDown(ev.button.button);
           end;
         SDL_EVENT_MOUSE_BUTTON_UP:
           if ev.button.button = SDL_BUTTON_MIDDLE then
@@ -4261,7 +5341,7 @@ begin
         SDL_EVENT_MOUSE_WHEEL:
           begin
             MX := ev.wheel.mouse_x - OX;
-            MY := ev.wheel.mouse_y;
+            MY := ev.wheel.mouse_y - OY;
             if (MX >= 0) and (MX < CANVAS_W) and (MY >= 0) and (MY < CANVAS_H) and not InAnyWin(MX, MY) then
             begin
               if (SDL_GetModState and SDL_KMOD_CTRL) <> 0 then

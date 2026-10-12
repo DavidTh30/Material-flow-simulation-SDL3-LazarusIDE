@@ -1,0 +1,64 @@
+# Material Flow Simulator layout
+# CELL x y kind conn dia dir open strength
+# TANK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+MFLOW 1
+NAME Hopper feed
+GRAVITY 1.00
+CELL 6 2 tank S 4 E 1 0.00
+TANK 6 2 0.00 0.00 300.00 2500.00 0.00 70.00
+CELL 34 2 tank S 4 E 1 0.00
+TANK 34 2 2000.00 0.00 0.00 0.00 0.00 70.00
+CELL 6 3 pipe SN 4 E 1 0.00
+CELL 34 3 pipe SN 3 E 1 0.00
+CELL 6 4 pipe SN 4 E 1 0.00
+CELL 34 4 pipe SN 3 E 1 0.00
+CELL 6 5 pipe SN 4 E 1 0.00
+CELL 34 5 pipe SN 3 E 1 0.00
+CELL 6 6 pipe SN 4 E 1 0.00
+CELL 34 6 drop N 3 S 1 100.00
+CELL 6 7 pipe SN 4 E 1 0.00
+CELL 6 8 drop N 4 S 1 60.00
+CELL 34 13 hopper S 3 E 1 0.00
+TANK 34 13 0.00 0.00 0.00 0.00 0.00 100.00
+CELL 34 14 pipe SN 3 E 1 0.00
+CELL 6 15 hopper E 3 E 1 0.00
+TANK 6 15 0.00 0.00 0.00 0.00 0.00 100.00
+CELL 7 15 pipe EW 3 E 1 0.00
+CELL 8 15 pipe EW 3 E 1 0.00
+CELL 9 15 pipe EW 3 E 1 0.00
+CELL 10 15 blower EW 3 E 1 80.00
+CELL 11 15 pipe EW 3 E 1 0.00
+CELL 12 15 pipe EW 3 E 1 0.00
+CELL 13 15 pipe EW 3 E 1 0.00
+CELL 14 15 pipe EW 3 E 1 0.00
+CELL 15 15 pipe EW 3 E 1 0.00
+CELL 16 15 pipe EW 3 E 1 0.00
+CELL 17 15 pipe EW 3 E 1 0.00
+CELL 18 15 pipe EW 3 E 1 0.00
+CELL 19 15 pipe EW 3 E 1 0.00
+CELL 20 15 pipe EW 3 E 1 0.00
+CELL 21 15 pipe EW 3 E 1 0.00
+CELL 22 15 pipe EW 3 E 1 0.00
+CELL 23 15 pipe EW 3 E 1 0.00
+CELL 24 15 pipe SW 3 E 1 0.00
+CELL 34 15 pipe SN 3 E 1 0.00
+CELL 24 16 pipe SN 3 E 1 0.00
+CELL 34 16 pipe SN 3 E 1 0.00
+CELL 24 17 pipe SN 3 E 1 0.00
+CELL 34 17 pipe SN 3 E 1 0.00
+CELL 24 18 pipe SN 3 E 1 0.00
+CELL 34 18 pipe SN 3 E 1 0.00
+CELL 24 19 pipe SN 3 E 1 0.00
+CELL 34 19 pipe SN 3 E 1 0.00
+CELL 24 20 pipe SN 3 E 1 0.00
+CELL 34 20 pipe SN 3 E 1 0.00
+CELL 24 21 pipe SN 3 E 1 0.00
+CELL 34 21 pipe SN 3 E 1 0.00
+CELL 24 22 drop N 3 S 1 100.00
+CELL 34 22 drop N 3 S 1 100.00
+BUCKET 523.00 716.00 130.00 90.00
+BUCKET 763.00 716.00 130.00 90.00
+LABEL 120.00 400.00 HOPPER + BLOWER\nSand falls into the funnel,\nthe blower carries it on.
+LABEL 560.00 230.00 GRAVITY HOPPER\nWater falls in and\ndrains straight down.

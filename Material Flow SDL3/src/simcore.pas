@@ -1,4 +1,4 @@
-﻿unit simcore;
+unit simcore;
 
 { Material flow simulation core.
 
@@ -36,10 +36,15 @@ const
   MAX_AIR = 2500;
   MAX_BUCKETS = 8;
   MAX_LABELS = 64;
+  LBL_TEXT = 0;
+  LBL_DATE = 1;
+  LBL_TIME = 2;
   PDIAM = 3.0;
   PRAD = 1.5;
   WALL_T = 6.0;
   STOCK_MAX = 3000;
+  HOPPER_CAP = 300;   { a hopper holds little: it passes material on }
+  SILO_CAP = 4000;    { a silo stores }
   MAX_DIA = 5;
   GRAVITY = 500.0;   { px/s^2 at 100% gravity }
   VK = 120.0;        { air speed (px/s) per unit of flow in a size-3 pipe }
@@ -62,7 +67,7 @@ type
   end;
 
   TCellKind = (ckEmpty, ckPipe, ckSource, ckBlower, ckSuction, ckNozzle,
-    ckDrop, ckCheck, ckValve2, ckValve3, ckValve4);
+    ckDrop, ckCheck, ckValve2, ckValve3, ckValve4, ckHopper, ckSilo);
 
   PCell = ^TCell;
   TCell = record
@@ -108,13 +113,23 @@ type
   TLabelObj = record
     Active: Boolean;
     X, Y: Single;          { top-left corner, canvas pixels }
-    Text: string[255];     { lines separated by #10 }
+    Text: string[255];     { lines separated by #10; for a date / time label: its caption }
+    Kind: Byte;            { LBL_TEXT, LBL_DATE, LBL_TIME }
+    Fmt: string[40];       { date / time format (FormatDateTime codes) }
+    Color: Byte;           { 0 theme, 1 blue, 2 green, 3 amber, 4 red, 5 white }
+    NoBox: Boolean;        { no frame / background behind the text }
   end;
 
   TIntake = record
     MX, MY, R, CapR, Str: Single;
     CX, CY, D: Integer;
     Suction: Boolean;
+  end;
+
+  { a hopper funnel / silo opening that catches falling material, or a solid silo body }
+  TCatch = record
+    X1, Y1, X2, Y2: Single;
+    GX, GY: Integer;
   end;
 
   TJet = record
@@ -142,6 +157,10 @@ var
   NIntake: Integer = 0;
   Jets: array[0..63] of TJet;
   NJet: Integer = 0;
+  Catches: array[0..63] of TCatch;
+  NCatch: Integer = 0;
+  Bodies: array[0..63] of TCatch;
+  NBody: Integer = 0;
   GravityScale: Single = 1.0;
   LimitHit: Boolean = False;
 
@@ -150,6 +169,11 @@ function fmax(a, b: Single): Single; inline;
 function fclamp(v, lo, hi: Single): Single; inline;
 
 function InGrid(x, y: Integer): Boolean;
+function IsStore(K: TCellKind): Boolean;
+function StoreTotal(const c: TCell): Single;
+function StoreCap(K: TCellKind): Single;
+{ the area a hopper / silo draws above its outlet cell (canvas pixels) }
+function StoreShape(gx, gy: Integer; out x1, y1, x2, y2: Single): Boolean;
 function HWOf(Dia: Integer): Single;
 function Opp(d: Integer): Integer;
 function Connected(x, y, d: Integer): Boolean;
@@ -225,6 +249,55 @@ end;
 function InGrid(x, y: Integer): Boolean;
 begin
   Result := (x >= 0) and (y >= 0) and (x < GW) and (y < GH);
+end;
+
+{ tanks, hoppers and silos hold material and feed it into their pipes }
+function IsStore(K: TCellKind): Boolean;
+begin
+  Result := K in [ckSource, ckHopper, ckSilo];
+end;
+
+function StoreTotal(const c: TCell): Single;
+var
+  m: TMat;
+begin
+  Result := 0;
+  for m := mWater to mSand do
+    Result := Result + c.Stock[m];
+end;
+
+function StoreCap(K: TCellKind): Single;
+begin
+  case K of
+    ckHopper: Result := HOPPER_CAP;
+    ckSilo: Result := SILO_CAP;
+  else
+    Result := 4 * STOCK_MAX;
+  end;
+end;
+
+{ can store c take one more particle of material m }
+function StoreAccepts(const c: TCell; m: TMat): Boolean;
+begin
+  if m = mAir then Exit(True);
+  Result := (c.Stock[m] < STOCK_MAX) and (StoreTotal(c) < StoreCap(c.Kind));
+end;
+
+{ silo: a body 2 cells wide and 3 tall above its outlet cell, with a cone into it;
+  hopper: a funnel 2 cells tall above its outlet cell }
+function StoreShape(gx, gy: Integer; out x1, y1, x2, y2: Single): Boolean;
+var
+  cx, top: Single;
+begin
+  Result := True;
+  cx := gx * CELL + HALF;
+  top := gy * CELL;
+  case Grid[gx, gy].Kind of
+    ckSilo: begin x1 := cx - 22; x2 := cx + 22; y1 := top - 3 * CELL; y2 := top + HALF; end;
+    ckHopper: begin x1 := cx - 30; x2 := cx + 30; y1 := top - 2 * CELL + 4; y2 := top + HALF; end;
+  else
+    begin x1 := 0; y1 := 0; x2 := 0; y2 := 0; Result := False; end;
+  end;
 end;
 
 function HWOf(Dia: Integer): Single;
@@ -371,6 +444,10 @@ begin
       Labels[i].X := fclamp(X, 0, CANVAS_W - 16);
       Labels[i].Y := fclamp(Y, 0, CANVAS_H - 12);
       Labels[i].Text := Text;
+      Labels[i].Kind := LBL_TEXT;
+      Labels[i].Fmt := '';
+      Labels[i].Color := 0;
+      Labels[i].NoBox := False;
       Exit(i);
     end;
   Result := -1;
@@ -485,6 +562,16 @@ begin
       c^.Dir := -1;
     ckValve4:
       c^.Closed := 0;
+    ckHopper, ckSilo:
+      begin
+        { they start empty and are filled by what falls or flows in }
+        c^.Stock[mWater] := 0;
+        c^.Stock[mOil] := 0;
+        c^.Stock[mFluff] := 0;
+        c^.Stock[mSand] := 0;
+        c^.AirPct := 0;
+        if K = ckHopper then c^.Feed := 100 else c^.Feed := 40;
+      end;
   end;
 end;
 
@@ -597,7 +684,7 @@ begin
           if (c^.Dir >= 0) and not c^.ECon[c^.Dir] and (c^.Strength > 0.5) then
             c^.Mouth := c^.Dir;
       end;
-      c^.Fixed := (c^.Kind = ckSource) or (c^.Mouth >= 0);
+      c^.Fixed := IsStore(c^.Kind) or (c^.Mouth >= 0);
       ActiveIdx[NActive] := x + y * GW;
       Inc(NActive);
     end;
@@ -744,11 +831,40 @@ var
 begin
   NIntake := 0;
   NJet := 0;
+  NCatch := 0;
+  NBody := 0;
   for i := 0 to NActive - 1 do
   begin
     x := ActiveIdx[i] mod GW;
     y := ActiveIdx[i] div GW;
     c := @Grid[x, y];
+    if (c^.Kind in [ckHopper, ckSilo]) and (NCatch <= High(Catches)) then
+    begin
+      Catches[NCatch].GX := x;
+      Catches[NCatch].GY := y;
+      if c^.Kind = ckHopper then
+      begin
+        { the whole funnel catches }
+        Catches[NCatch].X1 := x * CELL + HALF - 30;
+        Catches[NCatch].X2 := x * CELL + HALF + 30;
+        Catches[NCatch].Y1 := y * CELL - 2 * CELL + 4;
+        Catches[NCatch].Y2 := y * CELL + HALF - 4;
+      end
+      else
+      begin
+        { the silo's top opening catches; its body is solid }
+        Catches[NCatch].X1 := x * CELL + HALF - 22;
+        Catches[NCatch].X2 := x * CELL + HALF + 22;
+        Catches[NCatch].Y1 := y * CELL - 3 * CELL - 14;
+        Catches[NCatch].Y2 := y * CELL - 3 * CELL + 6;
+        Bodies[NBody].X1 := x * CELL + HALF - 23;
+        Bodies[NBody].X2 := x * CELL + HALF + 23;
+        Bodies[NBody].Y1 := y * CELL - 3 * CELL + 6;
+        Bodies[NBody].Y2 := y * CELL + HALF;
+        Inc(NBody);
+      end;
+      Inc(NCatch);
+    end;
     m := c^.Mouth;
     if m < 0 then Continue;
     if (c^.F[m] < -0.02) and (NIntake <= High(Intakes)) then
@@ -957,10 +1073,21 @@ begin
   iy := Trunc(py / CELL);
   if not InGrid(ix, iy) then Exit;
   if Grid[ix, iy].Kind = ckEmpty then Exit;
-  if Grid[ix, iy].Kind in [ckSource, ckBlower] then Exit(True);
+  if Grid[ix, iy].Kind in [ckSource, ckBlower, ckHopper, ckSilo] then Exit(True);
   lx := px - (ix * CELL + HALF);
   ly := py - (iy * CELL + HALF);
   Result := ClampShape(ix, iy, lx, ly, 2 + PRAD);
+end;
+
+{ silo walls are solid for falling material (it gets in only through the top opening) }
+function InStoreBody(px, py: Single): Boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to NBody - 1 do
+    if (px > Bodies[i].X1) and (px < Bodies[i].X2) and (py > Bodies[i].Y1) and (py < Bodies[i].Y2) then
+      Exit(True);
+  Result := False;
 end;
 
 function SolidAt(px, py: Single): Boolean;
@@ -968,7 +1095,7 @@ var
   bi, bk: Integer;
 begin
   Result := (px < 0.5) or (px > CANVAS_W - 0.5) or (py >= FLOOR_Y) or
-    GridSolid(px, py) or InBucketWall(px, py, bi, bk);
+    GridSolid(px, py) or InBucketWall(px, py, bi, bk) or InStoreBody(px, py);
 end;
 
 { Push a particle that ended up inside something back to free space }
@@ -1170,7 +1297,7 @@ begin
     x := ActiveIdx[i] mod GW;
     y := ActiveIdx[i] div GW;
     c := @Grid[x, y];
-    if c^.Kind = ckSource then
+    if IsStore(c^.Kind) then
     begin
       q := 0;
       for d := 0 to 3 do
@@ -1273,6 +1400,8 @@ begin
   lx := lx + p.VX * dt;
   ly := ly + p.VY * dt;
 
+  nx := 0;
+  ny := 0;
   d := -1;
   if (Abs(lx) > HALF) or (Abs(ly) > HALF) then
   begin
@@ -1298,14 +1427,26 @@ begin
     begin
       nx := p.CX + DXS[d];
       ny := p.CY + DYS[d];
-      if Grid[nx, ny].Kind = ckSource then
+      if IsStore(Grid[nx, ny].Kind) and StoreAccepts(Grid[nx, ny], p.Mat) then
       begin
-        { flowing back into a tank: it is stored again }
-        if (p.Mat <> mAir) and (Grid[nx, ny].Stock[p.Mat] < STOCK_MAX) then
+        { flowing into a tank, hopper or silo: it is stored }
+        if p.Mat <> mAir then
           Grid[nx, ny].Stock[p.Mat] := Grid[nx, ny].Stock[p.Mat] + 1;
         p.Life := -1;
         Exit;
       end;
+      if IsStore(Grid[nx, ny].Kind) then
+      begin
+        { full: the material waits in the pipe }
+        if DXS[d] <> 0 then lx := fclamp(lx, -HALF + 0.01, HALF - 0.01)
+        else ly := fclamp(ly, -HALF + 0.01, HALF - 0.01);
+        p.VX := 0;
+        p.VY := 0;
+        nx := -1;
+      end;
+    end;
+    if (d >= 0) and (d <> c^.Mouth) and c^.EPf[d] and (nx >= 0) then
+    begin
       p.CX := nx;
       p.CY := ny;
       c := @Grid[nx, ny];
@@ -1375,6 +1516,18 @@ begin
   { liquids keep moving sideways so they level out instead of heaping }
   if p.Mat = mWater then p.VX := p.VX + (Random - 0.5) * 40
   else if p.Mat = mOil then p.VX := p.VX + (Random - 0.5) * 25;
+
+  { falling into a hopper funnel or a silo's top opening: it is stored }
+  if p.Mat <> mAir then
+    for i := 0 to NCatch - 1 do
+      if (p.X >= Catches[i].X1) and (p.X <= Catches[i].X2) and (p.Y >= Catches[i].Y1) and
+        (p.Y <= Catches[i].Y2) and (p.VY > -60) and
+        StoreAccepts(Grid[Catches[i].GX, Catches[i].GY], p.Mat) then
+      begin
+        Grid[Catches[i].GX, Catches[i].GY].Stock[p.Mat] := Grid[Catches[i].GX, Catches[i].GY].Stock[p.Mat] + 1;
+        p.Life := -1;
+        Exit;
+      end;
 
   if p.Mat <> mAir then
     for i := 0 to NIntake - 1 do

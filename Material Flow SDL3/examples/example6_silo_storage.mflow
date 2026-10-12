@@ -1,0 +1,88 @@
+# Material Flow Simulator layout
+# CELL x y kind conn dia dir open strength
+# TANK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+MFLOW 1
+NAME Silo storage
+GRAVITY 1.00
+CELL 32 3 tank S 4 E 1 0.00
+TANK 32 3 2500.00 0.00 0.00 0.00 10.00 80.00
+CELL 10 4 pipe ES 3 E 1 0.00
+CELL 11 4 pipe EW 3 E 1 0.00
+CELL 12 4 pipe EW 3 E 1 0.00
+CELL 13 4 pipe EW 3 E 1 0.00
+CELL 14 4 pipe EW 3 E 1 0.00
+CELL 15 4 pipe EW 3 E 1 0.00
+CELL 16 4 pipe EW 3 E 1 0.00
+CELL 17 4 pipe EW 3 E 1 0.00
+CELL 18 4 pipe EW 3 E 1 0.00
+CELL 19 4 pipe EW 3 E 1 0.00
+CELL 20 4 pipe EW 3 E 1 0.00
+CELL 21 4 pipe SW 3 E 1 0.00
+CELL 32 4 pipe SN 3 E 1 0.00
+CELL 10 5 pipe SN 3 E 1 0.00
+CELL 21 5 pipe SN 3 E 1 0.00
+CELL 32 5 pipe SN 3 E 1 0.00
+CELL 10 6 pipe SN 3 E 1 0.00
+CELL 21 6 drop N 3 S 1 100.00
+CELL 32 6 pipe SN 3 E 1 0.00
+CELL 10 7 pipe SN 3 E 1 0.00
+CELL 32 7 pipe SN 3 E 1 0.00
+CELL 10 8 pipe SN 3 E 1 0.00
+CELL 32 8 pipe SN 3 E 1 0.00
+CELL 10 9 pipe SN 3 E 1 0.00
+CELL 32 9 pipe SN 3 E 1 0.00
+CELL 10 10 pipe SN 3 E 1 0.00
+CELL 32 10 pipe SN 3 E 1 0.00
+CELL 10 11 pipe SN 3 E 1 0.00
+CELL 32 11 pipe SN 3 E 1 0.00
+CELL 10 12 pipe SN 3 E 1 0.00
+CELL 32 12 blower SN 3 S 1 60.00
+CELL 10 13 pipe SN 3 E 1 0.00
+CELL 32 13 pipe SN 3 E 1 0.00
+CELL 10 14 pipe SN 3 E 1 0.00
+CELL 32 14 pipe SN 3 E 1 0.00
+CELL 10 15 pipe SN 3 E 1 0.00
+CELL 32 15 pipe SN 3 E 1 0.00
+CELL 10 16 pipe SN 3 E 1 0.00
+CELL 32 16 pipe SN 3 E 1 0.00
+CELL 10 17 pipe SN 3 E 1 0.00
+CELL 32 17 pipe SN 3 E 1 0.00
+CELL 10 18 pipe SN 3 E 1 0.00
+CELL 21 18 silo S 3 E 1 0.00
+TANK 21 18 0.00 0.00 0.00 0.00 0.00 30.00
+CELL 32 18 pipe SN 3 E 1 0.00
+CELL 10 19 pipe SN 3 E 1 0.00
+CELL 21 19 pipe SN 3 E 1 0.00
+CELL 32 19 pipe EN 3 E 1 0.00
+CELL 33 19 pipe EW 3 E 1 0.00
+CELL 34 19 pipe EW 3 E 1 0.00
+CELL 35 19 pipe EW 3 E 1 0.00
+CELL 36 19 silo SW 3 E 1 0.00
+TANK 36 19 0.00 0.00 0.00 0.00 0.00 0.00
+CELL 3 20 tank E 4 E 1 0.00
+TANK 3 20 0.00 0.00 150.00 2600.00 20.00 70.00
+CELL 4 20 pipe EW 3 E 1 0.00
+CELL 5 20 pipe EW 3 E 1 0.00
+CELL 6 20 blower EW 3 E 1 85.00
+CELL 7 20 pipe EW 3 E 1 0.00
+CELL 8 20 pipe EW 3 E 1 0.00
+CELL 9 20 pipe EW 3 E 1 0.00
+CELL 10 20 pipe WN 3 E 1 0.00
+CELL 21 20 pipe SN 3 E 1 0.00
+CELL 36 20 pipe SN 3 E 1 0.00
+CELL 21 21 pipe SN 3 E 1 0.00
+CELL 36 21 pipe SN 3 E 1 0.00
+CELL 21 22 pipe SN 3 E 1 0.00
+CELL 36 22 pipe SN 3 E 1 0.00
+CELL 21 23 pipe SN 3 E 1 0.00
+CELL 36 23 pipe SN 3 E 1 0.00
+CELL 21 24 pipe SN 3 E 1 0.00
+CELL 36 24 pipe SN 3 E 1 0.00
+CELL 21 25 drop N 3 S 1 100.00
+CELL 36 25 drop N 3 S 1 100.00
+BUCKET 446.00 726.00 140.00 80.00
+BUCKET 816.00 726.00 120.00 80.00
+LABEL 560.00 120.00 SILO\nSand drops in through the\nroof; the gate (30%) lets\nit out slowly.
+LABEL 880.00 300.00 Pipe-fed silo,\ngate shut: it\nonly stores.

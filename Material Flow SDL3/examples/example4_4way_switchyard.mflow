@@ -1,0 +1,100 @@
+# Material Flow Simulator layout
+# CELL x y kind conn dia dir open strength
+# TANK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+MFLOW 1
+NAME 4-way valve switchyard
+GRAVITY 1.00
+CELL 16 4 pipe ES 3 E 1 0.00
+CELL 17 4 pipe EW 3 E 1 0.00
+CELL 18 4 pipe EW 3 E 1 0.00
+CELL 19 4 pipe EW 3 E 1 0.00
+CELL 20 4 pipe EW 3 E 1 0.00
+CELL 21 4 pipe EW 3 E 1 0.00
+CELL 22 4 pipe EW 3 E 1 0.00
+CELL 23 4 pipe EW 3 E 1 0.00
+CELL 24 4 pipe EW 3 E 1 0.00
+CELL 25 4 pipe EW 3 E 1 0.00
+CELL 26 4 pipe EW 3 E 1 0.00
+CELL 27 4 pipe EW 3 E 1 0.00
+CELL 28 4 pipe EW 3 E 1 0.00
+CELL 29 4 pipe EW 3 E 1 0.00
+CELL 30 4 pipe EW 3 E 1 0.00
+CELL 31 4 pipe EW 3 E 1 0.00
+CELL 32 4 pipe EW 3 E 1 0.00
+CELL 33 4 pipe EW 3 E 1 0.00
+CELL 34 4 pipe EW 3 E 1 0.00
+CELL 35 4 pipe SW 3 E 1 0.00
+CELL 16 5 pipe SN 3 E 1 0.00
+CELL 35 5 pipe SN 3 E 1 0.00
+CELL 16 6 pipe SN 3 E 1 0.00
+CELL 35 6 pipe SN 3 E 1 0.00
+CELL 16 7 pipe SN 3 E 1 0.00
+CELL 35 7 pipe SN 3 E 1 0.00
+CELL 16 8 pipe SN 3 E 1 0.00
+CELL 35 8 pipe SN 3 E 1 0.00
+CELL 16 9 pipe SN 3 E 1 0.00
+CELL 35 9 pipe SN 3 E 1 0.00
+CELL 4 10 tank E 4 E 1 0.00
+TANK 4 10 2500.00 900.00 0.00 0.00 10.00 75.00
+CELL 5 10 pipe EW 3 E 1 0.00
+CELL 6 10 pipe EW 3 E 1 0.00
+CELL 7 10 pipe EW 3 E 1 0.00
+CELL 8 10 blower EW 3 E 1 75.00
+CELL 9 10 pipe EW 3 E 1 0.00
+CELL 10 10 pipe EW 3 E 1 0.00
+CELL 11 10 pipe EW 3 E 1 0.00
+CELL 12 10 pipe EW 3 E 1 0.00
+CELL 13 10 pipe EW 3 E 1 0.00
+CELL 14 10 pipe EW 3 E 1 0.00
+CELL 15 10 pipe EW 3 E 1 0.00
+CELL 16 10 valve4 ESWN 3 E 1 0.00 N
+CELL 17 10 pipe EW 3 E 1 0.00
+CELL 18 10 pipe EW 3 E 1 0.00
+CELL 19 10 pipe EW 3 E 1 0.00
+CELL 20 10 pipe EW 3 E 1 0.00
+CELL 21 10 pipe EW 3 E 1 0.00
+CELL 22 10 pipe EW 3 E 1 0.00
+CELL 23 10 pipe EW 3 E 1 0.00
+CELL 24 10 pipe EW 3 E 1 0.00
+CELL 25 10 pipe EW 3 E 1 0.00
+CELL 26 10 pipe SW 3 E 1 0.00
+CELL 35 10 pipe SN 3 E 1 0.00
+CELL 16 11 pipe SN 3 E 1 0.00
+CELL 26 11 pipe SN 3 E 1 0.00
+CELL 35 11 pipe SN 3 E 1 0.00
+CELL 16 12 pipe SN 3 E 1 0.00
+CELL 26 12 pipe SN 3 E 1 0.00
+CELL 35 12 pipe SN 3 E 1 0.00
+CELL 16 13 pipe SN 3 E 1 0.00
+CELL 26 13 pipe SN 3 E 1 0.00
+CELL 35 13 pipe SN 3 E 1 0.00
+CELL 16 14 pipe SN 3 E 1 0.00
+CELL 26 14 pipe SN 3 E 1 0.00
+CELL 35 14 pipe SN 3 E 1 0.00
+CELL 16 15 pipe SN 3 E 1 0.00
+CELL 26 15 pipe SN 3 E 1 0.00
+CELL 35 15 pipe SN 3 E 1 0.00
+CELL 16 16 pipe SN 3 E 1 0.00
+CELL 26 16 pipe SN 3 E 1 0.00
+CELL 35 16 pipe SN 3 E 1 0.00
+CELL 16 17 pipe SN 3 E 1 0.00
+CELL 26 17 pipe SN 3 E 1 0.00
+CELL 35 17 pipe SN 3 E 1 0.00
+CELL 16 18 pipe SN 3 E 1 0.00
+CELL 26 18 pipe SN 3 E 1 0.00
+CELL 35 18 pipe SN 3 E 1 0.00
+CELL 16 19 pipe SN 3 E 1 0.00
+CELL 26 19 pipe SN 3 E 1 0.00
+CELL 35 19 pipe SN 3 E 1 0.00
+CELL 16 20 pipe SN 3 E 1 0.00
+CELL 26 20 pipe SN 3 E 1 0.00
+CELL 35 20 pipe SN 3 E 1 0.00
+CELL 16 21 drop N 3 S 1 100.00
+CELL 26 21 drop N 3 S 1 100.00
+CELL 35 21 drop N 3 S 1 100.00
+BUCKET 336.00 716.00 120.00 90.00
+BUCKET 576.00 716.00 120.00 90.00
+BUCKET 792.00 716.00 120.00 90.00
+LABEL 430.00 130.00 4-WAY VALVE\nSelect the valve and use its\nE S W N buttons (or R) to\nopen and shut each branch.\nNorth starts shut.

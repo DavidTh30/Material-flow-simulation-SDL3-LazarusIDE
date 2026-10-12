@@ -1,0 +1,140 @@
+# Material Flow Simulator layout
+# CELL x y kind conn dia dir open strength
+# TANK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+MFLOW 1
+NAME Original demo
+GRAVITY 1.00
+CELL 38 2 tank S 4 E 1 0.00
+TANK 38 2 0.00 0.00 800.00 2000.00 25.00 60.00
+CELL 2 3 tank E 4 E 1 0.00
+TANK 2 3 2400.00 800.00 0.00 0.00 15.00 70.00
+CELL 3 3 pipe EW 3 E 1 0.00
+CELL 4 3 pipe EW 3 E 1 0.00
+CELL 5 3 pipe EW 3 E 1 0.00
+CELL 6 3 blower EW 3 E 1 60.00
+CELL 7 3 pipe EW 3 E 1 0.00
+CELL 8 3 pipe EW 3 E 1 0.00
+CELL 9 3 pipe EW 3 E 1 0.00
+CELL 10 3 pipe EW 3 E 1 0.00
+CELL 11 3 valve3 ESW 3 - 1 0.00
+CELL 12 3 pipe EW 3 E 1 0.00
+CELL 13 3 pipe EW 3 E 1 0.00
+CELL 14 3 pipe EW 1 E 1 0.00
+CELL 15 3 pipe EW 1 E 1 0.00
+CELL 16 3 pipe EW 5 E 1 0.00
+CELL 17 3 pipe EW 5 E 1 0.00
+CELL 18 3 pipe EW 5 E 1 0.00
+CELL 19 3 pipe SW 3 E 1 0.00
+CELL 38 3 pipe SN 4 E 1 0.00
+CELL 11 4 pipe SN 3 E 1 0.00
+CELL 19 4 pipe SN 3 E 1 0.00
+CELL 38 4 pipe SN 4 E 1 0.00
+CELL 11 5 pipe SN 3 E 1 0.00
+CELL 19 5 pipe SN 3 E 1 0.00
+CELL 38 5 pipe SN 4 E 1 0.00
+CELL 11 6 pipe SN 3 E 1 0.00
+CELL 19 6 pipe SN 3 E 1 0.00
+CELL 38 6 valve2 SN 4 E 1 0.00
+CELL 11 7 pipe SN 3 E 1 0.00
+CELL 19 7 pipe SN 3 E 1 0.00
+CELL 38 7 pipe SN 4 E 1 0.00
+CELL 11 8 pipe SN 3 E 1 0.00
+CELL 19 8 pipe SN 3 E 1 0.00
+CELL 25 8 pipe ES 3 E 1 0.00
+CELL 26 8 pipe EW 3 E 1 0.00
+CELL 27 8 pipe EW 3 E 1 0.00
+CELL 28 8 pipe EW 3 E 1 0.00
+CELL 29 8 pipe EW 3 E 1 0.00
+CELL 30 8 check EW 3 W 1 0.00
+CELL 31 8 pipe EW 3 E 1 0.00
+CELL 32 8 pipe EW 3 E 1 0.00
+CELL 33 8 pipe EW 3 E 1 0.00
+CELL 34 8 pipe EW 3 E 1 0.00
+CELL 35 8 pipe EW 3 E 1 0.00
+CELL 36 8 pipe SW 3 E 1 0.00
+CELL 38 8 pipe SN 4 E 1 0.00
+CELL 11 9 pipe SN 3 E 1 0.00
+CELL 19 9 pipe SN 3 E 1 0.00
+CELL 25 9 pipe SN 3 E 1 0.00
+CELL 36 9 pipe SN 3 E 1 0.00
+CELL 38 9 pipe SN 4 E 1 0.00
+CELL 11 10 pipe SN 3 E 1 0.00
+CELL 19 10 pipe SN 3 E 1 0.00
+CELL 25 10 pipe SN 3 E 1 0.00
+CELL 36 10 pipe SN 3 E 1 0.00
+CELL 38 10 pipe SN 2 E 1 0.00
+CELL 11 11 pipe SN 3 E 1 0.00
+CELL 19 11 pipe SN 3 E 1 0.00
+CELL 25 11 pipe SN 3 E 1 0.00
+CELL 36 11 pipe SN 3 E 1 0.00
+CELL 38 11 pipe SN 2 E 1 0.00
+CELL 11 12 pipe SN 3 E 1 0.00
+CELL 19 12 pipe SN 3 E 1 0.00
+CELL 25 12 pipe SN 3 E 1 0.00
+CELL 36 12 pipe SN 3 E 1 0.00
+CELL 38 12 pipe SN 2 E 1 0.00
+CELL 11 13 pipe SN 3 E 1 0.00
+CELL 19 13 pipe SN 3 E 1 0.00
+CELL 25 13 pipe SN 3 E 1 0.00
+CELL 36 13 pipe SN 3 E 1 0.00
+CELL 38 13 pipe SN 2 E 1 0.00
+CELL 11 14 pipe SN 3 E 1 0.00
+CELL 19 14 pipe SN 3 E 1 0.00
+CELL 25 14 pipe SN 3 E 1 0.00
+CELL 36 14 pipe SN 3 E 1 0.00
+CELL 38 14 pipe SN 4 E 1 0.00
+CELL 11 15 pipe SN 3 E 1 0.00
+CELL 19 15 pipe SN 3 E 1 0.00
+CELL 25 15 pipe SN 3 E 1 0.00
+CELL 36 15 pipe SN 3 E 1 0.00
+CELL 38 15 pipe SN 4 E 1 0.00
+CELL 11 16 pipe SN 3 E 1 0.00
+CELL 19 16 pipe SN 3 E 1 0.00
+CELL 25 16 pipe SN 3 E 1 0.00
+CELL 36 16 pipe SN 3 E 1 0.00
+CELL 38 16 pipe SN 4 E 1 0.00
+CELL 11 17 pipe SN 3 E 1 0.00
+CELL 19 17 pipe SN 3 E 1 0.00
+CELL 25 17 pipe SN 3 E 1 0.00
+CELL 36 17 pipe SN 3 E 1 0.00
+CELL 38 17 pipe SN 4 E 1 0.00
+CELL 11 18 pipe SN 3 E 1 0.00
+CELL 19 18 pipe SN 3 E 1 0.00
+CELL 25 18 pipe SN 3 E 1 0.00
+CELL 36 18 pipe SN 3 E 1 0.00
+CELL 38 18 pipe SN 4 E 1 0.00
+CELL 11 19 pipe SN 3 E 1 0.00
+CELL 19 19 pipe SN 3 E 1 0.00
+CELL 25 19 pipe SN 3 E 1 0.00
+CELL 36 19 pipe SN 3 E 1 0.00
+CELL 38 19 pipe SN 4 E 1 0.00
+CELL 11 20 pipe SN 3 E 1 0.00
+CELL 19 20 pipe SN 3 E 1 0.00
+CELL 25 20 pipe SN 3 E 1 0.00
+CELL 36 20 pipe SN 3 E 1 0.00
+CELL 38 20 pipe SN 4 E 1 0.00
+CELL 11 21 pipe SN 3 E 1 0.00
+CELL 19 21 pipe SN 3 E 1 0.00
+CELL 25 21 pipe SN 3 E 1 0.00
+CELL 36 21 pipe SN 3 E 1 0.00
+CELL 38 21 drop N 4 S 1 80.00
+CELL 11 22 pipe SN 3 E 1 0.00
+CELL 19 22 nozzle N 3 S 1 45.00
+CELL 25 22 drop N 3 S 1 100.00
+CELL 36 22 pipe SN 3 E 1 0.00
+CELL 11 23 drop N 3 S 1 100.00
+CELL 36 23 pipe SN 3 E 1 0.00
+CELL 36 24 pipe SN 3 E 1 0.00
+CELL 36 25 pipe SN 3 E 1 0.00
+CELL 36 26 pipe SN 3 E 1 0.00
+CELL 36 27 pipe SN 3 E 1 0.00
+CELL 36 28 pipe SN 3 E 1 0.00
+CELL 36 29 suction N 3 S 1 75.00
+BUCKET 231.00 736.00 90.00 70.00
+BUCKET 418.00 696.00 220.00 110.00
+BUCKET 849.00 696.00 150.00 110.00
+LABEL 30.00 120.00 LINE 1 - liquids\nTank > blower > 3-way valve.\nLeft: drop outlet.\nRight: narrowed, widened,\nthen push-out nozzle.
+LABEL 690.00 52.00 LINE 2 - gravity\nSand + fluff drain through\nan on/off valve and a neck.
+LABEL 640.00 260.00 LINE 3 - vacuum\nSuction head in bucket 3,\n1-way pipe, drop outlet\ninto bucket 2.

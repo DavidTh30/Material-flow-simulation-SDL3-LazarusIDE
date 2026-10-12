@@ -10,8 +10,12 @@ unit layoutio;
   TANK <x> <y> <water> <oil> <fluff> <sand> <air%> <feed%>
   BUCKET <x> <y> <w> <h>
   LABEL <x> <y> <text>            (\n = new line in the text)
+  LABEL2 <kind> <x> <y> <colour> <box> <format> <caption>
+                                  (kind text/date/time; format: FormatDateTime
+                                   codes, \s = space, - = none; box 1/0)
 
-  kind: pipe tank blower suction nozzle drop check valve2 valve3 valve4
+  kind: pipe tank blower suction nozzle drop check valve2 valve3 valve4 hopper silo
+  (TANK lines also hold the contents and gate of hoppers and silos)
   a valve4 CELL has a 10th value: its shut branches (ESWN letters or "-")
   conn: joined sides as letters from ESWN (e.g. "EW"), "-" for none
   dir : E S W N, "-" for none (3-way valve with every branch open)
@@ -33,8 +37,9 @@ uses
   SysUtils, Math, simcore;
 
 const
+  LabelKinds: array[0..2] of string = ('text', 'date', 'time');
   KindTags: array[TCellKind] of string = ('empty', 'pipe', 'tank', 'blower', 'suction',
-    'nozzle', 'drop', 'check', 'valve2', 'valve3', 'valve4');
+    'nozzle', 'drop', 'check', 'valve2', 'valve3', 'valve4', 'hopper', 'silo');
   DirLetters = 'ESWN';
 
 var
@@ -84,6 +89,19 @@ begin
     end;
 end;
 
+{ one word: like EscapeText, plus space -> \s; empty -> - }
+function EscapeToken(const s: string): string;
+var
+  i: Integer;
+  e: string;
+begin
+  if s = '' then Exit('-');
+  e := EscapeText(s);
+  Result := '';
+  for i := 1 to Length(e) do
+    if e[i] = ' ' then Result := Result + '\s' else Result := Result + e[i];
+end;
+
 function UnescapeText(const s: string): string;
 var
   i: Integer;
@@ -95,7 +113,9 @@ begin
     if (s[i] = '\') and (i < Length(s)) then
     begin
       Inc(i);
-      if s[i] = 'n' then Result := Result + #10 else Result := Result + s[i];
+      if s[i] = 'n' then Result := Result + #10
+      else if s[i] = 's' then Result := Result + ' '
+      else Result := Result + s[i];
     end
     else
       Result := Result + s[i];
@@ -120,6 +140,7 @@ begin
       WriteLn(f, '# TANK x y water oil fluff sand air% feed%');
       WriteLn(f, '# BUCKET x y w h');
       WriteLn(f, '# LABEL x y text   (\n = new line)');
+      WriteLn(f, '# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)');
       WriteLn(f, 'MFLOW 1');
       if LayoutName <> '' then WriteLn(f, 'NAME ', LayoutName);
       WriteLn(f, 'GRAVITY ', F2S(GravityScale));
@@ -134,7 +155,7 @@ begin
           else
             WriteLn(f, Format('CELL %d %d %s %s %d %s %d %s', [x, y, KindTags[c^.Kind],
               ConnStr(c^.Conn), c^.Dia, DirStr(c^.Dir), Ord(c^.Open), F2S(c^.Strength)]));
-          if c^.Kind = ckSource then
+          if IsStore(c^.Kind) then
             WriteLn(f, Format('TANK %d %d %s %s %s %s %s %s', [x, y, F2S(c^.Stock[mWater]),
               F2S(c^.Stock[mOil]), F2S(c^.Stock[mFluff]), F2S(c^.Stock[mSand]), F2S(c^.AirPct), F2S(c^.Feed)]));
         end;
@@ -144,7 +165,14 @@ begin
             F2S(Buckets[i].W), F2S(Buckets[i].H)]));
       for i := 0 to MAX_LABELS - 1 do
         if Labels[i].Active then
-          WriteLn(f, Format('LABEL %s %s %s', [F2S(Labels[i].X), F2S(Labels[i].Y), EscapeText(Labels[i].Text)]));
+        begin
+          if (Labels[i].Kind = LBL_TEXT) and (Labels[i].Color = 0) and not Labels[i].NoBox then
+            WriteLn(f, Format('LABEL %s %s %s', [F2S(Labels[i].X), F2S(Labels[i].Y), EscapeText(Labels[i].Text)]))
+          else
+            WriteLn(f, Format('LABEL2 %s %s %s %d %d %s %s', [LabelKinds[Labels[i].Kind], F2S(Labels[i].X),
+              F2S(Labels[i].Y), Labels[i].Color, Ord(not Labels[i].NoBox), EscapeToken(Labels[i].Fmt),
+              EscapeText(Labels[i].Text)]));
+        end;
     finally
       CloseFile(f);
     end;
@@ -233,7 +261,7 @@ var
   c: PCell;
   K: TCellKind;
   conn: Byte;
-  dir: Integer;
+  dir, k2: Integer;
   v: array[0..5] of Single;
 
   procedure Fail(const Msg: string);
@@ -320,6 +348,21 @@ begin
           c^.Closed := conn;
         end;
       end
+      else if SameText(Tok[0], 'LABEL2') then
+      begin
+        Need(7);
+        k2 := -1;
+        for i := 0 to 2 do
+          if SameText(Tok[1], LabelKinds[i]) then k2 := i;
+        if k2 < 0 then Fail('unknown label kind "' + Tok[1] + '"');
+        for i := 0 to 1 do v[i] := Num(2 + i);
+        i := AddLabel(v[0], v[1], UnescapeText(AfterTokens(line, 7)));
+        if i < 0 then Fail(Format('too many labels (max %d)', [MAX_LABELS]));
+        Labels[i].Kind := k2;
+        Labels[i].Color := EnsureRange(Int(4), 0, 5);
+        Labels[i].NoBox := Int(5) = 0;
+        if Tok[6] = '-' then Labels[i].Fmt := '' else Labels[i].Fmt := Copy(UnescapeText(Tok[6]), 1, 40);
+      end
       else if SameText(Tok[0], 'LABEL') then
       begin
         Need(3);
@@ -333,7 +376,7 @@ begin
         Need(9);
         GridPos;
         c := @Grid[x, y];
-        if c^.Kind <> ckSource then Fail(Format('TANK at %d,%d has no tank CELL before it', [x, y]));
+        if not IsStore(c^.Kind) then Fail(Format('TANK at %d,%d has no tank, hopper or silo CELL before it', [x, y]));
         for i := 0 to 5 do v[i] := Num(3 + i);
         c^.Stock[mWater] := fclamp(v[0], 0, STOCK_MAX);
         c^.Stock[mOil] := fclamp(v[1], 0, STOCK_MAX);

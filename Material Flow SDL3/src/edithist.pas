@@ -94,7 +94,7 @@ begin
     if c^.Kind <> ckEmpty then ResetCell(x, y);
     Exit;
   end;
-  KeepStock := KeepStock and (c^.Kind = ckSource) and (L.Kind = ckSource);
+  KeepStock := KeepStock and IsStore(c^.Kind) and (c^.Kind = L.Kind);
   oldP := c^.P;
   oldStock := c^.Stock;
   ResetCell(x, y);
@@ -158,7 +158,9 @@ begin
   begin
     if Labels[i].Active <> s^.Lbls[i].Active then Exit;
     if Labels[i].Active and ((Labels[i].X <> s^.Lbls[i].X) or (Labels[i].Y <> s^.Lbls[i].Y) or
-      (Labels[i].Text <> s^.Lbls[i].Text)) then Exit;
+      (Labels[i].Text <> s^.Lbls[i].Text) or (Labels[i].Kind <> s^.Lbls[i].Kind) or
+      (Labels[i].Fmt <> s^.Lbls[i].Fmt) or (Labels[i].Color <> s^.Lbls[i].Color) or
+      (Labels[i].NoBox <> s^.Lbls[i].NoBox)) then Exit;
   end;
   Result := True;
 end;
