@@ -1,0 +1,56 @@
+# Material Flow Simulator layout
+# CELL x y kind conn dia dir open strength
+# TANK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+MFLOW 1
+NAME Gravity merge/overflow
+GRAVITY 1.00
+CELL 14 2 tank S 4 E 1 0.00
+TANK 14 2 2500.00 0.00 0.00 0.00 10.00 70.00
+CELL 14 3 pipe SN 3 E 1 0.00
+CELL 26 3 tank S 4 E 1 0.00
+TANK 26 3 0.00 1500.00 500.00 0.00 20.00 60.00
+CELL 14 4 pipe SN 3 E 1 0.00
+CELL 26 4 pipe SN 3 E 1 0.00
+CELL 14 5 check SN 3 S 1 0.00
+CELL 26 5 pipe SN 3 E 1 0.00
+CELL 14 6 pipe SN 3 E 1 0.00
+CELL 26 6 pipe SN 3 E 1 0.00
+CELL 14 7 pipe SN 3 E 1 0.00
+CELL 26 7 pipe SN 3 E 1 0.00
+CELL 14 8 pipe SN 3 E 1 0.00
+CELL 26 8 pipe SN 3 E 1 0.00
+CELL 14 9 pipe ESN 3 E 1 0.00
+CELL 15 9 pipe EW 3 E 1 0.00
+CELL 16 9 pipe EW 3 E 1 0.00
+CELL 17 9 pipe EW 2 E 1 0.00
+CELL 18 9 pipe EW 2 E 1 0.00
+CELL 19 9 pipe EW 3 E 1 0.00
+CELL 20 9 pipe EW 3 E 1 0.00
+CELL 21 9 blower EW 3 W 1 55.00
+CELL 22 9 pipe EW 3 E 1 0.00
+CELL 23 9 pipe EW 3 E 1 0.00
+CELL 24 9 pipe EW 3 E 1 0.00
+CELL 25 9 pipe EW 3 E 1 0.00
+CELL 26 9 pipe WN 3 E 1 0.00
+CELL 14 10 pipe SN 3 E 1 0.00
+CELL 14 11 pipe SN 3 E 1 0.00
+CELL 14 12 pipe SN 3 E 1 0.00
+CELL 14 13 pipe SN 3 E 1 0.00
+CELL 14 14 pipe SN 3 E 1 0.00
+CELL 14 15 pipe SN 3 E 1 0.00
+CELL 14 16 pipe SN 3 E 1 0.00
+CELL 14 17 valve2 SN 3 E 1 0.00
+CELL 14 18 pipe SN 3 E 1 0.00
+CELL 14 19 pipe SN 3 E 1 0.00
+CELL 14 20 pipe SN 3 E 1 0.00
+CELL 14 21 pipe SN 3 E 1 0.00
+CELL 14 22 pipe SN 3 E 1 0.00
+CELL 14 23 pipe SN 3 E 1 0.00
+CELL 14 24 pipe SN 3 E 1 0.00
+CELL 14 25 drop N 3 S 1 100.00
+BUCKET 303.00 730.00 90.00 70.00
+BUCKET 188.00 776.00 320.00 30.00
+LABEL 380.00 40.00 Water falls by gravity\nthrough a 1-way pipe.\nOil + fluff are blown in\nthrough a narrow section.
+LABEL 520.00 700.00 The small bucket overflows\ninto the wide tray.

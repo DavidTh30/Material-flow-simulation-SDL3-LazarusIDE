@@ -1,0 +1,75 @@
+# Material Flow Simulator layout
+# CELL x y kind conn dia dir open strength
+# TANK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+MFLOW 1
+NAME Vacuum & push nozzle
+GRAVITY 1.00
+CELL 6 2 tank S 4 E 1 0.00
+TANK 6 2 1500.00 0.00 600.00 0.00 10.00 60.00
+CELL 6 3 pipe SN 3 E 1 0.00
+CELL 6 4 pipe SN 3 E 1 0.00
+CELL 6 5 pipe SN 3 E 1 0.00
+CELL 6 6 pipe SN 3 E 1 0.00
+CELL 6 7 pipe SN 3 E 1 0.00
+CELL 6 8 pipe SN 3 E 1 0.00
+CELL 6 9 pipe SN 3 E 1 0.00
+CELL 6 10 pipe SN 3 E 1 0.00
+CELL 6 11 pipe SN 3 E 1 0.00
+CELL 6 12 pipe SN 3 E 1 0.00
+CELL 6 13 pipe SN 3 E 1 0.00
+CELL 6 14 pipe SN 3 E 1 0.00
+CELL 9 14 pipe ES 3 E 1 0.00
+CELL 10 14 pipe EW 3 E 1 0.00
+CELL 11 14 pipe EW 3 E 1 0.00
+CELL 12 14 pipe EW 3 E 1 0.00
+CELL 13 14 pipe EW 3 E 1 0.00
+CELL 14 14 pipe EW 3 E 1 0.00
+CELL 15 14 pipe EW 3 E 1 0.00
+CELL 16 14 check EW 3 E 1 0.00
+CELL 17 14 pipe EW 3 E 1 0.00
+CELL 18 14 pipe EW 3 E 1 0.00
+CELL 19 14 pipe EW 3 E 1 0.00
+CELL 20 14 pipe EW 3 E 1 0.00
+CELL 21 14 pipe EW 3 E 1 0.00
+CELL 22 14 pipe EW 3 E 1 0.00
+CELL 23 14 pipe EW 3 E 1 0.00
+CELL 24 14 pipe SW 3 E 1 0.00
+CELL 6 15 pipe SN 3 E 1 0.00
+CELL 9 15 pipe SN 3 E 1 0.00
+CELL 24 15 pipe SN 3 E 1 0.00
+CELL 6 16 pipe SN 3 E 1 0.00
+CELL 9 16 pipe SN 3 E 1 0.00
+CELL 24 16 pipe SN 3 E 1 0.00
+CELL 6 17 pipe SN 3 E 1 0.00
+CELL 9 17 pipe SN 3 E 1 0.00
+CELL 24 17 pipe SN 3 E 1 0.00
+CELL 6 18 pipe SN 3 E 1 0.00
+CELL 9 18 pipe SN 3 E 1 0.00
+CELL 24 18 pipe SN 3 E 1 0.00
+CELL 6 19 pipe SN 3 E 1 0.00
+CELL 9 19 pipe SN 3 E 1 0.00
+CELL 24 19 pipe SN 3 E 1 0.00
+CELL 6 20 drop N 3 S 1 100.00
+CELL 9 20 pipe SN 3 E 1 0.00
+CELL 24 20 pipe SN 3 E 1 0.00
+CELL 9 21 pipe SN 3 E 1 0.00
+CELL 24 21 pipe SN 3 E 1 0.00
+CELL 9 22 pipe SN 3 E 1 0.00
+CELL 24 22 pipe SN 3 E 1 0.00
+CELL 9 23 pipe SN 3 E 1 0.00
+CELL 24 23 pipe SN 3 E 1 0.00
+CELL 9 24 pipe SN 3 E 1 0.00
+CELL 24 24 pipe SN 3 E 1 0.00
+CELL 9 25 pipe SN 3 E 1 0.00
+CELL 24 25 pipe SN 3 E 1 0.00
+CELL 9 26 pipe SN 3 E 1 0.00
+CELL 24 26 pipe EN 3 E 1 0.00
+CELL 25 26 nozzle W 3 E 1 40.00
+CELL 9 27 pipe SN 3 E 1 0.00
+CELL 9 28 pipe SN 3 E 1 0.00
+CELL 9 29 suction N 3 S 1 70.00
+BUCKET 93.00 706.00 150.00 100.00
+BUCKET 778.00 716.00 220.00 90.00
+LABEL 620.00 400.00 The suction head drains\nthe left bucket; the push-\nout nozzle shoots it across.
