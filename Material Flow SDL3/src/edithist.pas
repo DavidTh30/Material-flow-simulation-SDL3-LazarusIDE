@@ -27,12 +27,14 @@ type
     Dia, Dir: Integer;
     Open: Boolean;
     Closed: Byte;
+    Layer: Byte;
     Strength, AirPct, Feed: Single;
     Stock: array[TMat] of Single;
   end;
 
   TBucketLite = record
     Active: Boolean;
+    Layer: Byte;
     X, Y, W, H: Single;
   end;
 
@@ -59,6 +61,7 @@ type
     Bkts: array[0..MAX_BUCKETS - 1] of TBucketLite;
     Lbls: array[0..MAX_LABELS - 1] of TLabelObj;
     Frms: array[0..MAX_FRAMES - 1] of TFrameObj;
+    Lnks: array[0..MAX_LINKS - 1] of TLinkObj;
     Gravity: Single;
   end;
 
@@ -77,6 +80,7 @@ begin
   Result.Dir := c.Dir;
   Result.Open := c.Open;
   Result.Closed := c.Closed;
+  Result.Layer := c.Layer;
   Result.Strength := c.Strength;
   Result.AirPct := c.AirPct;
   Result.Feed := c.Feed;
@@ -105,6 +109,7 @@ begin
   c^.Dir := L.Dir;
   c^.Open := L.Open;
   c^.Closed := L.Closed;
+  c^.Layer := L.Layer;
   c^.Strength := L.Strength;
   c^.AirPct := L.AirPct;
   c^.Feed := L.Feed;
@@ -122,6 +127,7 @@ begin
   for i := 0 to MAX_BUCKETS - 1 do
   begin
     s^.Bkts[i].Active := Buckets[i].Active;
+    s^.Bkts[i].Layer := Buckets[i].Layer;
     s^.Bkts[i].X := Buckets[i].X;
     s^.Bkts[i].Y := Buckets[i].Y;
     s^.Bkts[i].W := Buckets[i].W;
@@ -129,6 +135,7 @@ begin
   end;
   s^.Lbls := Labels;
   s^.Frms := Frames;
+  s^.Lnks := Links;
   s^.Gravity := GravityScale;
 end;
 
@@ -147,14 +154,14 @@ begin
       L := @s^.Cells[x, y];
       if c^.Kind <> L^.Kind then Exit;
       if c^.Kind = ckEmpty then Continue;
-      if (c^.Conn <> L^.Conn) or (c^.Dia <> L^.Dia) or (c^.Dir <> L^.Dir) or (c^.Open <> L^.Open) or (c^.Closed <> L^.Closed) or
+      if (c^.Conn <> L^.Conn) or (c^.Dia <> L^.Dia) or (c^.Dir <> L^.Dir) or (c^.Open <> L^.Open) or (c^.Closed <> L^.Closed) or (c^.Layer <> L^.Layer) or
         (c^.Strength <> L^.Strength) or (c^.AirPct <> L^.AirPct) or (c^.Feed <> L^.Feed) then Exit;
     end;
   for i := 0 to MAX_BUCKETS - 1 do
   begin
     if Buckets[i].Active <> s^.Bkts[i].Active then Exit;
     if Buckets[i].Active and ((Buckets[i].X <> s^.Bkts[i].X) or (Buckets[i].Y <> s^.Bkts[i].Y) or
-      (Buckets[i].W <> s^.Bkts[i].W) or (Buckets[i].H <> s^.Bkts[i].H)) then Exit;
+      (Buckets[i].W <> s^.Bkts[i].W) or (Buckets[i].H <> s^.Bkts[i].H) or (Buckets[i].Layer <> s^.Bkts[i].Layer)) then Exit;
   end;
   for i := 0 to MAX_LABELS - 1 do
   begin
@@ -162,7 +169,7 @@ begin
     if Labels[i].Active and ((Labels[i].X <> s^.Lbls[i].X) or (Labels[i].Y <> s^.Lbls[i].Y) or
       (Labels[i].Text <> s^.Lbls[i].Text) or (Labels[i].Kind <> s^.Lbls[i].Kind) or
       (Labels[i].Fmt <> s^.Lbls[i].Fmt) or (Labels[i].Color <> s^.Lbls[i].Color) or
-      (Labels[i].NoBox <> s^.Lbls[i].NoBox)) then Exit;
+      (Labels[i].NoBox <> s^.Lbls[i].NoBox) or (Labels[i].Layer <> s^.Lbls[i].Layer)) then Exit;
   end;
   for i := 0 to MAX_FRAMES - 1 do
   begin
@@ -170,7 +177,15 @@ begin
     if Frames[i].Active and ((Frames[i].X <> s^.Frms[i].X) or (Frames[i].Y <> s^.Frms[i].Y) or
       (Frames[i].W <> s^.Frms[i].W) or (Frames[i].H <> s^.Frms[i].H) or (Frames[i].Title <> s^.Frms[i].Title) or
       (Frames[i].Color <> s^.Frms[i].Color) or (Frames[i].Dashed <> s^.Frms[i].Dashed) or
-      (Frames[i].Fill <> s^.Frms[i].Fill) or (Frames[i].Carry <> s^.Frms[i].Carry)) then Exit;
+      (Frames[i].Fill <> s^.Frms[i].Fill) or (Frames[i].Carry <> s^.Frms[i].Carry) or (Frames[i].Layer <> s^.Frms[i].Layer)) then Exit;
+  end;
+  for i := 0 to MAX_LINKS - 1 do
+  begin
+    if Links[i].Active <> s^.Lnks[i].Active then Exit;
+    if Links[i].Active and ((Links[i].X <> s^.Lnks[i].X) or (Links[i].Y <> s^.Lnks[i].Y) or
+      (Links[i].Caption <> s^.Lnks[i].Caption) or (Links[i].ToPopup <> s^.Lnks[i].ToPopup) or
+      (Links[i].Target <> s^.Lnks[i].Target) or (Links[i].Color <> s^.Lnks[i].Color) or
+      (Links[i].Layer <> s^.Lnks[i].Layer)) then Exit;
   end;
   Result := True;
 end;
@@ -192,6 +207,7 @@ begin
         Buckets[i].Flash := 0;
       end;
       Buckets[i].Active := True;
+      Buckets[i].Layer := s^.Bkts[i].Layer;
       Buckets[i].X := s^.Bkts[i].X;
       Buckets[i].Y := s^.Bkts[i].Y;
       Buckets[i].W := s^.Bkts[i].W;
@@ -201,6 +217,7 @@ begin
       DeleteBucket(i);
   Labels := s^.Lbls;
   Frames := s^.Frms;
+  Links := s^.Lnks;
   GravityScale := s^.Gravity;
 end;
 

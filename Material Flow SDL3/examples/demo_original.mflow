@@ -1,17 +1,25 @@
 # Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
 # CELL x y kind conn dia dir open strength
-# TANK x y water oil fluff sand air% feed%
+# STOCK x y water oil fluff sand air% feed%
 # BUCKET x y w h
 # LABEL x y text   (\n = new line)
 # LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
 # FRAME x y w h colour dashed fill carry title
-MFLOW 1
+# LINK x y colour page|popup n caption
+MFLOW 2
 NAME Original demo
+
+PAGE Page 1
+LAYERS 1 1
+LAYER 1 1 0 Main
 GRAVITY 1.00
-CELL 38 2 tank S 4 E 1 0.00
-TANK 38 2 0.00 0.00 800.00 2000.00 25.00 60.00
-CELL 2 3 tank E 4 E 1 0.00
-TANK 2 3 2400.00 800.00 0.00 0.00 15.00 70.00
+ON 1
+CELL 38 2 feeder S 4 E 1 0.00
+STOCK 38 2 0.00 0.00 800.00 2000.00 25.00 60.00
+CELL 2 3 feeder E 4 E 1 0.00
+STOCK 2 3 2400.00 800.00 0.00 0.00 15.00 70.00
 CELL 3 3 pipe EW 3 E 1 0.00
 CELL 4 3 pipe EW 3 E 1 0.00
 CELL 5 3 pipe EW 3 E 1 0.00

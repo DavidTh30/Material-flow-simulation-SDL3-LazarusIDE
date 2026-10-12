@@ -20,8 +20,73 @@ This is an interactive 2D simulator for moving water, oil, fluff and sand throug
 | `src/layoutio.pas` | Save/load of layouts (`.mflow` text files) |
 | `src/edithist.pas` | Undo / redo history |
 | `src/mftheme.pas` | The seven colour themes |
-| `src/mfexamples.pas` | The three built-in example layouts |
-| `examples/*.mflow` | The same three examples as files you can open |
+| `src/mfpages.pas` | Pages, layers and frame popups |
+| `src/mfexamples.pas` | The six built-in example layouts |
+| `examples/*.mflow` | The same six examples, plus the original demo, as files you can open |
+
+## Pages, layers, links and frame popups
+
+A layout is a small set of screens, like an HMI / SCADA project.
+
+### Pages (up to 20)
+
+- Each page is a full canvas of its own: its own parts, feeders, buckets, labels, frames, links, gravity and material.
+- Only the page on screen runs. The other pages are paused, and each one carries on from where it stopped when you come back to it.
+- The menu bar shows the current page, e.g. **< Page 1/2: Plant >**. The arrows, **PgUp / PgDn** and link buttons all change the page. Clicking the page name opens the Page & Layer panel.
+- Undo works page by page: going to another page starts a fresh undo history.
+
+### Layers (up to 5 per page)
+
+- Every part, bucket, label, frame and link sits on one layer of its page.
+- New items go on the **active** layer.
+- A **hidden** layer is not drawn and cannot be picked. Hidden parts keep working: a hidden blower still blows.
+- A **locked** layer is drawn but cannot be picked, moved, erased or changed. A pipe drag stops at it.
+- Pasted items go on the active layer. Moved and rotated items keep their own layer.
+
+### Links
+
+- The **Link** tool places a button on the canvas. A link either jumps to a page (shown as **> name**) or opens a frame popup (shown as **? name**).
+- With the **Select** tool, clicking a link follows it.
+- To edit a link instead, select it with the Link tool or **Ctrl+click**. Drag it to move it; double-click it to type its caption.
+- In Properties, a link has its caption, **Follow it now**, **A page / A frame popup**, the target (**< >**), its colour and **Delete**. A caption you never changed follows the target's name.
+
+### Frame popups (up to 20 per layout)
+
+- A frame popup is a small window that opens over the canvas: notes, instructions or an alarm text.
+- It has a title, text, a colour and, optionally, a **Go to: page** button.
+- It opens from a link (or the panel's **Show** button). It closes with **x**, **Close**, **Esc**, or a click beside it.
+
+### Page & Layer panel (F6)
+
+- **Pages:** one button per page. Click one to go to it; double-click the current page to rename it.
+- **Page buttons:**
+  - **Add** a new empty page.
+  - **Copy** the current page.
+  - **Delete** the current page. This needs a second click and can't be undone; links to a deleted page lose their target.
+  - **< >** move the page earlier or later. Links keep pointing at the same page.
+  - **Rename**.
+- **Layers:** one row per layer.
+  - Click a layer's name to make it active; double-click to rename it.
+  - **Shown / Hidden** and **Open / Locked** toggle visibility and locking.
+- **Layer buttons:**
+  - **Add layer**.
+  - **Delete**. This needs a second click; the layer's items move down one layer.
+  - **Rename**.
+  - **Move selection to active layer**.
+
+### Frame popup panel (F7)
+
+- **Popups:** one button per popup; double-click one to show it.
+- **Buttons:**
+  - **Add** a popup (you type its title next).
+  - **Delete** it.
+  - **Show** or close it.
+  - **Add link** places a link to it in the middle of the canvas.
+- **For the selected popup:**
+  - its title (**Edit**);
+  - its text (**Edit text**: Enter starts a new line, Esc finishes);
+  - its **Go to page** button (**< >**, or none);
+  - its colour.
 
 ## Menus
 
@@ -39,7 +104,7 @@ The menu bar runs across the top of the window: **File**, **Edit**, **View**, **
 | Delete | Del | Removes the selected part or bucket. |
 | Rotate right / left | R / Shift+R | Turns the selection a quarter turn (see Rotating). |
 
-Undo records every finished action as one step: a whole pipe drag, a slider drag, a burst of mouse-wheel turns, a menu command, or loading a layout. It covers the pipe layout, part settings, buckets and gravity. Tank contents and material already flowing aren't rolled back, because the simulation drains tanks all the time.
+Undo records every finished action as one step: a whole pipe drag, a slider drag, a burst of mouse-wheel turns, a menu command, or loading a layout. It covers the pipe layout, part settings, buckets and gravity. Feeder contents and material already flowing aren't rolled back, because the simulation drains feeders all the time. Undo covers the page on screen; page, layer and popup settings are not part of it.
 
 ### Selecting several parts
 
@@ -75,11 +140,11 @@ With the **Select** tool, press on a part and drag it. If the part is in a box s
 - **Hopper** (Hopper tool): an open funnel drawn above its outlet cell. Material that falls into the funnel is caught (it holds up to 300 units) and passed on through its pipe. It leaves by gravity when a pipe goes down, or carried by air when a blower or suction pulls on it. Its **Gate %** sets the discharge rate.
 - **Silo** (Silo tool): a tall bin drawn above its outlet cell, so leave about 3 cells free above it. It fills through its open roof from a falling stream, or from any pipe joined to its outlet cell, and stores up to 4000 units in layers. Its walls are solid. When it is full it takes no more: material in a feeding pipe waits, and falling material bounces off. Its **Gate %** meters what goes out (0% = storage only).
 - Click a hopper's funnel or a silo's body to select it, or drag it to move it. Properties shows the fill level, the contents, the gate and an **Empty it** button. A silo can also be pre-filled per material.
-- Like the tank, both count as open to the air for the pressure solver, and a blower can draw from them.
+- Like the feeder, both count as open to the air for the pressure solver, and a blower can draw from them.
 
 ### Labels
 
-A label is a text box on the canvas for describing part of a layout. The demo and the three examples come with labels.
+A label is a text box on the canvas for describing part of a layout. The demo and every example come with labels.
 - With the **Label** tool, click an empty spot and type. **Enter** starts a new line. **Esc** or clicking elsewhere finishes. The first line is shown as the title.
 - Double-click a label (Select tool), or use **Edit label** in its right-click menu, to edit it again. A label left empty is removed.
 - Drag a label with the Select tool to move it. Labels can be box-selected, cut, copied, pasted, moved and deleted with the parts around them. A rotate moves a label with its group, but the text stays upright.
@@ -156,46 +221,49 @@ The grid size itself is fixed: one cell is one pipe segment.
 | Properties | F4 | Shows or hides the Properties panel. |
 | Status | F5 | Shows or hides the Status panel. |
 | Help | F1 | Shows or hides the Help panel. |
-| Dock all panels | | Shows all five panels and embeds each one back in its column (left or right). |
+| Page & Layer | F6 | Shows or hides the Page & Layer panel. |
+| Frame popup | F7 | Shows or hides the Frame popup panel. |
+| Dock all panels | | Shows all seven panels and embeds each one back in its column (left or right). |
 
 ### Panels
 
-**Tool**, **Simulation**, **Properties**, **Status** and **Help** are separate windows. They start embedded one above the other in a column to the right of the canvas.
+**Tool**, **Simulation**, **Properties**, **Status**, **Help**, **Page & Layer** and **Frame popup** are separate windows. The first five start embedded one above the other in a column to the right of the canvas. Page & Layer and Frame popup start in a column on the left.
 - Drag a title bar to float that panel anywhere, including over the canvas.
 - Drop it near its slot to embed it again, or close it with **x**.
 - Floating panels can overlap; clicking one brings it to the front.
-- A hidden, floating or left-embedded panel leaves its place in the column empty. Bring a hidden panel back with its key (F1 to F5) or the View menu. Use the panel's right-click menu (**Right embed**) or **View > Dock all panels** to embed it again.
+- A hidden, floating or left-embedded panel leaves its place in the column empty. Bring a hidden panel back with its key (F1 to F7) or the View menu. Use the panel's right-click menu (**Right embed**) or **View > Dock all panels** to embed it again.
 - When no panel is embedded on a side, that column disappears and the window gets narrower. Hide or float every panel and the window is just the menu bar and the canvas.
 
 **Right-click a panel** for its popup:
 - **Right embed** puts the panel in the right-hand column.
 - **Left embed** opens a column on the left of the canvas and puts the panel there. The canvas moves right and keeps its size; the window gets wider. The left column closes again when no panel is left in it.
 - **Float** detaches the panel.
-- **Hide** hides it; its key (F1 to F5) brings it back.
+- **Hide** hides it; its key (F1 to F7) brings it back.
 - The panel's current place is ticked.
 
 **Saved between runs:** the theme and each panel's state (shown or hidden, left or right, embedded or floating, and its floating position) are written to `materialflow.ini` next to the exe. The file is updated whenever a panel moves, and again on exit. Test runs (`--shot`, `--selftest`) never touch it.
 
-**Tool panel:** the 20 tools (the default is **Select**), the tool hint and the pipe size brush.
+**Tool panel:** the 21 tools (the default is **Select**), the tool hint and the pipe size brush.
 
 **Simulation panel:**
 - Run/Pause, Pressure colours and Air dots
 - Gravity
-- Clear flow, Clear floor, Load demo, New blank, Empty buckets and Fill tanks
+- Clear flow, Clear floor, Load demo, New blank, Empty buckets and Fill feeders
 
 **Properties panel:** the settings of whatever is selected:
-- **Tank:** ingredients, Air %, Feed %.
+- **Feeder:** ingredients, Air %, Feed %.
 - **Blower, suction head, push nozzle, drop outlet:** strength, plus **E / S / W / N** buttons to set the direction or mouth directly.
 - **1-way pipe:** direction buttons.
 - **Valves:** valve state. The 4-way valve has **E / S / W / N** buttons, one per branch: lit means open.
 - **Label:** a preview of its text, **Edit text**, **Delete**, and left/top position.
+- **Link:** caption, target page or frame popup, colour, layer, **Follow it now**, **Delete**.
 - **Every part:** pipe size and joint type.
 - **Bucket:** width, height, left and top position, fill level and amount overflowed.
 - **Box selection:** counts of parts, buckets and labels, plus Cut, Copy, Rotate and Delete.
 
 **Status panel:** particle count, frame rate, run state, zoom, and what is under the mouse (part, size, pressure, air speed, or label).
 
-**Help panel:** five pages of short tips (Basics, Select & move, Edit, View & panels, Files & labels). Use the **<** and **>** buttons to turn the pages.
+**Help panel:** six pages of short tips (Basics, Select & move, Edit, View & panels, Files & labels, Pages & links). Use the **<** and **>** buttons to turn the pages.
 
 ### Zoom and pan
 
@@ -220,30 +288,49 @@ The **File** menu has:
 
 **Original demo** and the six examples. The same layouts are also files in `examples\` (the demo is `demo_original.mflow`), and **Load demo** in the Simulation panel loads the demo too.
 
-A layout file stores the pipes and devices with their settings, the tank contents, the buckets and the gravity setting. Material currently in flight isn't saved. Files are plain text, so you can edit them by hand:
+A layout file stores every page with its layers, parts and settings, the feeder contents, the buckets, labels, frames and links, plus the frame popups. Material currently in flight isn't saved. Files are plain text, so you can edit them by hand:
 
 ```
-MFLOW 1
+MFLOW 2
 NAME My layout
+POPUP 1 2 2 How it works                         # n, go-to page (0 = none), colour, title
+POPUPTEXT 1 First line\nsecond line              # \n = new line
+PAGE Plant                                       # a new page starts here
+LAYERS 2 1                                       # layer count, active layer
+LAYER 1 1 0 Process                              # n visible locked name
+LAYER 2 1 0 Notes
 GRAVITY 1.00
-CELL 14 2 tank S 4 E 1 0.00                      # x y kind conn size dir open strength
-TANK 14 2 2500.00 0.00 0.00 0.00 10.00 70.00     # water oil fluff sand air% feed%
+ON 1                                             # what follows is on layer 1
+CELL 14 2 feeder S 4 E 1 0.00                    # x y kind conn size dir open strength
+STOCK 14 2 2500.00 0.00 0.00 0.00 10.00 70.00    # water oil fluff sand air% feed%
 CELL 14 3 pipe SN 3 E 1 0.00
 BUCKET 303.00 730.00 90.00 70.00                 # x y width height (pixels)
-LABEL 380.00 40.00 Tank room\nwater and oil     # x y text, \n = new line
+ON 2
+LABEL 380.00 40.00 Feeder room\nwater and oil    # x y text, \n = new line
+LINK 920.00 6.00 1 page 2 About                  # x y colour page|popup n caption
+PAGE About
+...
 ```
 
-`kind` is one of `pipe tank blower suction nozzle drop check valve2 valve3 valve4 hopper silo`. Hoppers and silos also have a `TANK` line (contents, air %, gate %). A `valve4` line has a tenth value: its shut branches (for example `EW`, or `-` when all are open). `conn` lists the joined sides using the letters E, S, W, N. If a file is invalid, the app shows the line number and the reason, and the current layout stays loaded.
+`kind` is one of `pipe feeder blower suction nozzle drop check valve2 valve3 valve4 hopper silo`. Hoppers and silos also have a `STOCK` line (contents, air %, gate %). A `valve4` line has a tenth value: its shut branches (for example `EW`, or `-` when all are open). `conn` lists the joined sides using the letters E, S, W, N. Pages, layers, popups and link targets count from 1. Older `MFLOW 1` files still open as a single page with one layer (their `tank` parts and `TANK` lines are read as feeders). If a file is invalid, the app shows the line number and the reason, and the current layout stays loaded.
 
 ### Examples
 
-Six examples are in the **Examples** menu and in `examples\`, along with the original demo (`demo_original.mflow`):
+Six examples are in the **Examples** menu and in `examples\`, along with the original demo (`demo_original.mflow`).
+
+All six examples are built the same way:
+- **Page 1 "Plant"** is the working process. Layer 1 **Process** holds the pipes, feeders, devices and buckets; layer 2 **Notes** holds the labels, frames and link buttons. Hide Notes to see the bare process, or lock Process to protect it.
+- **Page 2 "About"** explains the example and how the layout is built.
+- **Frame popup 1 "How it works"** describes the process; its button goes to the About page. **Frame popup 2 "Try this"** suggests changes to try.
+- **Links** on both pages (top right of the plant, bottom of the About page) jump between the pages and open the two popups.
+
+The examples:
 
 1. **Gravity merge/overflow**: water falls by gravity through a one-way pipe. Oil and fluff are blown in through a narrowed section and join at a tee, then pass a 2-way valve and drop into a small bucket. The bucket overflows into a wide tray.
 2. **Pneumatic conveyor**: a strong blower pushes sand through a widened section and up a tall riser. A 3-way valve at the top splits it into two drop outlets over two buckets; switch the valve with **R** to send everything one way.
 3. **Vacuum & push nozzle**: water and fluff drop into a bucket. A suction head sucks them out through a one-way pipe, and a push-out nozzle shoots them sideways into a far bucket.
 4. **4-way valve switchyard**: a blower drives water and oil into a 4-way valve on a cross. Its east, south and north branches each lead to a bucket. North starts shut, so its bucket stays dry until you open that branch (select the valve and use its E S W N buttons).
-5. **Hopper feed**: sand falls from a tank into a hopper, and a blower carries the hopper's output across to a bucket. A second hopper catches falling water and drains it straight down by gravity.
+5. **Hopper feed**: sand falls from a feeder into a hopper, and a blower carries the hopper's output across to a bucket. A second hopper catches falling water and drains it straight down by gravity.
 6. **Silo storage**: a blower lifts sand up a riser and drops it through a silo's roof. The silo stores it, and its gate (30%) lets it out slowly into a bucket. A second silo is filled through a pipe in its side and has its gate shut, so it only stores.
 
 ## What it covers
@@ -251,7 +338,7 @@ Six examples are in the **Examples** menu and in `examples\`, along with the ori
 | Requirement | How it's done |
 |---|---|
 | Water, oil, fluff and sand, mixed with air | Each material behaves differently: weight, how strongly the air carries it, air drag, friction and density. Oil floats on water, fluff floats on top, sand sinks and piles up. Light-blue dots are air. |
-| Adjustable ingredient quantities | Each **Tank** has −/+ buttons and a slider for every ingredient (0–3000 units), plus an **Air %** mix and a **Feed %** rate. Material that flows back into a tank is stored again. |
+| Adjustable ingredient quantities | Each **Feeder** has −/+ buttons and a slider for every ingredient (0–3000 units), plus an **Air %** mix and a **Feed %** rate. Material that flows back into a feeder is stored again. |
 | Strength of suction, blow, push-out and drop discharge | Select a part (or scroll the mouse wheel over it) to set: **Blower** blow strength, **Suction** head strength (intake pull and pick-up reach), **Push nozzle** jet strength, and **Drop out** gravity gate %. There is also a global **Gravity** slider. |
 | Easy pipe routing | Drag with the Pipe tool. Starting a drag on an existing pipe branches it into a tee. Clicking a device tool on a pipe inserts that device inline. Right-drag erases. |
 | Material falls into a bucket and overflows | Buckets show a fill %, a level line and a flashing **OVERFLOW!** warning with a count of spilled particles. You can move buckets (Select + drag), resize them, empty them or delete them. |
@@ -261,11 +348,12 @@ Six examples are in the **Examples** menu and in `examples\`, along with the ori
 
 ## Controls
 
-- **1–0**: Select, Pipe, Pipe size, Erase, Tank, Blower, Suction, Push nozzle, Drop out, Bucket. The 1-way pipe, valves and Label are in the Tool panel.
+- **1–0**: Select, Pipe, Pipe size, Erase, Feeder, Blower, Suction, Push nozzle, Drop out, Bucket. The 1-way pipe, valves, labels, Frame and Link are in the Tool panel.
 - **Left-drag**: use the current tool (Select tool on empty space: box selection). **Right-click**: popup menu. **Right-drag**: erase
-- **Mouse wheel over a part**: strength, pipe size or tank feed. Over a valve it switches the valve
+- **Mouse wheel over a part**: strength, pipe size or feeder feed. Over a valve it switches the valve
 - **R / Shift+R**: rotate the selection right or left. On a single device, it flips a blower or switches a valve.
-- **F1 / F2 / F3 / F4 / F5**: show or hide the Help, Tool, Simulation, Properties and Status panels
+- **F1 / F2 / F3 / F4 / F5 / F6 / F7**: show or hide the Help, Tool, Simulation, Properties, Status, Page & Layer and Frame popup panels
+- **PgUp / PgDn**: previous / next page. **Click a link** (Select tool): jump to its page or open its frame popup. **Esc** closes a frame popup
 - **G**: show or hide the grid
 - **Ctrl+wheel**, **Ctrl + / -**: zoom. **Ctrl+0**: 100%. **Middle-drag / arrow keys**: pan
 - **Del**: delete the selected part. **Esc**: switch to the Select tool and clear the selection
@@ -273,8 +361,8 @@ Six examples are in the **Examples** menu and in `examples\`, along with the ori
 
 ## How the physics works
 
-- **Air network:** every pipe cell is a node. Each connection lets air through more easily the larger the pipe is; when sizes differ, the smaller one sets the limit. Blowers, suction heads and nozzles add pump pressure. Open ends and tanks are open to the atmosphere. Pressures are solved each frame (SOR Gauss–Seidel), and air speed equals flow divided by pipe width.
+- **Air network:** every pipe cell is a node. Each connection lets air through more easily the larger the pipe is; when sizes differ, the smaller one sets the limit. Blowers, suction heads and nozzles add pump pressure. Open ends and feeders are open to the atmosphere. Pressures are solved each frame (SOR Gauss–Seidel), and air speed equals flow divided by pipe width.
 - **Material in pipes:** the air drags particles along. They also feel gravity and wall friction, so sand needs enough suction to be lifted up a riser. At tees, particles split in proportion to the flow in each branch.
 - **Free material:** gravity, air drag, suction pull and nozzle jets act on it. Particle contacts use position-based dynamics, so piles and liquid levels stay stable. Buckets and the floor are solid.
 
-For a verification run without user input, `MaterialFlow.exe --shot <frames> out.bmp [layout.mflow]` simulates the demo, or the given layout, for that many frames. It then saves a screenshot and a stats file (`out.bmp.txt`). `MaterialFlow.exe --export-examples examples` rewrites the example files and `demo_original.mflow` from the built-in versions. `MaterialFlow.exe --selftest report.txt` runs automated checks of undo/redo, cut/copy/paste and the themes.
+For a verification run without user input, `MaterialFlow.exe --shot <frames> out.bmp [layout.mflow]` simulates the demo, or the given layout, for that many frames. It then saves a screenshot and a stats file (`out.bmp.txt`). `MaterialFlow.exe --export-examples examples` rewrites the example files and `demo_original.mflow` from the built-in versions. `MaterialFlow.exe --selftest report.txt` runs the automated checks (undo/redo, cut/copy/paste, panels, pages, layers, links, frame popups, the examples and the themes; 233 checks).

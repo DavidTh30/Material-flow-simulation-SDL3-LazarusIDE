@@ -44,6 +44,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src/mfpages.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src/mftheme.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

@@ -1,18 +1,31 @@
 # Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
 # CELL x y kind conn dia dir open strength
-# TANK x y water oil fluff sand air% feed%
+# STOCK x y water oil fluff sand air% feed%
 # BUCKET x y w h
 # LABEL x y text   (\n = new line)
 # LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
 # FRAME x y w h colour dashed fill carry title
-MFLOW 1
+# LINK x y colour page|popup n caption
+MFLOW 2
 NAME Gravity merge/overflow
+POPUP 1 2 2 How it works
+POPUPTEXT 1 Feeder 1 drops water by gravity through a\none-way pipe and a 2-way valve.\nFeeder 2 holds oil and fluff; a blower pushes\nthem through a narrow section into the tee.\nBoth streams leave by the drop outlet into a\nsmall bucket, which overflows into the tray.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Select the 2-way valve and shut it.\nMouse wheel on the blower: change its strength.\nWiden the narrow section (Pipe size tool).\nHide the Notes layer (F6) to see the process.
+
+PAGE Plant
+LAYERS 2 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
 GRAVITY 1.00
-CELL 14 2 tank S 4 E 1 0.00
-TANK 14 2 2500.00 0.00 0.00 0.00 10.00 70.00
+ON 1
+CELL 14 2 feeder S 4 E 1 0.00
+STOCK 14 2 2500.00 0.00 0.00 0.00 10.00 70.00
 CELL 14 3 pipe SN 3 E 1 0.00
-CELL 26 3 tank S 4 E 1 0.00
-TANK 26 3 0.00 1500.00 500.00 0.00 20.00 60.00
+CELL 26 3 feeder S 4 E 1 0.00
+STOCK 26 3 0.00 1500.00 500.00 0.00 20.00 60.00
 CELL 14 4 pipe SN 3 E 1 0.00
 CELL 26 4 pipe SN 3 E 1 0.00
 CELL 14 5 check SN 3 S 1 0.00
@@ -54,5 +67,22 @@ CELL 14 24 pipe SN 3 E 1 0.00
 CELL 14 25 drop N 3 S 1 100.00
 BUCKET 303.00 730.00 90.00 70.00
 BUCKET 188.00 776.00 320.00 30.00
+ON 2
 LABEL 380.00 40.00 Water falls by gravity\nthrough a 1-way pipe.\nOil + fluff are blown in\nthrough a narrow section.
 LABEL 520.00 700.00 The small bucket overflows\ninto the wide tray.
+LINK 920.00 6.00 1 page 2 About
+LINK 920.00 28.00 2 popup 1 How it works
+LINK 920.00 50.00 3 popup 2 Try this
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 1 - GRAVITY MERGE / OVERFLOW\nTwo feeders merge at a tee: water by gravity,\noil + fluff blown in through a constriction.\nA small bucket overflows into a wide tray.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

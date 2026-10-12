@@ -11,7 +11,7 @@ procedure RunApp;
 implementation
 
 uses
-  SysUtils, Math, sdl3min, simcore, layoutio, mfexamples, mftheme, edithist;
+  SysUtils, Math, sdl3min, simcore, layoutio, mfexamples, mftheme, edithist, mfpages;
 
 const
   PANEL_X = CANVAS_W;        { the right panel column starts here (when it is open) }
@@ -21,13 +21,14 @@ const
   PX = PANEL_X + 8;
 
 type
-  TTool = (tSelect, tPipe, tResize, tErase, tTank, tHopper, tSilo, tBlower, tSuction, tNozzle,
-    tDrop, tCheck, tValve2, tValve3, tValve4, tBucket, tLabel, tLabelDate, tLabelTime, tFrame);
-  TSelKind = (selNone, selCell, selBucket, selMulti, selLabel, selFrame);
+  TTool = (tSelect, tPipe, tResize, tErase, tFeeder, tHopper, tSilo, tBlower, tSuction, tNozzle,
+    tDrop, tCheck, tValve2, tValve3, tValve4, tBucket, tLabel, tLabelDate, tLabelTime, tFrame, tLink);
+  TSelKind = (selNone, selCell, selBucket, selMulti, selLabel, selFrame, selLink);
   TDrag = (dragNone, dragPipe, dragResize, dragErase, dragBucket, dragBox, dragMove, dragLabel,
-    dragFrameNew, dragFrameMove, dragFrameSize);
+    dragFrameNew, dragFrameMove, dragFrameSize, dragLink);
   TClipBucket = record
     DX, DY, W, H: Single;   { relative to the block's top-left corner }
+    Layer: Byte;
   end;
   TClipLabel = record
     DX, DY: Single;
@@ -35,6 +36,7 @@ type
     Kind, Color: Byte;
     Fmt: string;
     NoBox: Boolean;
+    Layer: Byte;
   end;
   { a dockable panel window }
   TWin = record
@@ -56,17 +58,17 @@ type
 
 const
   ToolNames: array[TTool] of string = ('Select', 'Pipe', 'Pipe size', 'Erase',
-    'Tank', 'Hopper', 'Silo', 'Blower', 'Suction', 'Push nozzle', 'Drop out', '1-way pipe',
-    '2-way valve', '3-way valve', '4-way valve', 'Bucket', 'Label', 'Date label', 'Time label', 'Frame');
+    'Feeder', 'Hopper', 'Silo', 'Blower', 'Suction', 'Push nozzle', 'Drop out', '1-way pipe',
+    '2-way valve', '3-way valve', '4-way valve', 'Bucket', 'Label', 'Date label', 'Time label', 'Frame', 'Link');
   ToolKinds: array[TTool] of TCellKind = (ckEmpty, ckPipe, ckEmpty, ckEmpty,
     ckSource, ckHopper, ckSilo, ckBlower, ckSuction, ckNozzle, ckDrop, ckCheck, ckValve2, ckValve3, ckValve4,
-    ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty);
+    ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty);
   ToolHints: array[TTool] of string = (
     'Click to edit; drag box to select',
     'Drag to route; start on pipe=branch',
     'Click/drag pipe: set size (brush)',
     'Click/drag: remove parts, buckets',
-    'Click: place a material tank',
+    'Click: place a material feeder',
     'Click: hopper (funnel above it)',
     'Click: silo (needs 3 cells above)',
     'Click pipe: inline blower (blow)',
@@ -81,8 +83,9 @@ const
     'Click: add a label, then type',
     'Click: label showing the date',
     'Click: label showing the time',
-    'Drag: frame to group & title parts');
-  KindNames: array[TCellKind] of string = ('Empty', 'Pipe', 'Tank', 'Blower',
+    'Drag: frame to group & title parts',
+    'Click: link to a page / popup');
+  KindNames: array[TCellKind] of string = ('Empty', 'Pipe', 'Feeder', 'Blower',
     'Suction head', 'Push-out nozzle', 'Drop outlet', '1-way pipe', '2-way valve', '3-way valve', '4-way valve',
     'Hopper', 'Silo');
   DirNames: array[0..3] of string = ('East', 'South', 'West', 'North');
@@ -130,8 +133,8 @@ var
   MovePressBucket: Integer = -1;
   { properties window (floating; starts docked in the side panel) }
   { dockable panels: Tool, Simulation, Properties }
-  Wins: array[0..4] of TWin;
-  WinOrder: array[0..4] of Integer = (0, 1, 2, 3, 4);   { drawing order, last = on top }
+  Wins: array[0..6] of TWin;
+  WinOrder: array[0..6] of Integer = (0, 1, 2, 3, 4, 5, 6);   { drawing order, last = on top }
   { left panel column: when a panel is embedded on the left the whole scene
     shifts right by LeftW. Everything works in canvas coordinates; OX is added
     only when drawing and subtracted from mouse positions }
@@ -158,6 +161,13 @@ var
   FrX0, FrY0, FrX1, FrY1: Single;   { drag start / current point (canvas pixels) }
   FrDX, FrDY: Integer;               { a frame move, in cells }
   SelL: Integer = -1;
+  SelLk: Integer = -1;           { the selected link }
+  SelPopup: Integer = -1;        { the frame popup shown in the Frame popup panel }
+  FPClick: Boolean = False;      { a click landed in the open frame popup }
+  KeepLayers: Boolean = True;    { PlaceBlock: parts keep their layer (move) or go on the active one (paste) }
+  { typing into a page name, layer name, popup title / text or link caption }
+  TxtEdit: Integer = 0;          { 0 none, 1 page, 2 layer, 3 popup title, 4 popup text, 5 link caption }
+  TxtIdx: Integer = -1;
   LastClicks: Integer = 1;
   QX: Single;                   { left edge of the property rows being drawn }
   { box selection (cells, inclusive) and the box being dragged (pixels) }
@@ -272,12 +282,25 @@ var
   x, y, w, h: Single;
 begin
   for i := MAX_LABELS - 1 downto 0 do
-    if Labels[i].Active then
+    if Labels[i].Active and LayerEditable(Labels[i].Layer) then
     begin
       LabelBox(i, x, y, w, h);
       if (wx >= x) and (wx < x + w) and (wy >= y) and (wy < y + h) then Exit(i);
     end;
   Result := -1;
+end;
+
+{ the bucket under px, py on a layer that can be picked, or -1 }
+function BucketPick(px, py: Single): Integer;
+begin
+  Result := simcore.BucketAt(px, py);
+  if (Result >= 0) and not LayerEditable(Buckets[Result].Layer) then Result := -1;
+end;
+
+{ a part on a hidden or locked layer cannot be picked or changed }
+function CellBlocked(gx, gy: Integer): Boolean;
+begin
+  Result := InGrid(gx, gy) and (Grid[gx, gy].Kind <> ckEmpty) and not LayerEditable(Grid[gx, gy].Layer);
 end;
 
 { in a box selection a label counts when its top-left corner is inside the box }
@@ -288,7 +311,7 @@ begin
   case SelKind of
     selLabel: Result := SelL = i;
     selMulti:
-      Result := (Labels[i].X >= SelX1 * CELL) and (Labels[i].X < (SelX2 + 1) * CELL) and
+      Result := LayerEditable(Labels[i].Layer) and (Labels[i].X >= SelX1 * CELL) and (Labels[i].X < (SelX2 + 1) * CELL) and
         (Labels[i].Y >= SelY1 * CELL) and (Labels[i].Y < (SelY2 + 1) * CELL);
   end;
 end;
@@ -301,7 +324,7 @@ var
 begin
   for y := 0 to GH - 1 do
     for x := 0 to GW - 1 do
-      if (Grid[x, y].Kind in [ckHopper, ckSilo]) and StoreShape(x, y, x1, y1, x2, y2) and
+      if (Grid[x, y].Kind in [ckHopper, ckSilo]) and LayerEditable(Grid[x, y].Layer) and StoreShape(x, y, x1, y1, x2, y2) and
         (wx >= x1) and (wx <= x2) and (wy >= y1) and (wy <= y2) then
       begin
         sx := x;
@@ -327,7 +350,7 @@ begin
   case SelKind of
     selCell: Result := (x = SelX) and (y = SelY);
     selMulti: Result := (x >= SelX1) and (x <= SelX2) and (y >= SelY1) and (y <= SelY2) and
-      InGrid(x, y) and (Grid[x, y].Kind <> ckEmpty);
+      InGrid(x, y) and (Grid[x, y].Kind <> ckEmpty) and LayerEditable(Grid[x, y].Layer);
   else
     Result := False;
   end;
@@ -346,7 +369,7 @@ begin
       begin
         cx := Buckets[i].X + Buckets[i].W / 2;
         cy := Buckets[i].Y + Buckets[i].H / 2;
-        Result := (cx >= SelX1 * CELL) and (cx < (SelX2 + 1) * CELL) and
+        Result := LayerEditable(Buckets[i].Layer) and (cx >= SelX1 * CELL) and (cx < (SelX2 + 1) * CELL) and
           (cy >= SelY1 * CELL) and (cy < (SelY2 + 1) * CELL);
       end;
   end;
@@ -659,7 +682,7 @@ begin
     for x := 0 to GW - 1 do
     begin
       c := @Grid[x, y];
-      if c^.Kind = ckEmpty then Continue;
+      if (c^.Kind = ckEmpty) or not LayerShown(c^.Layer) then Continue;
       DrawPipeShape(x, y, 2.5, Th.PipeWall.R, Th.PipeWall.G, Th.PipeWall.B);
       cx := x * CELL + HALF;
       cy := y * CELL + HALF;
@@ -680,7 +703,7 @@ begin
     for x := 0 to GW - 1 do
     begin
       c := @Grid[x, y];
-      if c^.Kind = ckEmpty then Continue;
+      if (c^.Kind = ckEmpty) or not LayerShown(c^.Layer) then Continue;
       if ShowPressure then
         PressureColor(c^.P, r, g, b)
       else
@@ -1120,7 +1143,7 @@ begin
   if (SDL_GetTicksNS div 500000000) mod 2 = 0 then caret := '_' else caret := '';
   for i := 0 to MAX_LABELS - 1 do
   begin
-    if not Labels[i].Active then Continue;
+    if (not Labels[i].Active) or not LayerShown(Labels[i].Layer) then Continue;
     editing := EditLabel = i;
     { typing into the caption shows a caret at its end }
     if editing and (EditField = 0) then
@@ -1208,7 +1231,7 @@ begin
   Part := 0;
   for i := MAX_FRAMES - 1 downto 0 do
     with Frames[i] do
-      if Active then
+      if Active and LayerEditable(Layer) then
       begin
         if (wx >= X + W - FRAME_HANDLE) and (wx <= X + W + 3) and (wy >= Y + H - FRAME_HANDLE) and
           (wy <= Y + H + 3) then
@@ -1301,8 +1324,257 @@ var
   i: Integer;
 begin
   for i := 0 to MAX_FRAMES - 1 do
-    if Frames[i].Active then
+    if Frames[i].Active and LayerShown(Frames[i].Layer) then
       DrawFrameShape(i, Frames[i].X, Frames[i].Y, Frames[i].W, Frames[i].H, False);
+end;
+
+{ ---------------------------------------------------------------- links }
+
+const
+  LINK_H = 18;     { link button height on screen }
+
+var
+  PendingPage: Integer = -1;    { a page to go to once the frame is drawn (from the frame popup) }
+
+{ what a link button shows: an arrow for a page, a "?" for a frame popup }
+function LinkText(i: Integer): string;
+begin
+  if Links[i].ToPopup then Result := '? ' + Links[i].Caption
+  else Result := '> ' + Links[i].Caption;
+end;
+
+{ link i's button in world coordinates (it keeps its size on screen when zoomed) }
+procedure LinkBox(i: Integer; out x, y, w, h: Single);
+begin
+  x := Links[i].X;
+  y := Links[i].Y;
+  w := (Length(LinkText(i)) * 8 + 14) / Zoom;
+  h := LINK_H / Zoom;
+end;
+
+{ the link under wx, wy on a layer that can be picked, or -1 }
+function LinkAt(wx, wy: Single): Integer;
+var
+  i: Integer;
+  x, y, w, h: Single;
+begin
+  for i := MAX_LINKS - 1 downto 0 do
+    if Links[i].Active and LayerEditable(Links[i].Layer) then
+    begin
+      LinkBox(i, x, y, w, h);
+      if (wx >= x) and (wx < x + w) and (wy >= y) and (wy < y + h) then Exit(i);
+    end;
+  Result := -1;
+end;
+
+{ where a link goes, for the status line and the properties }
+function LinkTargetName(i: Integer): string;
+begin
+  if Links[i].ToPopup then
+  begin
+    if (Links[i].Target >= 0) and (Links[i].Target < MAX_POPUPS) and Popups[Links[i].Target].Active then
+      Result := Format('popup %d: %s', [Links[i].Target + 1, Popups[Links[i].Target].Title])
+    else
+      Result := 'no popup';
+  end
+  else if (Links[i].Target >= 0) and (Links[i].Target < PageCount) then
+    Result := Format('page %d: %s', [Links[i].Target + 1, PageName(Links[i].Target)])
+  else
+    Result := 'no page';
+end;
+
+procedure DrawLinks;
+var
+  i: Integer;
+  ux, uy, w: Single;
+  r, g, b: Byte;
+  hot: Boolean;
+begin
+  CanvasXf := False;   { drawn at screen size, anchored to the zoomed canvas }
+  for i := 0 to MAX_LINKS - 1 do
+  begin
+    if (not Links[i].Active) or not LayerShown(Links[i].Layer) then Continue;
+    ux := (Links[i].X - ViewX) * Zoom;
+    uy := (Links[i].Y - ViewY) * Zoom;
+    w := Length(LinkText(i)) * 8 + 14;
+    hot := (Tool = tSelect) and (MX >= ux) and (MX < ux + w) and (MY >= uy) and (MY < uy + LINK_H) and
+      LayerEditable(Links[i].Layer);
+    SetCol(0, 0, 0, 70);
+    FillR(ux + 2, uy + 2, w, LINK_H);
+    if Links[i].Color = 0 then
+    begin
+      if hot then SetC(Th.BtnHot) else SetC(Th.BtnBg);
+    end
+    else
+    begin
+      LabelRGB(Links[i].Color, r, g, b);
+      if hot then SetCol(Min(255, r + 30), Min(255, g + 30), Min(255, b + 30)) else SetCol(r, g, b);
+    end;
+    FillR(ux, uy, w, LINK_H);
+    SetC(Th.BtnBorder);
+    RectR(ux, uy, w, LINK_H);
+    if Links[i].Color = 0 then SetC(Th.BtnText)
+    else if Links[i].Color in [3, 5] then SetCol(20, 22, 28)
+    else SetCol(250, 250, 252);
+    TextR(ux + 7, uy + 5, LinkText(i));
+    if hot then
+    begin
+      { underline: it is a link }
+      LineR(ux + 7, uy + LINK_H - 3, ux + w - 7, uy + LINK_H - 3);
+    end;
+  end;
+  CanvasXf := True;
+end;
+
+{ the selection outline around link i }
+procedure OutlineLink(i: Integer);
+var
+  ux, uy, w: Single;
+begin
+  CanvasXf := False;
+  ux := (Links[i].X - ViewX) * Zoom;
+  uy := (Links[i].Y - ViewY) * Zoom;
+  w := Length(LinkText(i)) * 8 + 14;
+  SetC(Th.Select);
+  RectR(ux - 2, uy - 2, w + 4, LINK_H + 4);
+  RectR(ux - 3, uy - 3, w + 6, LINK_H + 6);
+  CanvasXf := True;
+end;
+
+{ ---------------------------------------------------------------- frame popup (over the canvas) }
+
+const
+  FP_W = 400;
+
+{ the open frame popup's box in canvas-area screen coordinates }
+procedure FramePopupBox(out x, y, w, h: Single);
+var
+  n, wd: Integer;
+begin
+  w := FP_W;
+  n := 1;
+  if ShownPopup >= 0 then LabelLines(Popups[ShownPopup].Text, n, wd);
+  h := 26 + n * 12 + 16 + 30;
+  x := Round((CANVAS_W - w) / 2);
+  y := Round(fmax(30, (CANVAS_H - h) / 2 - 60));
+end;
+
+function InFramePopup: Boolean;
+var
+  x, y, w, h: Single;
+begin
+  Result := False;
+  if ShownPopup < 0 then Exit;
+  FramePopupBox(x, y, w, h);
+  Result := (MX >= x) and (MX < x + w) and (MY >= y) and (MY < y + h);
+end;
+
+{ a frame popup: a small window with a title, text, a "go to page" button and a close button.
+  Clicks reach it through FPClick (set by MouseDown). }
+procedure DrawFramePopup;
+var
+  x, y, w, h, bx, by, bw: Single;
+  r, g, b: Byte;
+  P: ^TPopup;
+  clicked, hot: Boolean;
+  k, n: Integer;
+  line, s: string;
+
+  function Btn(px, py, pw: Single; const lbl: string; Strong: Boolean): Boolean;
+  begin
+    hot := (MX >= px) and (MX < px + pw) and (MY >= py) and (MY < py + 20);
+    if Strong then SetCol(r, g, b) else if hot then SetC(Th.BtnHot) else SetC(Th.BtnBg);
+    if Strong and hot then SetCol(Min(255, r + 30), Min(255, g + 30), Min(255, b + 30));
+    FillR(px, py, pw, 20);
+    SetC(Th.BtnBorder);
+    RectR(px, py, pw, 20);
+    if Strong then SetCol(250, 250, 252) else SetC(Th.BtnText);
+    TextR(Round(px + (pw - Length(lbl) * 8) / 2), py + 6, lbl);
+    Result := clicked and hot;
+  end;
+
+begin
+  if (ShownPopup < 0) or (ShownPopup >= MAX_POPUPS) or not Popups[ShownPopup].Active then
+  begin
+    ShownPopup := -1;
+    FPClick := False;
+    Exit;
+  end;
+  clicked := FPClick;
+  FPClick := False;
+  P := @Popups[ShownPopup];
+  FramePopupBox(x, y, w, h);
+  if P^.Color = 0 then
+  begin
+    r := Th.Title.R; g := Th.Title.G; b := Th.Title.B;
+  end
+  else
+    LabelRGB(P^.Color, r, g, b);
+  if (P^.Color = 5) or (P^.Color = 3) then
+  begin
+    { light colours: darker so white text stays readable }
+    r := r * 2 div 3; g := g * 2 div 3; b := b * 2 div 3;
+  end;
+  { dim the canvas behind it }
+  SetCol(0, 0, 0, 90);
+  FillR(0, 0, CANVAS_W, CANVAS_H);
+  SetCol(0, 0, 0, 100);
+  FillR(x + 6, y + 6, w, h);
+  SetC(Th.PanelBg);
+  FillR(x, y, w, h);
+  SetCol(r, g, b);
+  RectR(x, y, w, h);
+  RectR(x + 1, y + 1, w - 2, h - 2);
+  FillR(x, y, w, 22);
+  SetCol(250, 250, 252);
+  TextR(x + 10, y + 7, Copy(P^.Title, 1, 44));
+  { close box }
+  bx := x + w - 22;
+  hot := (MX >= bx) and (MX < bx + 18) and (MY >= y + 2) and (MY < y + 20);
+  if hot then
+  begin
+    SetC(Th.StatusErr);
+    FillR(bx, y + 2, 18, 18);
+  end;
+  SetCol(250, 250, 252);
+  TextR(bx + 5, y + 7, 'x');
+  if clicked and hot then
+  begin
+    CloseFramePopup;
+    Exit;
+  end;
+  { text }
+  SetC(Th.Text);
+  line := '';
+  n := 0;
+  s := P^.Text;
+  for k := 1 to Length(s) + 1 do
+    if (k > Length(s)) or (s[k] = #10) then
+    begin
+      TextR(x + 12, y + 32 + n * 12, Copy(line, 1, 46));
+      line := '';
+      Inc(n);
+    end
+    else
+      line := line + s[k];
+  { buttons }
+  by := y + h - 28;
+  if (P^.GoPage >= 0) and (P^.GoPage < PageCount) then
+  begin
+    s := 'Go to: ' + Copy(PageName(P^.GoPage), 1, 26);
+    bw := Length(s) * 8 + 20;
+    if Btn(x + 12, by, bw, s, True) then
+    begin
+      PendingPage := P^.GoPage;
+      CloseFramePopup;
+      Exit;
+    end;
+  end;
+  if Btn(x + w - 92, by, 80, 'Close', False) then
+  begin
+    CloseFramePopup;
+    Exit;
+  end;
 end;
 
 { ---------------------------------------------------------------- grid }
@@ -1446,14 +1718,14 @@ begin
   FillR(0, FLOOR_Y, CANVAS_W, CANVAS_H - FLOOR_Y);
 
   for i := 0 to MAX_BUCKETS - 1 do
-    if Buckets[i].Active then DrawBucketBack(i);
+    if Buckets[i].Active and LayerShown(Buckets[i].Layer) then DrawBucketBack(i);
 
   { suction pick-up range }
   for y := 0 to GH - 1 do
     for x := 0 to GW - 1 do
     begin
       c := @Grid[x, y];
-      if (c^.Kind = ckSuction) and (c^.Mouth >= 0) then
+      if (c^.Kind = ckSuction) and (c^.Mouth >= 0) and LayerShown(c^.Layer) then
       begin
         if c^.F[c^.Mouth] < -0.02 then SetCol(180, 120, 240, 70) else SetCol(120, 120, 130, 50);
         RingC(x * CELL + HALF + DXS[c^.Mouth] * HALF, y * CELL + HALF + DYS[c^.Mouth] * HALF,
@@ -1465,10 +1737,11 @@ begin
   DrawParticles;
   for y := 0 to GH - 1 do
     for x := 0 to GW - 1 do
-      if Grid[x, y].Kind > ckPipe then DrawDevice(x, y);
+      if (Grid[x, y].Kind > ckPipe) and LayerShown(Grid[x, y].Layer) then DrawDevice(x, y);
   for i := 0 to MAX_BUCKETS - 1 do
-    if Buckets[i].Active then DrawBucketFront(i);
+    if Buckets[i].Active and LayerShown(Buckets[i].Layer) then DrawBucketFront(i);
   DrawLabels;
+  DrawLinks;
   if Drag = dragFrameNew then
   begin
     SetC(Th.Paste);
@@ -1479,6 +1752,8 @@ begin
     with Frames[FrDrag] do
       DrawFrameShape(FrDrag, X + FrDX * CELL, Y + FrDY * CELL, W, H, True);
 
+  if (SelKind = selLink) and (SelLk >= 0) and Links[SelLk].Active then
+    OutlineLink(SelLk);
   if SelKind = selCell then
   begin
     SetC(Th.Select);
@@ -1559,6 +1834,7 @@ begin
     SetC(Th.Select);
     TextR(CANVAS_W / 2 - 72, 10, 'PAUSED  (Space)');
   end;
+  DrawFramePopup;
 end;
 
 { ---------------------------------------------------------------- panel widgets }
@@ -1715,7 +1991,7 @@ begin
   case c^.Kind of
     ckSource:
       begin
-        Info(y, 'Ingredients (units in tank):');
+        Info(y, 'Ingredients (units in feeder):');
         y := y + 13;
         for m := mWater to mSand do
         begin
@@ -2027,6 +2303,10 @@ end;
 
 procedure AfterLayoutChange;
 begin
+  HistReset;   { the undo history belongs to the page that was shown }
+  TxtEdit := 0;
+  TxtIdx := -1;
+  SelPopup := -1;
   SelKind := selNone;
   Drag := dragNone;
   OpenMenu := -1;
@@ -2036,6 +2316,7 @@ end;
 
 procedure DoNew;
 begin
+  PagesReset;
   ClearAll;
   GravityScale := 1;
   CurrentFile := '';
@@ -2046,6 +2327,7 @@ end;
 
 procedure DoLoadDemo;
 begin
+  PagesReset;
   LoadDemo;
   GravityScale := 1;
   CurrentFile := '';
@@ -2153,6 +2435,7 @@ begin
     selBucket: Result := Format('bucket %d', [SelB + 1]);
     selLabel: Result := 'label';
     selFrame: Result := 'frame';
+    selLink: Result := 'link';
     selMulti:
       begin
         CountSelection(np, nb);
@@ -2170,7 +2453,7 @@ var
   x1, y1, x2, y2, x, y, i, n: Integer;
 begin
   Result := False;
-  if SelKind in [selNone, selFrame] then Exit;
+  if SelKind in [selNone, selFrame, selLink] then Exit;
   SelRect(x1, y1, x2, y2);
   B.W := x2 - x1 + 1;
   B.H := y2 - y1 + 1;
@@ -2194,6 +2477,7 @@ begin
       B.Bkts[n].DY := Buckets[i].Y - y1 * CELL;
       B.Bkts[n].W := Buckets[i].W;
       B.Bkts[n].H := Buckets[i].H;
+      B.Bkts[n].Layer := Buckets[i].Layer;
     end;
   SetLength(B.Lbls, 0);
   for i := 0 to MAX_LABELS - 1 do
@@ -2208,6 +2492,7 @@ begin
       B.Lbls[n].Fmt := Labels[i].Fmt;
       B.Lbls[n].Color := Labels[i].Color;
       B.Lbls[n].NoBox := Labels[i].NoBox;
+      B.Lbls[n].Layer := Labels[i].Layer;
     end;
   Result := (B.Parts > 0) or (Length(B.Bkts) > 0) or (Length(B.Lbls) > 0);
 end;
@@ -2313,6 +2598,7 @@ begin
   begin
     L := B.Cells[0];
     L.Conn := Grid[gx, gy].Conn;
+    L.Layer := Grid[gx, gy].Layer;
     LiteToCell(L, gx, gy, False);
     SelectCell(gx, gy);
     Result := 'inserted ' + KindNames[L.Kind];
@@ -2336,6 +2622,7 @@ begin
       end;
       if Grid[tx, ty].Kind <> ckEmpty then EraseCell(tx, ty);
       L.Conn := 0;
+      if not KeepLayers then L.Layer := CurLayer;
       LiteToCell(L, tx, ty, False);
       Inc(placed);
     end;
@@ -2360,6 +2647,7 @@ begin
       B.Bkts[i].W, B.Bkts[i].H);
     if bi >= 0 then
     begin
+      if KeepLayers then Buckets[bi].Layer := B.Bkts[i].Layer;
       Inc(bks);
       lastB := bi;
     end
@@ -2379,6 +2667,7 @@ begin
       Labels[bi].Fmt := B.Lbls[i].Fmt;
       Labels[bi].Color := B.Lbls[i].Color;
       Labels[bi].NoBox := B.Lbls[i].NoBox;
+      if KeepLayers then Labels[bi].Layer := B.Lbls[i].Layer;
       Inc(lbs);
       lastL := bi;
     end
@@ -2418,7 +2707,10 @@ var
 begin
   PasteArmed := False;
   if ClipEmpty then Exit;
+  { pasted items go on the active layer }
+  KeepLayers := False;
   s := PlaceBlock(Clip, gx, gy, lost);
+  KeepLayers := True;
   if Pos('inserted', s) = 1 then
     SetStatus(UpCase(s[1]) + Copy(s, 2, MaxInt))
   else
@@ -2478,6 +2770,107 @@ begin
   SetStatus('Moved ' + s, lost > 0);
 end;
 
+{ ---------------------------------------------------------------- typing names and texts }
+
+procedure StopEditLabel; forward;
+procedure StopEditFrame; forward;
+
+function TxtMax: Integer;
+begin
+  case TxtEdit of
+    1, 5: Result := 40;
+    2: Result := 24;
+    3: Result := 60;
+    4: Result := 255;
+  else
+    Result := 0;
+  end;
+end;
+
+function TxtValue: string;
+begin
+  Result := '';
+  case TxtEdit of
+    1: Result := Pages[TxtIdx].Name;
+    2: Result := Pages[CurPage].Layers[TxtIdx].Name;
+    3: Result := Popups[TxtIdx].Title;
+    4: Result := Popups[TxtIdx].Text;
+    5: Result := Links[TxtIdx].Caption;
+  end;
+end;
+
+procedure TxtStore(const s: string);
+begin
+  case TxtEdit of
+    1: Pages[TxtIdx].Name := s;
+    2: Pages[CurPage].Layers[TxtIdx].Name := s;
+    3: Popups[TxtIdx].Title := s;
+    4: Popups[TxtIdx].Text := s;
+    5: Links[TxtIdx].Caption := s;
+  end;
+end;
+
+procedure StopTxt;
+begin
+  if TxtEdit = 0 then Exit;
+  TxtEdit := 0;
+  TxtIdx := -1;
+  if Win <> nil then SDL_StopTextInput(Win);
+end;
+
+{ Kind: 1 page name, 2 layer name, 3 popup title, 4 popup text, 5 link caption }
+procedure StartTxt(Kind, Idx: Integer);
+const
+  What: array[1..5] of string = ('the page name', 'the layer name', 'the popup title', 'the popup text',
+    'the link caption');
+begin
+  StopEditLabel;
+  StopEditFrame;
+  StopTxt;
+  TxtEdit := Kind;
+  TxtIdx := Idx;
+  OpenMenu := -1;
+  PopupOpen := False;
+  if Win <> nil then SDL_StartTextInput(Win);
+  if Kind = 4 then SetStatus('Type ' + What[Kind] + ' - Enter: new line, Esc: done')
+  else SetStatus('Type ' + What[Kind] + ' - Enter or Esc: done');
+end;
+
+{ a blinking caret while (Kind, Idx) is being typed into }
+function TxtCaret(Kind, Idx: Integer): string;
+begin
+  if (TxtEdit = Kind) and (TxtIdx = Idx) and ((SDL_GetTicksNS div 500000000) mod 2 = 0) then Result := '_'
+  else Result := '';
+end;
+
+procedure TxtTypeText(const s: string);
+var
+  k: Integer;
+  t: string;
+begin
+  if TxtEdit = 0 then Exit;
+  t := TxtValue;
+  for k := 1 to Length(s) do
+    if (s[k] >= ' ') and (s[k] <= '~') and (Length(t) < TxtMax) then t := t + s[k];
+  TxtStore(t);
+end;
+
+procedure TxtKey(key: UInt32);
+var
+  t: string;
+begin
+  if TxtEdit = 0 then Exit;
+  t := TxtValue;
+  case key of
+    SDLK_BACKSPACE:
+      if t <> '' then TxtStore(Copy(t, 1, Length(t) - 1));
+    SDLK_RETURN, SDLK_KP_ENTER:
+      if (TxtEdit = 4) and (Length(t) < TxtMax) then TxtStore(t + #10) else StopTxt;
+    SDLK_ESCAPE:
+      StopTxt;
+  end;
+end;
+
 { ---------------------------------------------------------------- frame editing }
 
 procedure StopEditFrame;
@@ -2490,6 +2883,7 @@ end;
 procedure StartEditFrame(i: Integer);
 begin
   if (i < 0) or not Frames[i].Active then Exit;
+  StopTxt;
   EditFrame := i;
   SelKind := selFrame;
   SelFr := i;
@@ -2709,6 +3103,7 @@ end;
 procedure BeginEdit(i, Field: Integer);
 begin
   if (i < 0) or not Labels[i].Active then Exit;
+  StopTxt;
   if EditLabel <> i then StopEditLabel;
   EditLabel := i;
   EditField := Field;
@@ -2940,6 +3335,577 @@ end;
 
 { block A turned a quarter turn (clockwise when CW) into B: cells, their joints,
   device directions and bucket positions }
+{ ---------------------------------------------------------------- pages, layers, links, popups }
+
+var
+  PageDelArmed: Single = 0;      { seconds left to confirm deleting the page }
+  LayerDelArmed: Single = 0;
+
+{ leave whatever is being edited on this page; the undo history is per page }
+procedure LeavePageEdits;
+begin
+  StopEditLabel;
+  StopEditFrame;
+  StopTxt;
+  SelKind := selNone;
+  Drag := dragNone;
+  FrDrag := -1;
+  PasteArmed := False;
+end;
+
+procedure AppGoToPage(i: Integer);
+begin
+  if (i < 0) or (i >= PageCount) then
+  begin
+    SetStatus('That link has no page to go to', True);
+    Exit;
+  end;
+  CloseFramePopup;
+  if i = CurPage then
+  begin
+    SetStatus(Format('Already on page %d: %s', [i + 1, PageName(i)]));
+    Exit;
+  end;
+  LeavePageEdits;
+  HistCheck;
+  GoToPage(i);
+  HistReset;
+  SetStatus(Format('Page %d of %d: %s', [i + 1, PageCount, PageName(i)]));
+end;
+
+procedure AppFollowLink(i: Integer);
+begin
+  if (i < 0) or not Links[i].Active then Exit;
+  if Links[i].ToPopup then
+  begin
+    if (Links[i].Target >= 0) and (Links[i].Target < MAX_POPUPS) and Popups[Links[i].Target].Active then
+    begin
+      ShowFramePopup(Links[i].Target);
+      SelPopup := Links[i].Target;
+    end
+    else
+      SetStatus('That link has no frame popup to open', True);
+  end
+  else
+    AppGoToPage(Links[i].Target);
+end;
+
+{ the frame popup's "go to page" button asked for a page while it was drawn }
+procedure TakePendingPage;
+var
+  p: Integer;
+begin
+  if PendingPage < 0 then Exit;
+  p := PendingPage;
+  PendingPage := -1;
+  AppGoToPage(p);
+end;
+
+procedure AppAddPage;
+var
+  i: Integer;
+begin
+  i := AddPage('');
+  if i < 0 then
+  begin
+    SetStatus(Format('A layout has at most %d pages', [MAX_PAGES]), True);
+    Exit;
+  end;
+  AppGoToPage(i);
+  SetStatus(Format('Added page %d - double-click its button to rename it', [i + 1]));
+end;
+
+procedure AppDuplicatePage;
+var
+  i: Integer;
+begin
+  LeavePageEdits;
+  HistCheck;
+  i := DuplicatePage(CurPage);
+  if i < 0 then
+  begin
+    SetStatus(Format('A layout has at most %d pages', [MAX_PAGES]), True);
+    Exit;
+  end;
+  AppGoToPage(i);
+  SetStatus(Format('Page %d is a copy of the page before', [i + 1]));
+end;
+
+procedure AppDeletePage;
+var
+  n: string;
+begin
+  if PageCount <= 1 then
+  begin
+    SetStatus('The last page cannot be deleted', True);
+    Exit;
+  end;
+  if PageDelArmed <= 0 then
+  begin
+    PageDelArmed := 3;
+    SetStatus(Format('Click Delete again to delete page %d: %s (no undo)', [CurPage + 1, PageName(CurPage)]), True);
+    Exit;
+  end;
+  PageDelArmed := 0;
+  n := PageName(CurPage);
+  LeavePageEdits;
+  CloseFramePopup;
+  DeletePage(CurPage);
+  HistReset;
+  SetStatus(Format('Deleted page "%s" - now on page %d', [n, CurPage + 1]));
+end;
+
+procedure AppMovePage(Delta: Integer);
+var
+  j: Integer;
+begin
+  j := CurPage + Delta;
+  if (j < 0) or (j >= PageCount) then Exit;
+  LeavePageEdits;
+  HistCheck;
+  MovePage(CurPage, Delta);
+  HistReset;
+  SetStatus(Format('"%s" is page %d now', [PageName(CurPage), CurPage + 1]));
+end;
+
+procedure AppSetLayer(L: Integer);
+begin
+  if (L < 0) or (L >= LayerCount) then Exit;
+  SetActiveLayer(L);
+  Pages[CurPage].Layers[L].Visible := True;
+  if Pages[CurPage].Layers[L].Locked then
+    SetStatus('Active layer: ' + Pages[CurPage].Layers[L].Name + ' (locked - unlock it to edit)', True)
+  else
+    SetStatus('Active layer: ' + Pages[CurPage].Layers[L].Name + ' - new items go on it');
+end;
+
+{ hiding or locking a layer drops what is selected on it }
+procedure DropHiddenSelection;
+begin
+  case SelKind of
+    selCell: if CellBlocked(SelX, SelY) then SelKind := selNone;
+    selBucket: if not LayerEditable(Buckets[SelB].Layer) then SelKind := selNone;
+    selLabel: if not LayerEditable(Labels[SelL].Layer) then SelKind := selNone;
+    selFrame: if not LayerEditable(Frames[SelFr].Layer) then SelKind := selNone;
+    selLink: if not LayerEditable(Links[SelLk].Layer) then SelKind := selNone;
+  end;
+  if (EditLabel >= 0) and not LayerEditable(Labels[EditLabel].Layer) then StopEditLabel;
+  if (EditFrame >= 0) and not LayerEditable(Frames[EditFrame].Layer) then StopEditFrame;
+end;
+
+procedure AppAddLayer;
+var
+  L: Integer;
+begin
+  L := AddLayer('');
+  if L < 0 then
+  begin
+    SetStatus(Format('A page has at most %d layers', [MAX_LAYERS]), True);
+    Exit;
+  end;
+  AppSetLayer(L);
+end;
+
+procedure AppDeleteLayer;
+var
+  L: Integer;
+begin
+  L := CurLayer;
+  if LayerCount <= 1 then
+  begin
+    SetStatus('A page keeps at least one layer', True);
+    Exit;
+  end;
+  if LayerDelArmed <= 0 then
+  begin
+    LayerDelArmed := 3;
+    SetStatus('Click again: delete layer "' + Pages[CurPage].Layers[L].Name + '" (its items move down a layer)', True);
+    Exit;
+  end;
+  LayerDelArmed := 0;
+  StopTxt;
+  DeleteLayer(L);
+  SetStatus('Layer deleted; its items are on "' + Pages[CurPage].Layers[CurLayer].Name + '" now');
+end;
+
+{ put what is selected on the active layer }
+procedure SelectionToLayer;
+var
+  x, y, i, n: Integer;
+begin
+  n := 0;
+  case SelKind of
+    selCell: begin Grid[SelX, SelY].Layer := CurLayer; n := 1; end;
+    selBucket: begin Buckets[SelB].Layer := CurLayer; n := 1; end;
+    selLabel: begin Labels[SelL].Layer := CurLayer; n := 1; end;
+    selFrame: begin Frames[SelFr].Layer := CurLayer; n := 1; end;
+    selLink: begin Links[SelLk].Layer := CurLayer; n := 1; end;
+    selMulti:
+      begin
+        for i := 0 to MAX_BUCKETS - 1 do
+          if SelHasBucket(i) then begin Buckets[i].Layer := CurLayer; Inc(n); end;
+        for i := 0 to MAX_LABELS - 1 do
+          if SelHasLabel(i) then begin Labels[i].Layer := CurLayer; Inc(n); end;
+        for y := SelY1 to SelY2 do
+          for x := SelX1 to SelX2 do
+            if SelHasCell(x, y) then begin Grid[x, y].Layer := CurLayer; Inc(n); end;
+      end;
+  end;
+  if n = 0 then SetStatus('Select something first, then move it to the active layer', True)
+  else SetStatus(Format('%d item(s) moved to layer "%s"', [n, Pages[CurPage].Layers[CurLayer].Name]));
+end;
+
+{ the default caption of a link: the name of what it points at }
+function LinkDefaultCaption(ToPopup: Boolean; T: Integer): string;
+begin
+  if ToPopup then
+  begin
+    if (T >= 0) and (T < MAX_POPUPS) and Popups[T].Active then Result := Copy(Popups[T].Title, 1, 40)
+    else Result := 'Info';
+  end
+  else if (T >= 0) and (T < PageCount) then Result := Copy(PageName(T), 1, 40)
+  else Result := 'Page';
+end;
+
+{ the next active popup after T in direction D (+1 / -1), or -1 when there is none }
+function NextPopup(T, D: Integer): Integer;
+var
+  k: Integer;
+begin
+  for k := 1 to MAX_POPUPS do
+  begin
+    T := (T + D + MAX_POPUPS) mod MAX_POPUPS;
+    if Popups[T].Active then Exit(T);
+  end;
+  Result := -1;
+end;
+
+{ a new link at wx, wy: to the next page (or the first popup when there is just one page) }
+function NewLinkAt(wx, wy: Single): Integer;
+var
+  t: Integer;
+  toPop: Boolean;
+begin
+  toPop := False;
+  if PageCount > 1 then t := (CurPage + 1) mod PageCount
+  else
+  begin
+    t := NextPopup(-1, 1);
+    if t >= 0 then toPop := True else t := 0;
+  end;
+  Result := AddLink(wx, wy, LinkDefaultCaption(toPop, t), toPop, t);
+end;
+
+{ point link i at another target, keeping a caption the user typed }
+procedure SetLinkTarget(i: Integer; ToPopup: Boolean; T: Integer);
+var
+  auto: Boolean;
+begin
+  auto := Links[i].Caption = LinkDefaultCaption(Links[i].ToPopup, Links[i].Target);
+  Links[i].ToPopup := ToPopup;
+  Links[i].Target := T;
+  if auto then Links[i].Caption := LinkDefaultCaption(ToPopup, T);
+end;
+
+procedure DrawLinkProps(y: Single);
+var
+  i, c, t: Integer;
+  r, g, b: Byte;
+begin
+  i := SelLk;
+  SetC(Th.Title);
+  TextR(QX, y, Format('Link %d', [i + 1]));
+  y := y + 16;
+  Info(y, 'A button: the Select tool follows it.');
+  y := y + 14;
+  SetC(Th.OverlayBg);
+  FillR(QX, y, 280, 18);
+  SetC(Th.MenuBorder);
+  RectR(QX, y, 280, 18);
+  SetC(Th.Text);
+  TextR(QX + 4, y + 5, Copy(Links[i].Caption + TxtCaret(5, i), 1, 34));
+  y := y + 24;
+  if (TxtEdit = 5) and (TxtIdx = i) then
+  begin
+    if Button(700, QX, y, 136, 18, 'Done', True) then StopTxt;
+  end
+  else if Button(700, QX, y, 136, 18, 'Edit caption') then StartTxt(5, i);
+  if Button(701, QX + 142, y, 136, 18, 'Follow it now') then
+  begin
+    AppFollowLink(i);
+    Exit;
+  end;
+  y := y + 26;
+  Info(y, 'Goes to');
+  y := y + 12;
+  if Button(702, QX, y, 136, 18, 'A page', not Links[i].ToPopup) and Links[i].ToPopup then
+    SetLinkTarget(i, False, (CurPage + 1) mod PageCount);
+  if Button(703, QX + 142, y, 136, 18, 'A frame popup', Links[i].ToPopup) and not Links[i].ToPopup then
+  begin
+    t := NextPopup(-1, 1);
+    if t < 0 then SetStatus('Add a frame popup first (Frame popup panel, F7)', True)
+    else SetLinkTarget(i, True, t);
+  end;
+  y := y + 22;
+  if Button(704, QX, y, 24, 18, '<') then
+  begin
+    if Links[i].ToPopup then
+    begin
+      t := NextPopup(Links[i].Target, -1);
+      if t >= 0 then SetLinkTarget(i, True, t);
+    end
+    else
+      SetLinkTarget(i, False, (Max(0, Links[i].Target) + PageCount - 1) mod PageCount);
+  end;
+  SetC(Th.OverlayBg);
+  FillR(QX + 28, y, 224, 18);
+  SetC(Th.Text);
+  TextR(QX + 32, y + 5, Copy(LinkTargetName(i), 1, 27));
+  if Button(705, QX + 256, y, 24, 18, '>') then
+  begin
+    if Links[i].ToPopup then
+    begin
+      t := NextPopup(Links[i].Target, 1);
+      if t >= 0 then SetLinkTarget(i, True, t);
+    end
+    else
+      SetLinkTarget(i, False, (Max(-1, Links[i].Target) + 1) mod PageCount);
+  end;
+  y := y + 26;
+  Info(y, 'Colour');
+  y := y + 12;
+  for c := 0 to 5 do
+  begin
+    if Button(706 + c, QX + c * 47, y, 44, 18, LabelColorNames[c], Links[i].Color = c) then Links[i].Color := c;
+    if c > 0 then
+    begin
+      LabelRGB(c, r, g, b);
+      SetCol(r, g, b);
+      FillR(QX + c * 47 + 2, y + 15, 40, 2);
+    end;
+  end;
+  y := y + 26;
+  Info(y, 'Layer: ' + Pages[CurPage].Layers[Min(Links[i].Layer, LayerCount - 1)].Name);
+  y := y + 16;
+  if Button(712, QX, y, 136, 18, 'Delete (Del)') then DeleteSelected;
+  Info(y + 26, 'Link tool or Ctrl+click selects a');
+  Info(y + 38, 'link; drag it to move it.');
+end;
+
+{ ---------------------------------------------------------------- Page & Layer panel }
+
+procedure DrawPagesContent(y0: Single);
+var
+  i, L: Integer;
+  y: Single;
+  s: string;
+  P: ^TPageData;
+begin
+  SetC(Th.HeaderTxt);
+  TextR(QX, y0, Format('PAGES  %d of %d   (PgUp / PgDn)', [PageCount, MAX_PAGES]));
+  y := y0 + 14;
+  for i := 0 to PageCount - 1 do
+  begin
+    if (TxtEdit = 1) and (TxtIdx = i) then s := Copy(Pages[i].Name, 1, 9) + TxtCaret(1, i)
+    else s := Format('%d %s', [i + 1, Copy(PageName(i), 1, 8)]);
+    if Button(600 + i, QX + (i mod 3) * 94, y + (i div 3) * 17, 90, 15, s, i = CurPage) then
+    begin
+      if (LastClicks >= 2) and (i = CurPage) then StartTxt(1, i) else AppGoToPage(i);
+    end;
+  end;
+  y := y + 7 * 17 + 4;
+  if Button(621, QX, y, 40, 18, 'Add') then AppAddPage;
+  if Button(622, QX + 44, y, 44, 18, 'Copy') then AppDuplicatePage;
+  if PageDelArmed > 0 then s := 'Sure?' else s := 'Delete';
+  if Button(623, QX + 92, y, 56, 18, s, PageDelArmed > 0) then AppDeletePage;
+  if Button(624, QX + 152, y, 24, 18, '<') then AppMovePage(-1);
+  if Button(625, QX + 180, y, 24, 18, '>') then AppMovePage(1);
+  if (TxtEdit = 1) and (TxtIdx = CurPage) then
+  begin
+    if Button(626, QX + 208, y, 72, 18, 'Done', True) then StopTxt;
+  end
+  else if Button(626, QX + 208, y, 72, 18, 'Rename') then StartTxt(1, CurPage);
+  y := y + 28;
+
+  P := @Pages[CurPage];
+  SetC(Th.HeaderTxt);
+  TextR(QX, y, Format('LAYERS of page %d   %d of %d', [CurPage + 1, P^.NLayers, MAX_LAYERS]));
+  y := y + 14;
+  for L := 0 to P^.NLayers - 1 do
+  begin
+    if (TxtEdit = 2) and (TxtIdx = L) then s := Copy(P^.Layers[L].Name, 1, 16) + TxtCaret(2, L)
+    else s := Format('%d %s', [L + 1, Copy(P^.Layers[L].Name, 1, 15)]);
+    if Button(630 + L, QX, y, 150, 17, s, L = CurLayer) then
+    begin
+      if (LastClicks >= 2) and (L = CurLayer) then StartTxt(2, L) else AppSetLayer(L);
+    end;
+    if P^.Layers[L].Visible then s := 'Shown' else s := 'Hidden';
+    if Button(636 + L, QX + 154, y, 60, 17, s, not P^.Layers[L].Visible) then
+    begin
+      P^.Layers[L].Visible := not P^.Layers[L].Visible;
+      DropHiddenSelection;
+    end;
+    if P^.Layers[L].Locked then s := 'Locked' else s := 'Open';
+    if Button(642 + L, QX + 218, y, 62, 17, s, P^.Layers[L].Locked) then
+    begin
+      P^.Layers[L].Locked := not P^.Layers[L].Locked;
+      DropHiddenSelection;
+    end;
+    y := y + 19;
+  end;
+  y := y + (MAX_LAYERS - P^.NLayers) * 19 + 4;
+  if Button(648, QX, y, 90, 18, 'Add layer') then AppAddLayer;
+  if LayerDelArmed > 0 then s := 'Sure?' else s := 'Delete';
+  if Button(649, QX + 94, y, 90, 18, s, LayerDelArmed > 0) then AppDeleteLayer;
+  if (TxtEdit = 2) and (TxtIdx = CurLayer) then
+  begin
+    if Button(650, QX + 188, y, 92, 18, 'Done', True) then StopTxt;
+  end
+  else if Button(650, QX + 188, y, 92, 18, 'Rename') then StartTxt(2, CurLayer);
+  y := y + 22;
+  if Button(651, QX, y, 280, 18, 'Move selection to active layer') then SelectionToLayer;
+  y := y + 24;
+  if not P^.Layers[CurLayer].Visible then
+  begin
+    SetC(Th.StatusErr);
+    TextR(QX, y, 'The active layer is hidden!');
+  end
+  else if P^.Layers[CurLayer].Locked then
+  begin
+    SetC(Th.StatusErr);
+    TextR(QX, y, 'The active layer is locked!');
+  end
+  else
+    Info(y, 'New items go on the active layer.');
+end;
+
+{ ---------------------------------------------------------------- Frame popup panel }
+
+procedure DrawPopupsContent(y0: Single);
+var
+  i, k, c: Integer;
+  y: Single;
+  s: string;
+  r, g, b: Byte;
+begin
+  if (SelPopup >= 0) and not Popups[SelPopup].Active then SelPopup := -1;
+  if SelPopup < 0 then SelPopup := NextPopup(-1, 1);
+  SetC(Th.HeaderTxt);
+  TextR(QX, y0, Format('FRAME POPUPS  %d of %d', [FramePopupCount, MAX_POPUPS]));
+  y := y0 + 14;
+  k := 0;
+  for i := 0 to MAX_POPUPS - 1 do
+    if Popups[i].Active then
+    begin
+      s := Format('%d %s', [i + 1, Copy(Popups[i].Title, 1, 8)]);
+      if Button(660 + i, QX + (k mod 3) * 94, y + (k div 3) * 17, 90, 15, s, i = SelPopup) then
+      begin
+        SelPopup := i;
+        if LastClicks >= 2 then ShowFramePopup(i);
+      end;
+      Inc(k);
+    end;
+  if k = 0 then Info(y + 4, 'None yet - Add makes one.');
+  y := y + 7 * 17 + 4;
+  if Button(681, QX, y, 60, 18, 'Add') then
+  begin
+    i := AddPopup(Format('Popup %d', [FramePopupCount + 1]), 'Type the text here.');
+    if i < 0 then SetStatus(Format('A layout has at most %d frame popups', [MAX_POPUPS]), True)
+    else
+    begin
+      SelPopup := i;
+      StartTxt(3, i);
+    end;
+  end;
+  if Button(682, QX + 64, y, 64, 18, 'Delete') and (SelPopup >= 0) then
+  begin
+    StopTxt;
+    DeletePopup(SelPopup);
+    SetStatus('Popup deleted (links to it do nothing now)');
+    SelPopup := -1;
+    Exit;
+  end;
+  if Button(683, QX + 132, y, 60, 18, 'Show', (SelPopup >= 0) and (ShownPopup = SelPopup)) and (SelPopup >= 0) then
+  begin
+    if ShownPopup = SelPopup then CloseFramePopup else ShowFramePopup(SelPopup);
+  end;
+  if Button(684, QX + 196, y, 84, 18, 'Add link') and (SelPopup >= 0) then
+  begin
+    { a link to it in the middle of the visible canvas, ready to drag }
+    i := AddLink(SnapCell(ViewX + CANVAS_W / Zoom / 2), SnapCell(ViewY + CANVAS_H / Zoom / 2),
+      LinkDefaultCaption(True, SelPopup), True, SelPopup);
+    if i < 0 then SetStatus(Format('Too many links on this page (max %d)', [MAX_LINKS]), True)
+    else
+    begin
+      SelKind := selLink;
+      SelLk := i;
+      SetStatus('Link added in the middle of the canvas - Link tool: drag it into place');
+    end;
+  end;
+  y := y + 28;
+  if SelPopup < 0 then
+  begin
+    Info(y, 'A frame popup is a small window');
+    Info(y + 12, 'that a link opens over the canvas:');
+    Info(y + 24, 'notes, instructions, an alarm text.');
+    Exit;
+  end;
+  Info(y, Format('Popup %d - title', [SelPopup + 1]));
+  y := y + 12;
+  SetC(Th.OverlayBg);
+  FillR(QX, y, 200, 18);
+  SetC(Th.MenuBorder);
+  RectR(QX, y, 200, 18);
+  SetC(Th.Text);
+  TextR(QX + 4, y + 5, Copy(Popups[SelPopup].Title + TxtCaret(3, SelPopup), 1, 24));
+  if (TxtEdit = 3) and (TxtIdx = SelPopup) then
+  begin
+    if Button(685, QX + 204, y, 76, 18, 'Done', True) then StopTxt;
+  end
+  else if Button(685, QX + 204, y, 76, 18, 'Edit') then StartTxt(3, SelPopup);
+  y := y + 24;
+  PreviewBox(y, 52, Popups[SelPopup].Text + TxtCaret(4, SelPopup), 4, 0);
+  y := y + 56;
+  if (TxtEdit = 4) and (TxtIdx = SelPopup) then
+  begin
+    if Button(686, QX, y, 136, 18, 'Done typing', True) then StopTxt;
+  end
+  else if Button(686, QX, y, 136, 18, 'Edit text') then StartTxt(4, SelPopup);
+  if Button(687, QX + 142, y, 138, 18, 'Clear text') then Popups[SelPopup].Text := '';
+  y := y + 24;
+  { its "go to page" button }
+  if Button(688, QX, y, 24, 18, '<') then
+  begin
+    if Popups[SelPopup].GoPage < 0 then Popups[SelPopup].GoPage := PageCount - 1
+    else Dec(Popups[SelPopup].GoPage);
+  end;
+  SetC(Th.OverlayBg);
+  FillR(QX + 28, y, 224, 18);
+  SetC(Th.Text);
+  if Popups[SelPopup].GoPage < 0 then s := 'No "go to page" button'
+  else s := Format('Button: page %d %s', [Popups[SelPopup].GoPage + 1, PageName(Popups[SelPopup].GoPage)]);
+  TextR(QX + 32, y + 5, Copy(s, 1, 27));
+  if Button(689, QX + 256, y, 24, 18, '>') then
+  begin
+    if Popups[SelPopup].GoPage >= PageCount - 1 then Popups[SelPopup].GoPage := -1
+    else Inc(Popups[SelPopup].GoPage);
+  end;
+  y := y + 24;
+  for c := 0 to 5 do
+  begin
+    if Button(690 + c, QX + c * 47, y, 44, 18, LabelColorNames[c], Popups[SelPopup].Color = c) then
+      Popups[SelPopup].Color := c;
+    if c > 0 then
+    begin
+      LabelRGB(c, r, g, b);
+      SetCol(r, g, b);
+      FillR(QX + c * 47 + 2, y + 15, 40, 2);
+    end;
+  end;
+  y := y + 26;
+  Info(y, 'Double-click a popup button: show it.');
+end;
+
 procedure RotateBlock(const A: TBlock; CW: Boolean; out B: TBlock);
 var
   x, y, nx, ny, d, nd, i: Integer;
@@ -3032,9 +3998,9 @@ begin
         SetStatus('Select parts to rotate first', True);
         Exit;
       end;
-    selBucket, selLabel, selFrame:
+    selBucket, selLabel, selFrame, selLink:
       begin
-        SetStatus('Buckets, labels and frames stay upright - select parts to rotate', True);
+        SetStatus('Buckets, labels, frames and links stay upright - select parts to rotate', True);
         Exit;
       end;
     selCell:
@@ -3128,9 +4094,11 @@ const
   WIN_PROPS = 2;
   WIN_STATUS = 3;
   WIN_HELP = 4;
-  WIN_COUNT = 5;
+  WIN_PAGES = 5;
+  WIN_POPUPS = 6;
+  WIN_COUNT = 7;
   WIN_TITLE_H = 18;
-  WinKeys: array[0..WIN_COUNT - 1] of string = ('F2', 'F3', 'F4', 'F5', 'F1');
+  WinKeys: array[0..WIN_COUNT - 1] of string = ('F2', 'F3', 'F4', 'F5', 'F1', 'F6', 'F7');
 
 procedure InitWins;
   procedure Setup(i: Integer; const T: string; DY, H: Single);
@@ -3153,6 +4121,13 @@ begin
   Setup(WIN_PROPS, 'PROPERTIES', 340, 298);
   Setup(WIN_STATUS, 'STATUS', 640, 58);
   Setup(WIN_HELP, 'HELP', 700, 98);
+  { the page panels start in the left column }
+  Setup(WIN_PAGES, 'PAGE & LAYER', 4, 372);
+  Setup(WIN_POPUPS, 'FRAME POPUP', 380, 410);
+  Wins[WIN_PAGES].Side := 1;
+  Wins[WIN_POPUPS].Side := 1;
+  Wins[WIN_PAGES].X := -PANEL_W + 4;
+  Wins[WIN_POPUPS].X := -PANEL_W + 4;
 end;
 
 { x of panel i's slot: in the right column, or in the left column (left of the canvas) }
@@ -3320,7 +4295,11 @@ var
   g6: array[0..5] of Integer;
   rest: string;
 begin
-  if (SettingsFile = '') or not FileExists(SettingsFile) then Exit;
+  if (SettingsFile = '') or not FileExists(SettingsFile) then
+  begin
+    ApplyLayout;
+    Exit;
+  end;
   try
     AssignFile(f, SettingsFile);
     Reset(f);
@@ -3475,6 +4454,8 @@ begin
         AddItem('Properties', WinKeys[WIN_PROPS], True, Wins[WIN_PROPS].Visible);
         AddItem('Status', WinKeys[WIN_STATUS], True, Wins[WIN_STATUS].Visible);
         AddItem('Help', WinKeys[WIN_HELP], True, Wins[WIN_HELP].Visible);
+        AddItem('Page & Layer', WinKeys[WIN_PAGES], True, Wins[WIN_PAGES].Visible);
+        AddItem('Frame popup', WinKeys[WIN_POPUPS], True, Wins[WIN_POPUPS].Visible);
         AddItem('Dock all panels', '', not AllDocked, False, True);
       end;
     MENU_EXAMPLES:
@@ -3580,8 +4561,8 @@ begin
       end;
     MENU_PANELS:
       case i of
-        0..4: ToggleWin(i);
-        5:
+        0..6: ToggleWin(i);
+        7:
           for k := 0 to WIN_COUNT - 1 do DockWin(k);
       end;
     MENU_EXAMPLES:
@@ -3602,7 +4583,7 @@ begin
     0: Result := 288;
     1: Result := 200;
     MENU_VIEW: Result := 270;
-    MENU_PANELS: Result := 200;
+    MENU_PANELS: Result := 210;
     MENU_EXAMPLES: Result := 240;
   else
     Result := 170;
@@ -3706,6 +4687,46 @@ begin
   Result := Inside(x, top, w, h);
 end;
 
+{ the page you are on, in the menu bar: < Page 2/3: name >  and the active layer }
+procedure DrawPageBar(Pressed: Boolean);
+var
+  x, w, y: Single;
+  s, ls: string;
+  hot: Boolean;
+
+  function Arrow(px: Single; const lbl: string; En: Boolean): Boolean;
+  begin
+    hot := En and Inside(px, y, 22, 18);
+    if hot then SetC(Th.BtnHot) else SetC(Th.BtnBg);
+    FillR(px, y, 22, 18);
+    SetC(Th.BtnBorder);
+    RectR(px, y, 22, 18);
+    if En then SetC(Th.BtnText) else SetC(Th.MenuDisabled);
+    TextR(px + 7, y + 5, lbl);
+    Result := Pressed and hot;
+  end;
+
+begin
+  y := -MENU_H + 3;
+  s := Format('Page %d/%d: %s', [CurPage + 1, PageCount, Copy(PageName(CurPage), 1, 20)]);
+  ls := 'Layer: ' + Copy(Pages[CurPage].Layers[CurLayer].Name, 1, 14);
+  w := Length(s) * 8 + 16;
+  x := MenuBarX(MENU_COUNT) + 20;
+  if Arrow(x, '<', CurPage > 0) then AppGoToPage(CurPage - 1);
+  { the page name: a click shows the Page & Layer panel }
+  hot := Inside(x + 24, y, w, 18);
+  if hot then SetC(Th.BtnHot) else SetC(Th.OverlayBg);
+  FillR(x + 24, y, w, 18);
+  SetC(Th.BtnBorder);
+  RectR(x + 24, y, w, 18);
+  SetC(Th.Title);
+  TextR(x + 32, y + 5, s);
+  if Pressed and hot and not Wins[WIN_PAGES].Visible then ToggleWin(WIN_PAGES);
+  if Arrow(x + 28 + w, '>', CurPage < PageCount - 1) then AppGoToPage(CurPage + 1);
+  SetC(Th.TextDim);
+  TextR(x + 60 + w, y + 5, ls);
+end;
+
 procedure DrawMenus(Pressed: Boolean);
 var
   m, i, hit: Integer;
@@ -3736,6 +4757,7 @@ begin
       Pressed := False;
     end;
   end;
+  DrawPageBar(Pressed and (OpenMenu < 0));
   if OpenMenu < 0 then Exit;
 
   m := OpenMenu;
@@ -3859,7 +4881,7 @@ begin
   if Button(50, QX + 94, y0 + 70, 90, 20, 'Empty bkts') then
     for i := 0 to MAX_BUCKETS - 1 do
       if Buckets[i].Active then EmptyBucket(i);
-  if Button(51, QX + 188, y0 + 70, 90, 20, 'Fill tanks') then RefillAllTanks;
+  if Button(51, QX + 188, y0 + 70, 90, 20, 'Fill feeders') then RefillAllTanks;
 end;
 
 procedure DrawPropsContent(y0: Single);
@@ -3870,6 +4892,7 @@ begin
   if (SelKind = selBucket) and not Buckets[SelB].Active then SelKind := selNone;
   if (SelKind = selLabel) and not Labels[SelL].Active then SelKind := selNone;
   if (SelKind = selFrame) and ((SelFr < 0) or not Frames[SelFr].Active) then SelKind := selNone;
+  if (SelKind = selLink) and ((SelLk < 0) or not Links[SelLk].Active) then SelKind := selNone;
   if SelKind = selMulti then
   begin
     CountSelection(np, nb);
@@ -3879,12 +4902,13 @@ begin
     selCell: DrawCellProps(y0);
     selLabel: DrawLabelProps(y0);
     selFrame: DrawFrameProps(y0);
+    selLink: DrawLinkProps(y0);
     selBucket: DrawBucketProps(y0);
     selMulti: DrawMultiProps(y0);
   else
     begin
       Info(y0 + 2, 'Nothing selected.');
-      Info(y0 + 16, 'Use Select (1) and click a tank,');
+      Info(y0 + 16, 'Use Select (1) and click a feeder,');
       Info(y0 + 28, 'blower, valve, pipe or bucket,');
       Info(y0 + 40, 'or drag a box around several.');
       Info(y0 + 58, 'Drag a selected part to move it,');
@@ -3959,9 +4983,9 @@ begin
 end;
 
 const
-  HELP_PAGES = 5;
+  HELP_PAGES = 6;
   HelpTitles: array[0..HELP_PAGES - 1] of string = ('Basics', 'Select & move', 'Edit',
-    'View & panels', 'Files & labels');
+    'View & panels', 'Files & labels', 'Pages & links');
   HelpText: array[0..HELP_PAGES - 1, 0..4] of string = (
     ('L-drag: use the current tool', 'R-click: menu   R-drag: erase', 'Wheel on part: strength/size',
      'Space pause  P pressure  A air', 'Keys 1-0: pick a tool'),
@@ -3973,7 +4997,9 @@ const
      'F1-F5: show / hide panels', 'R-click a panel: embed/float'),
     ('Ctrl+S save   Ctrl+O open', 'Examples menu: ready layouts',
      'Label tool: click, then type', 'Double-click a label: edit',
-     'Date/Time label: live clock'));
+     'Date/Time label: live clock'),
+    ('PgUp/PgDn or < > on the menu bar', 'F6: pages and layers (max 20/5)', 'F7: frame popups (max 20)',
+     'Click a link: go to page / popup', 'Ctrl+click a link: select it'));
 
 var
   HelpPage: Integer = 0;
@@ -4078,6 +5104,8 @@ begin
     WIN_PROPS: DrawPropsContent(y0);
     WIN_STATUS: DrawStatusContent(y0);
     WIN_HELP: DrawHelpContent(y0);
+    WIN_PAGES: DrawPagesContent(y0);
+    WIN_POPUPS: DrawPopupsContent(y0);
   end;
   QX := PX;
 end;
@@ -4097,6 +5125,7 @@ begin
     selCell: EraseCell(SelX, SelY);
     selBucket: DeleteBucket(SelB);
     selLabel: DeleteLabel(SelL);
+    selLink: DeleteLink(SelLk);
     selFrame:
       begin
         if EditFrame = SelFr then StopEditFrame;
@@ -4128,13 +5157,14 @@ procedure EraseAt(gx, gy: Integer);
 var
   b: Integer;
 begin
+  if CellBlocked(gx, gy) then Exit;
   if InGrid(gx, gy) and (Grid[gx, gy].Kind <> ckEmpty) then
   begin
     EraseCell(gx, gy);
     if (SelKind = selCell) and (SelX = gx) and (SelY = gy) then SelKind := selNone;
     Exit;
   end;
-  b := BucketAt(MWX, MWY);
+  b := BucketPick(MWX, MWY);
   if b >= 0 then
   begin
     DeleteBucket(b);
@@ -4144,7 +5174,7 @@ end;
 
 procedure ResizeAt(gx, gy: Integer);
 begin
-  if InGrid(gx, gy) and (Grid[gx, gy].Kind <> ckEmpty) then
+  if InGrid(gx, gy) and (Grid[gx, gy].Kind <> ckEmpty) and not CellBlocked(gx, gy) then
     Grid[gx, gy].Dia := BrushDia;
 end;
 
@@ -4162,6 +5192,8 @@ begin
       nx := nx + Sign(gx - LastCX)
     else
       ny := ny + Sign(gy - LastCY);
+    { a pipe stops at parts on a hidden or locked layer }
+    if CellBlocked(nx, ny) or CellBlocked(LastCX, LastCY) then Exit;
     if Grid[nx, ny].Kind = ckEmpty then MakePipe(nx, ny, BrushDia);
     ConnectCells(LastCX, LastCY, nx, ny);
     LastCX := nx;
@@ -4171,13 +5203,59 @@ end;
 
 procedure CanvasPress(Right: Boolean);
 var
-  gx, gy, b, L, sx, sy, fr, part: Integer;
+  gx, gy, b, L, sx, sy, fr, part, lk: Integer;
+  blocked: Boolean;
 begin
   if (MWX < 0) or (MWY < 0) then Exit;   { outside the layout when zoomed out }
   gx := Trunc(MWX / CELL);
   gy := Trunc(MWY / CELL);
   if not InGrid(gx, gy) then Exit;
+  StopTxt;
   L := LabelAt(MWX, MWY);
+  lk := LinkAt(MWX, MWY);
+  { links sit on top of everything: the Select tool follows them, the Link tool (or Ctrl) picks them }
+  if (not Right) and (not PasteArmed) and (lk >= 0) then
+  begin
+    if (Tool = tSelect) and ((SDL_GetModState and SDL_KMOD_CTRL) = 0) then
+    begin
+      StopEditLabel;
+      StopEditFrame;
+      AppFollowLink(lk);
+      Exit;
+    end;
+    if Tool in [tSelect, tLink] then
+    begin
+      StopEditLabel;
+      StopEditFrame;
+      SelKind := selLink;
+      SelLk := lk;
+      if LastClicks >= 2 then
+        StartTxt(5, lk)
+      else
+      begin
+        Drag := dragLink;
+        LastMX := MWX;
+        LastMY := MWY;
+        SetStatus('Link to ' + LinkTargetName(lk) + ' - drag to move, double-click: caption');
+      end;
+      Exit;
+    end;
+  end;
+  if (not Right) and (not PasteArmed) and (Tool = tLink) then
+  begin
+    StopEditLabel;
+    StopEditFrame;
+    lk := NewLinkAt(SnapCell(MWX), SnapCell(MWY));
+    if lk < 0 then
+      SetStatus(Format('Too many links on this page (max %d)', [MAX_LINKS]), True)
+    else
+    begin
+      SelKind := selLink;
+      SelLk := lk;
+      SetStatus('Link to ' + LinkTargetName(lk) + ' - pick its target in Properties');
+    end;
+    Exit;
+  end;
   { clicking anywhere but the label being typed into finishes it }
   if (EditLabel >= 0) and (L <> EditLabel) then StopEditLabel;
   fr := FrameAt(MWX, MWY, part);
@@ -4257,6 +5335,7 @@ begin
       PlacePaste(gx, gy);
     Exit;
   end;
+  blocked := CellBlocked(gx, gy);
   if Right then
   begin
     { decided on release: no movement = popup menu, moving = erase drag }
@@ -4265,11 +5344,17 @@ begin
     RCellY := gy;
     Exit;
   end;
+  if blocked and (Tool in [tPipe, tResize, tFeeder, tHopper, tSilo, tBlower, tSuction, tNozzle, tDrop, tCheck,
+    tValve2, tValve3, tValve4]) then
+  begin
+    SetStatus('That part is on a hidden or locked layer (Page & Layer panel)', True);
+    Exit;
+  end;
   case Tool of
     tSelect:
       begin
-        b := BucketAt(MWX, MWY);
-        if Grid[gx, gy].Kind <> ckEmpty then
+        b := BucketPick(MWX, MWY);
+        if (Grid[gx, gy].Kind <> ckEmpty) and not blocked then
         begin
           { press on a part: select it (unless it is already in the selection),
             then dragging moves the whole selection }
@@ -4320,7 +5405,7 @@ begin
         EraseAt(gx, gy);
         Drag := dragErase;
       end;
-    tTank, tHopper, tSilo, tBlower, tSuction, tNozzle, tDrop, tCheck, tValve2, tValve3, tValve4:
+    tFeeder, tHopper, tSilo, tBlower, tSuction, tNozzle, tDrop, tCheck, tValve2, tValve3, tValve4:
       begin
         if Grid[gx, gy].Kind = ckEmpty then MakePipe(gx, gy, BrushDia);
         if Grid[gx, gy].Kind <> ToolKinds[Tool] then SetKind(gx, gy, ToolKinds[Tool]);
@@ -4372,6 +5457,14 @@ begin
       end;
     dragFrameMove: UpdateFrameMove;
     dragFrameSize: UpdateFrameSize;
+    dragLink:
+      if (SelKind = selLink) and Links[SelLk].Active then
+      begin
+        Links[SelLk].X := fclamp(Links[SelLk].X + MWX - LastMX, 0, CANVAS_W - 24);
+        Links[SelLk].Y := fclamp(Links[SelLk].Y + MWY - LastMY, 0, CANVAS_H - 18);
+        LastMX := MWX;
+        LastMY := MWY;
+      end;
     dragLabel:
       if (SelKind = selLabel) and Labels[SelL].Active then
       begin
@@ -4438,10 +5531,15 @@ begin
   { right-clicking something outside the current selection selects it first }
   if not ((SelKind = selMulti) and (gx >= SelX1) and (gx <= SelX2) and (gy >= SelY1) and (gy <= SelY2)) then
   begin
-    b := BucketAt(MWX, MWY);
+    b := BucketPick(MWX, MWY);
     L := LabelAt(MWX, MWY);
     fr := FrameAt(MWX, MWY, part);
-    if L >= 0 then
+    if LinkAt(MWX, MWY) >= 0 then
+    begin
+      SelKind := selLink;
+      SelLk := LinkAt(MWX, MWY);
+    end
+    else if L >= 0 then
     begin
       if L <> EditLabel then StopEditLabel;
       SelKind := selLabel;
@@ -4452,7 +5550,7 @@ begin
       SelKind := selFrame;
       SelFr := fr;
     end
-    else if Grid[gx, gy].Kind <> ckEmpty then
+    else if (Grid[gx, gy].Kind <> ckEmpty) and not CellBlocked(gx, gy) then
       SelectCell(gx, gy)
     else if StoreAt(MWX, MWY, sx, sy) then
       SelectCell(sx, sy)
@@ -4510,7 +5608,7 @@ begin
       key := CanvasKeys[i];
       case i of
         2: en := not ClipEmpty;
-        5: en := SelKind in [selLabel, selFrame];
+        5: en := SelKind in [selLabel, selFrame, selLink];
       else
         en := SelKind <> selNone;
       end;
@@ -4547,7 +5645,9 @@ begin
           2: PlacePaste(PopupGX, PopupGY);
           3: DoDelete;
           4: DoRotate(True);
-          5: if SelKind = selFrame then StartEditFrame(SelFr) else StartEditLabel(SelL);
+          5: if SelKind = selFrame then StartEditFrame(SelFr)
+             else if SelKind = selLink then StartTxt(5, SelLk)
+             else StartEditLabel(SelL);
         end;
       Exit;
     end;
@@ -4565,6 +5665,7 @@ begin
   gy := Trunc(wy / CELL);
   if amount > 0 then st := 1 else st := -1;
   WheelIdle := 0;   { a burst of wheel ticks becomes one undo step }
+  if CellBlocked(gx, gy) then Exit;
   if InGrid(gx, gy) and (Grid[gx, gy].Kind <> ckEmpty) then
   begin
     c := @Grid[gx, gy];
@@ -4577,7 +5678,7 @@ begin
     SelectCell(gx, gy);
     Exit;
   end;
-  b := BucketAt(wx, wy);
+  b := BucketPick(wx, wy);
   if b >= 0 then
     ResizeBucket(b, fclamp(Buckets[b].W + st * 10, 40, 400), Buckets[b].H);
 end;
@@ -4610,7 +5711,9 @@ begin
   case key of
     SDLK_SPACE: Running := not Running;
     SDLK_ESCAPE:
-      if PopupOpen then
+      if ShownPopup >= 0 then
+        CloseFramePopup
+      else if PopupOpen then
         PopupOpen := False
       else if OpenMenu >= 0 then
         OpenMenu := -1
@@ -4640,7 +5743,7 @@ begin
     Ord('2'): Tool := tPipe;
     Ord('3'): Tool := tResize;
     Ord('4'): Tool := tErase;
-    Ord('5'): Tool := tTank;
+    Ord('5'): Tool := tFeeder;
     Ord('6'): Tool := tBlower;
     Ord('7'): Tool := tSuction;
     Ord('8'): Tool := tNozzle;
@@ -4655,6 +5758,10 @@ begin
     SDLK_F2: ToggleWin(WIN_TOOLS);
     SDLK_F3: ToggleWin(WIN_SIM);
     SDLK_F4: ToggleWin(WIN_PROPS);
+    SDLK_F6: ToggleWin(WIN_PAGES);
+    SDLK_F7: ToggleWin(WIN_POPUPS);
+    SDLK_PAGEUP: if CurPage > 0 then AppGoToPage(CurPage - 1);
+    SDLK_PAGEDOWN: if CurPage < PageCount - 1 then AppGoToPage(CurPage + 1);
   end;
 end;
 
@@ -4672,6 +5779,12 @@ begin
       PanLastX := MX;
       PanLastY := MY;
     end;
+  end
+  else if (Button = SDL_BUTTON_LEFT) and (ShownPopup >= 0) and (OpenMenu < 0) and (not PopupOpen) and
+    (MX >= 0) and (MX < CANVAS_W) and (MY >= 0) and (MY < CANVAS_H) and not InAnyWin(MX, MY) then
+  begin
+    { the frame popup over the canvas: its buttons, or a click beside it closes it }
+    if InFramePopup then FPClick := True else CloseFramePopup;
   end
   else if PopupOpen then
   begin
@@ -4791,6 +5904,7 @@ end;
   screenshot runs start from the demo instead, which their checks rely on. }
 procedure LoadStartupLayout(Testing: Boolean);
 begin
+  PagesReset;
   if Testing then
   begin
     LoadDemo;
@@ -4813,9 +5927,10 @@ end;
 procedure RunSelfTest(const FileName: string);
 var
   f: TextFile;
-  fails, i, b, np, nb: Integer;
-  bx, by: Single;
+  fails, i, b, np, nb, k, lk, lk2, cx, cy: Integer;
+  bx, by, fw, fh: Single;
   err: string;
+  tf: TextFile;
 
   { open menu m and click item i through the real mouse path; m = -1 clicks the Edit button on the bar }
   procedure ClickMenu(m, i: Integer);
@@ -5099,6 +6214,9 @@ begin
   Check('R again turns it back', Grid[6, 3].Dir = 0);
 
   { panel popup actions: left / right embed, float }
+  Wins[WIN_PAGES].Visible := False;
+  Wins[WIN_POPUPS].Visible := False;
+  ApplyLayout;
   EmbedWin(WIN_PROPS, 1);
   Check('left embed opens a left column', (LeftW = PANEL_W) and (OX = PANEL_W) and EmbeddedLeft(WIN_PROPS) and
     (WinAt(-200, 400) = WIN_PROPS));
@@ -5130,6 +6248,8 @@ begin
   Wins[WIN_SIM].Y := 250;
   ToggleWin(WIN_PROPS);   { hidden; also saves }
   InitWins;
+  Wins[WIN_PAGES].Visible := False;
+  Wins[WIN_POPUPS].Visible := False;
   SelectTheme(0);
   ApplyLayout;
   Check('reset before loading', (LeftW = 0) and WinDocked(WIN_SIM));
@@ -5402,7 +6522,8 @@ begin
   Check('Panels > Simulation works by click', not Wins[WIN_SIM].Visible);
   ClickMenu(MENU_PANELS, 1);
   BuildMenu(MENU_PANELS);
-  Check('Panels menu holds the five panels + Dock all', (MCount = 6) and (MItems[5].Lbl = 'Dock all panels'));
+  Check('Panels menu holds the seven panels + Dock all', (MCount = 8) and (MItems[5].Lbl = 'Page & Layer') and
+    (MItems[6].Lbl = 'Frame popup') and (MItems[7].Lbl = 'Dock all panels'));
   BuildMenu(MENU_VIEW);
   Check('View menu: zoom, pressure, air, Grid >', (MCount = 6) and MItems[VIEW_GRID_ITEM].HasSub);
 
@@ -5530,6 +6651,229 @@ begin
   Check('silo and its contents saved', (Grid[36, 19].Kind = ckSilo) and (Grid[36, 19].Stock[mWater] = 777) and
     (Grid[21, 18].Feed = 30));
 
+  { ---- Feeder, pages, layers, links and frame popups }
+  InitWins;
+  ApplyLayout;
+  Zoom := 1;
+  ViewX := 0;
+  ViewY := 0;
+  Check('the tank part is called Feeder', (KindNames[ckSource] = 'Feeder') and (ToolNames[tFeeder] = 'Feeder'));
+  DoNew;
+  Check('a new layout has one page with one layer', (PageCount = 1) and (CurPage = 0) and (LayerCount = 1));
+  PipeLine(2, 2, 8, 2, 3);
+  AppAddPage;
+  Check('Add page shows the new, empty page', (PageCount = 2) and (CurPage = 1) and (Grid[4, 2].Kind = ckEmpty));
+  PipeLine(3, 5, 3, 9, 3);
+  AppGoToPage(0);
+  Check('each page keeps its own parts', (Grid[4, 2].Kind = ckPipe) and (Grid[3, 7].Kind = ckEmpty));
+  AppGoToPage(1);
+  Check('... and so does the other page', (Grid[3, 7].Kind = ckPipe) and (Grid[4, 2].Kind = ckEmpty));
+  for i := 1 to 30 do AppAddPage;
+  Check('at most 20 pages', PageCount = MAX_PAGES);
+  AppGoToPage(MAX_PAGES - 1);
+  PageDelArmed := 0;
+  AppDeletePage;
+  Check('deleting a page needs a second click', PageCount = MAX_PAGES);
+  AppDeletePage;
+  Check('the second click deletes the page', (PageCount = MAX_PAGES - 1) and (CurPage = MAX_PAGES - 2));
+
+  { layers }
+  AppGoToPage(0);
+  for i := 1 to 10 do AppAddLayer;
+  Check('at most 5 layers on a page', (LayerCount = MAX_LAYERS) and (CurLayer = MAX_LAYERS - 1));
+  AppSetLayer(1);
+  PipeLine(10, 10, 14, 10, 3);
+  Check('new parts go on the active layer', (Grid[12, 10].Layer = 1) and (Grid[4, 2].Layer = 0));
+  Pages[0].Layers[1].Visible := False;
+  Tool := tSelect;
+  SelKind := selNone;
+  MX := 12 * CELL + HALF;
+  MY := 10 * CELL + HALF;
+  CanvasPress(False);
+  Drag := dragNone;
+  Check('a part on a hidden layer cannot be picked', SelKind <> selCell);
+  SelectBox(9, 9, 15, 11);
+  Check('a box selection skips a hidden layer', SelKind = selNone);
+  Pages[0].Layers[1].Visible := True;
+  Pages[0].Layers[1].Locked := True;
+  Tool := tErase;
+  CanvasPress(False);
+  Drag := dragNone;
+  Check('a part on a locked layer cannot be erased', Grid[12, 10].Kind = ckPipe);
+  Pages[0].Layers[1].Locked := False;
+  Tool := tSelect;
+  SelectCell(12, 10);
+  AppSetLayer(2);
+  SelectionToLayer;
+  Check('Move selection to active layer', Grid[12, 10].Layer = 2);
+  LayerDelArmed := 0;
+  AppDeleteLayer;
+  AppDeleteLayer;
+  Check('deleting a layer keeps its parts', (LayerCount = MAX_LAYERS - 1) and (Grid[12, 10].Kind = ckPipe) and
+    (Grid[12, 10].Layer = 1));
+  SelectCell(12, 10);
+  DoCopy;
+  AppSetLayer(3);
+  PlacePaste(12, 14);
+  Check('pasted parts go on the active layer', (Grid[12, 14].Kind = ckPipe) and (Grid[12, 14].Layer = 3));
+  AppSetLayer(0);
+
+  { frame popups }
+  for i := 1 to 30 do AddPopup('Popup', 'text');
+  Check('at most 20 frame popups', FramePopupCount = MAX_POPUPS);
+  for i := 2 to MAX_POPUPS - 1 do DeletePopup(i);
+  Popups[0].Title := 'Help';
+  Popups[0].GoPage := 1;
+
+  { links }
+  Tool := tLink;
+  MX := 20 * CELL;
+  MY := 20 * CELL;
+  CanvasPress(False);
+  Drag := dragNone;
+  lk := SelLk;
+  Check('the Link tool adds a link to the next page', (SelKind = selLink) and Links[lk].Active and
+    (not Links[lk].ToPopup) and (Links[lk].Target = 1));
+  Links[lk].Target := 5;
+  Tool := tSelect;
+  SelKind := selNone;
+  MX := Links[lk].X + 6;
+  MY := Links[lk].Y + 6;
+  MouseDown(SDL_BUTTON_LEFT);
+  MDown := False;
+  MPressed := False;
+  Check('clicking a link goes to its page', CurPage = 5);
+  AppGoToPage(0);
+  lk2 := AddLink(30 * CELL, 26 * CELL, 'Help', True, 0);
+  MX := Links[lk2].X + 6;
+  MY := Links[lk2].Y + 6;
+  MouseDown(SDL_BUTTON_LEFT);
+  MDown := False;
+  MPressed := False;
+  Check('a popup link opens its frame popup', (ShownPopup = 0) and (CurPage = 0));
+  FramePopupBox(bx, by, fw, fh);
+  MX := bx + 20;
+  MY := by + fh - 20;
+  MouseDown(SDL_BUTTON_LEFT);
+  Render;
+  TakePendingPage;
+  MDown := False;
+  MPressed := False;
+  Check('the popup''s "Go to" button opens its page', (ShownPopup = -1) and (CurPage = 1));
+  AppGoToPage(0);
+  ShowFramePopup(1);
+  HandleKey(SDLK_ESCAPE, 0);
+  Check('Esc closes a frame popup', ShownPopup = -1);
+  ShowFramePopup(1);
+  MX := 4;
+  MY := 4;
+  MouseDown(SDL_BUTTON_LEFT);
+  MDown := False;
+  MPressed := False;
+  Check('a click beside the popup closes it', (ShownPopup = -1) and (CurPage = 0));
+  HandleKey(SDLK_PAGEDOWN, 0);
+  Check('PgDn: next page', CurPage = 1);
+  HandleKey(SDLK_PAGEUP, 0);
+  Check('PgUp: previous page', CurPage = 0);
+
+  { typing names and texts }
+  Pages[0].Name := '';
+  StartTxt(1, 0);
+  TxtTypeText('Main hall');
+  TxtKey(SDLK_RETURN);
+  Check('typing a page name', (PageName(0) = 'Main hall') and (TxtEdit = 0));
+  Popups[0].Text := '';
+  StartTxt(4, 0);
+  TxtTypeText('Line 1');
+  TxtKey(SDLK_RETURN);
+  TxtTypeText('Line 2');
+  TxtKey(SDLK_ESCAPE);
+  Check('popup text takes several lines', Popups[0].Text = 'Line 1'#10'Line 2');
+
+  { undo belongs to a page }
+  HistCheck;
+  EraseCell(4, 2);
+  HistCheck;
+  DoUndo;
+  Check('undo on a page', Grid[4, 2].Kind = ckPipe);
+  AppGoToPage(1);
+  Check('nothing to undo on a page just entered', not CanUndo);
+
+  { moving a page keeps links pointing at it }
+  AppGoToPage(5);
+  AppMovePage(-1);
+  Check('moving a page keeps links pointing at it', (CurPage = 4) and (Pages[0].Links[lk].Target = 4));
+
+  { all pages in one file }
+  AppGoToPage(0);
+  Check('save a layout with pages', SaveLayout(UnicodeString(FileName + '.pages.mflow'), err));
+  np := PageCount;
+  DoNew;
+  Check('load a layout with pages', LoadLayout(UnicodeString(FileName + '.pages.mflow'), err));
+  Check('pages, names and layers come back', (PageCount = np) and (PageName(0) = 'Main hall') and
+    (LayerCount = MAX_LAYERS - 1) and (Grid[12, 10].Layer = 1) and (Grid[12, 14].Layer = 3) and (Grid[4, 2].Kind = ckPipe));
+  nb := 0;
+  for i := 0 to MAX_LINKS - 1 do
+    if Links[i].Active and ((Links[i].ToPopup and (Links[i].Target = 0)) or
+      ((not Links[i].ToPopup) and (Links[i].Target = 4))) then Inc(nb);
+  Check('frame popups and links come back', (FramePopupCount = 2) and (Popups[0].Text = 'Line 1'#10'Line 2') and
+    (Popups[0].GoPage = 1) and (nb = 2));
+  AppGoToPage(1);
+  Check('the second page comes back with its parts', Grid[3, 7].Kind = ckPipe);
+  { a version 1 file (one page, "tank" parts) still loads }
+  AssignFile(tf, FileName + '.v1.mflow');
+  Rewrite(tf);
+  WriteLn(tf, 'MFLOW 1');
+  WriteLn(tf, 'CELL 5 5 tank E 4 E 1 100.00');
+  WriteLn(tf, 'CELL 6 5 pipe W 3 E 1 100.00');
+  WriteLn(tf, 'TANK 5 5 100.00 0.00 0.00 0.00 10.00 50.00');
+  CloseFile(tf);
+  Check('a version 1 file loads as one page', LoadLayout(UnicodeString(FileName + '.v1.mflow'), err) and
+    (PageCount = 1) and (Grid[5, 5].Kind = ckSource) and (Grid[5, 5].Stock[mWater] = 100));
+  Check('feeders are saved as "feeder"', SaveLayout(UnicodeString(FileName + '.v1.mflow'), err) and
+    LoadLayout(UnicodeString(FileName + '.v1.mflow'), err) and (Grid[5, 5].Kind = ckSource));
+
+  { every example follows the same plan }
+  for k := 1 to EXAMPLE_COUNT do
+  begin
+    RunMenuItem(MENU_EXAMPLES, k);
+    Check(Format('example %d: pages Plant + About, layers Process + Notes, 2 popups', [k]),
+      (PageCount = 2) and (PageName(0) = 'Plant') and (PageName(1) = 'About') and (LayerCount = 2) and
+      (Pages[0].Layers[0].Name = 'Process') and (Pages[0].Layers[1].Name = 'Notes') and
+      (FramePopupCount = 2) and (CurPage = 0) and (CurLayer = 0));
+    np := 0;
+    nb := 0;
+    for i := 0 to MAX_LINKS - 1 do
+    begin
+      if Links[i].Active and (Links[i].Layer = 1) then Inc(np);
+      if Pages[1].Links[i].Active then Inc(nb);
+    end;
+    Check(Format('example %d: 3 links on each page', [k]), (np = 3) and (nb = 3));
+    np := 0;
+    for cy := 0 to GH - 1 do
+      for cx := 0 to GW - 1 do
+        if (Grid[cx, cy].Kind <> ckEmpty) and (Grid[cx, cy].Layer <> 0) then Inc(np);
+    for i := 0 to MAX_LABELS - 1 do
+      if Labels[i].Active and (Labels[i].Layer <> 1) then Inc(np);
+    Check(Format('example %d: parts on Process, notes on Notes', [k]), np = 0);
+  end;
+  { the links of an example work }
+  RunMenuItem(MENU_EXAMPLES, 4);
+  for i := 0 to MAX_LINKS - 1 do
+    if Links[i].Active and not Links[i].ToPopup then AppFollowLink(i);
+  Check('example: About link goes to page 2', (CurPage = 1) and (Labels[1].Active));
+  for i := 0 to MAX_LINKS - 1 do
+    if Links[i].Active and not Links[i].ToPopup then lk := i;
+  AppFollowLink(lk);
+  Check('example: Back link returns to the plant', (CurPage = 0) and (Grid[16, 10].Kind = ckValve4));
+  { a page that is not shown is paused: its flow carries on when it is shown again }
+  for i := 1 to 200 do SimFrame(1 / 60, True);
+  np := NPart;
+  AppGoToPage(1);
+  Check('the About page has no flow of its own', NPart = 0);
+  AppGoToPage(0);
+  Check('the plant page keeps its material in flight', NPart = np);
+
   { themes }
   for i := 0 to THEME_COUNT - 1 do
   begin
@@ -5566,6 +6910,7 @@ begin
   if (ParamCount >= 2) and (ParamStr(1) = '--export-examples') then
   begin
     { the original demo as a file too }
+    PagesReset;
     LoadDemo;
     GravityScale := 1;
     LayoutName := 'Original demo';
@@ -5671,6 +7016,14 @@ begin
       MX := MenuX(MENU_VIEW) + 40;
       MY := ItemY(VIEW_GRID_ITEM) + 10;
     end
+    else if ParamStr(5) = 'framepopup' then ShowFramePopup(0)
+    else if ParamStr(5) = 'about' then AppGoToPage(1)
+    else if ParamStr(5) = 'notes' then
+    begin
+      { the Notes layer hidden, a link selected }
+      Pages[CurPage].Layers[1].Visible := False;
+      SelKind := selNone;
+    end
     else if ParamStr(5) = 'theme' then OpenMenu := MENU_THEME
     else if ParamStr(5) = 'clock' then
     begin
@@ -5771,13 +7124,15 @@ begin
           QuitRequested := True;
         SDL_EVENT_KEY_DOWN:
           { while a label is being typed into, keys belong to it }
-          if EditLabel >= 0 then LabelKey(ev.key.key)
+          if TxtEdit > 0 then TxtKey(ev.key.key)
+          else if EditLabel >= 0 then LabelKey(ev.key.key)
           else if EditFrame >= 0 then FrameKey(ev.key.key)
           else HandleKey(ev.key.key, ev.key.mod_);
         SDL_EVENT_TEXT_INPUT:
           if ev.text.text <> nil then
           begin
-            if EditFrame >= 0 then FrameTypeText(string(ev.text.text))
+            if TxtEdit > 0 then TxtTypeText(string(ev.text.text))
+            else if EditFrame >= 0 then FrameTypeText(string(ev.text.text))
             else LabelTypeText(string(ev.text.text));
           end;
         SDL_EVENT_MOUSE_MOTION:
@@ -5882,12 +7237,16 @@ begin
     WheelIdle := WheelIdle + FrameDt;
     { a finished gesture (nothing held, no drag, wheel at rest) becomes an undo step }
     { (typing into a label becomes one step when the typing is done) }
-    if (not MDown) and (not RDown) and (Drag = dragNone) and (WheelIdle > 0.5) and (EditLabel < 0) and (EditFrame < 0) then
+    if (not MDown) and (not RDown) and (Drag = dragNone) and (WheelIdle > 0.5) and (EditLabel < 0) and (EditFrame < 0) and
+      (TxtEdit = 0) then
       HistCheck;
+    PageDelArmed := fmax(0, PageDelArmed - FrameDt);
+    LayerDelArmed := fmax(0, LayerDelArmed - FrameDt);
 
     SimFrame(fmin(FrameDt, 1 / 30), Running);
     Render;
     SDL_RenderPresent(Ren);
+    TakePendingPage;
   end;
 
   SaveSettings;   { panel places and theme for next time }

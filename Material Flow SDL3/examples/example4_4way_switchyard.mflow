@@ -1,13 +1,26 @@
 # Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
 # CELL x y kind conn dia dir open strength
-# TANK x y water oil fluff sand air% feed%
+# STOCK x y water oil fluff sand air% feed%
 # BUCKET x y w h
 # LABEL x y text   (\n = new line)
 # LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
 # FRAME x y w h colour dashed fill carry title
-MFLOW 1
+# LINK x y colour page|popup n caption
+MFLOW 2
 NAME 4-way valve switchyard
+POPUP 1 2 2 How it works
+POPUPTEXT 1 A blower drives water and oil into a 4-way\nvalve on a cross. East, south and north each\nlead to a bucket of their own.\nOpen and shut the branches to route the flow.\nNorth starts shut.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Select the valve: its E S W N buttons open and\nshut each branch, R steps through the cases.\nOpen north as well and see the flow split.
+
+PAGE Plant
+LAYERS 2 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
 GRAVITY 1.00
+ON 1
 CELL 16 4 pipe ES 3 E 1 0.00
 CELL 17 4 pipe EW 3 E 1 0.00
 CELL 18 4 pipe EW 3 E 1 0.00
@@ -38,8 +51,8 @@ CELL 16 8 pipe SN 3 E 1 0.00
 CELL 35 8 pipe SN 3 E 1 0.00
 CELL 16 9 pipe SN 3 E 1 0.00
 CELL 35 9 pipe SN 3 E 1 0.00
-CELL 4 10 tank E 4 E 1 0.00
-TANK 4 10 2500.00 900.00 0.00 0.00 10.00 75.00
+CELL 4 10 feeder E 4 E 1 0.00
+STOCK 4 10 2500.00 900.00 0.00 0.00 10.00 75.00
 CELL 5 10 pipe EW 3 E 1 0.00
 CELL 6 10 pipe EW 3 E 1 0.00
 CELL 7 10 pipe EW 3 E 1 0.00
@@ -99,4 +112,21 @@ CELL 35 21 drop N 3 S 1 100.00
 BUCKET 336.00 716.00 120.00 90.00
 BUCKET 576.00 716.00 120.00 90.00
 BUCKET 792.00 716.00 120.00 90.00
+ON 2
 LABEL 430.00 130.00 4-WAY VALVE\nSelect the valve and use its\nE S W N buttons (or R) to\nopen and shut each branch.\nNorth starts shut.
+LINK 920.00 6.00 1 page 2 About
+LINK 920.00 28.00 2 popup 1 How it works
+LINK 920.00 50.00 3 popup 2 Try this
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 4 - 4-WAY VALVE SWITCHYARD\nOne 4-way valve routes a blown flow to any of\nthree buckets.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

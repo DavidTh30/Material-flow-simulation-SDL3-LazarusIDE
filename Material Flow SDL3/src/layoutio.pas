@@ -3,11 +3,18 @@ unit layoutio;
 { Save / load pipe layouts as plain text (.mflow).
 
   # comment
-  MFLOW 1
+  MFLOW 2
   NAME <free text>
+  POPUP <n> <go page|-1> <colour> <title>      frame popup n (1..20)
+  POPUPTEXT <n> <text>                         (\n = new line)
+  PAGE <name>                                  starts a page (max 20)
+  LAYERS <count> <active>                      layers of this page (max 5)
+  LAYER <n> <visible> <locked> <name>
+  ON <n>                                       what follows is on layer n
   GRAVITY <scale>
   CELL <x> <y> <kind> <conn> <dia> <dir> <open> <strength>
-  TANK <x> <y> <water> <oil> <fluff> <sand> <air%> <feed%>
+  STOCK <x> <y> <water> <oil> <fluff> <sand> <air%> <feed%>   (TANK in old files)
+  LINK <x> <y> <colour> <page|popup> <n> <caption>
   BUCKET <x> <y> <w> <h>
   LABEL <x> <y> <text>            (\n = new line in the text)
   FRAME <x> <y> <w> <h> <colour> <dashed> <fill> <carry> <title>
@@ -15,8 +22,10 @@ unit layoutio;
                                   (kind text/date/time; format: FormatDateTime
                                    codes, \s = space, - = none; box 1/0)
 
-  kind: pipe tank blower suction nozzle drop check valve2 valve3 valve4 hopper silo
-  (TANK lines also hold the contents and gate of hoppers and silos)
+  kind: pipe feeder blower suction nozzle drop check valve2 valve3 valve4 hopper silo
+  ("tank" is read as feeder; STOCK lines hold the contents of feeders, hoppers, silos)
+  A version 1 file (no PAGE lines) loads as a single page with one layer.
+  Pages, layers, links and popups are numbered from 1 in the file.
   a valve4 CELL has a 10th value: its shut branches (ESWN letters or "-")
   conn: joined sides as letters from ESWN (e.g. "EW"), "-" for none
   dir : E S W N, "-" for none (3-way valve with every branch open)
@@ -35,18 +44,19 @@ function LoadLayout(const FileName: UnicodeString; out Err: string): Boolean;
 implementation
 
 uses
-  SysUtils, Math, simcore;
+  SysUtils, Math, simcore, mfpages;
 
 const
   LabelKinds: array[0..2] of string = ('text', 'date', 'time');
-  KindTags: array[TCellKind] of string = ('empty', 'pipe', 'tank', 'blower', 'suction',
+  KindTags: array[TCellKind] of string = ('empty', 'pipe', 'feeder', 'blower', 'suction',
     'nozzle', 'drop', 'check', 'valve2', 'valve3', 'valve4', 'hopper', 'silo');
   DirLetters = 'ESWN';
+  LinkKinds: array[0..1] of string = ('page', 'popup');
 
 var
   FS: TFormatSettings;
-  OldGrid: array[0..GW - 1, 0..GH - 1] of TCell;
-  OldBuckets: array[0..MAX_BUCKETS - 1] of TBucket;
+  OldPages: array[0..MAX_PAGES - 1] of TPageData;
+  OldPopups: array[0..MAX_POPUPS - 1] of TPopup;
 
 function F2S(v: Single): string;
 begin
@@ -123,63 +133,108 @@ begin
     Inc(i);
   end;
 end;
+{ the objects of the live page that sit on layer L (objects on a layer past the last count as the last) }
+procedure WritePageBody(var f: TextFile; L, NL: Integer);
+
+  function Mine(v: Byte): Boolean;
+  begin
+    if v >= NL then Result := L = NL - 1 else Result := v = L;
+  end;
+
+var
+  x, y, i: Integer;
+  c: PCell;
+begin
+  WriteLn(f, 'ON ', L + 1);
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+    begin
+      c := @Grid[x, y];
+      if (c^.Kind = ckEmpty) or not Mine(c^.Layer) then Continue;
+      if c^.Kind = ckValve4 then
+        WriteLn(f, Format('CELL %d %d %s %s %d %s %d %s %s', [x, y, KindTags[c^.Kind],
+          ConnStr(c^.Conn), c^.Dia, DirStr(c^.Dir), Ord(c^.Open), F2S(c^.Strength), ClosedStr(c^.Closed)]))
+      else
+        WriteLn(f, Format('CELL %d %d %s %s %d %s %d %s', [x, y, KindTags[c^.Kind],
+          ConnStr(c^.Conn), c^.Dia, DirStr(c^.Dir), Ord(c^.Open), F2S(c^.Strength)]));
+      if IsStore(c^.Kind) then
+        WriteLn(f, Format('STOCK %d %d %s %s %s %s %s %s', [x, y, F2S(c^.Stock[mWater]),
+          F2S(c^.Stock[mOil]), F2S(c^.Stock[mFluff]), F2S(c^.Stock[mSand]), F2S(c^.AirPct), F2S(c^.Feed)]));
+    end;
+  for i := 0 to MAX_BUCKETS - 1 do
+    if Buckets[i].Active and Mine(Buckets[i].Layer) then
+      WriteLn(f, Format('BUCKET %s %s %s %s', [F2S(Buckets[i].X), F2S(Buckets[i].Y),
+        F2S(Buckets[i].W), F2S(Buckets[i].H)]));
+  for i := 0 to MAX_FRAMES - 1 do
+    if Frames[i].Active and Mine(Frames[i].Layer) then
+      WriteLn(f, Format('FRAME %s %s %s %s %d %d %d %d %s', [F2S(Frames[i].X), F2S(Frames[i].Y),
+        F2S(Frames[i].W), F2S(Frames[i].H), Frames[i].Color, Ord(Frames[i].Dashed), Ord(Frames[i].Fill),
+        Ord(Frames[i].Carry), EscapeText(Frames[i].Title)]));
+  for i := 0 to MAX_LABELS - 1 do
+    if Labels[i].Active and Mine(Labels[i].Layer) then
+    begin
+      if (Labels[i].Kind = LBL_TEXT) and (Labels[i].Color = 0) and not Labels[i].NoBox then
+        WriteLn(f, Format('LABEL %s %s %s', [F2S(Labels[i].X), F2S(Labels[i].Y), EscapeText(Labels[i].Text)]))
+      else
+        WriteLn(f, Format('LABEL2 %s %s %s %d %d %s %s', [LabelKinds[Labels[i].Kind], F2S(Labels[i].X),
+          F2S(Labels[i].Y), Labels[i].Color, Ord(not Labels[i].NoBox), EscapeToken(Labels[i].Fmt),
+          EscapeText(Labels[i].Text)]));
+    end;
+  for i := 0 to MAX_LINKS - 1 do
+    if Links[i].Active and Mine(Links[i].Layer) then
+      WriteLn(f, Format('LINK %s %s %d %s %d %s', [F2S(Links[i].X), F2S(Links[i].Y), Links[i].Color,
+        LinkKinds[Ord(Links[i].ToPopup)], Links[i].Target + 1, EscapeText(Links[i].Caption)]));
+end;
 
 function SaveLayout(const FileName: UnicodeString; out Err: string): Boolean;
 var
   f: TextFile;
-  x, y, i: Integer;
-  c: PCell;
+  p, L, keep: Integer;
+  P2: ^TPageData;
 begin
   Result := False;
   Err := '';
+  keep := CurPage;
+  ParkPage(CurPage);
   try
     AssignFile(f, FileName);
     Rewrite(f);
     try
       WriteLn(f, '# Material Flow Simulator layout');
+      WriteLn(f, '# POPUP n page colour title / POPUPTEXT n text');
+      WriteLn(f, '# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer');
       WriteLn(f, '# CELL x y kind conn dia dir open strength');
-      WriteLn(f, '# TANK x y water oil fluff sand air% feed%');
+      WriteLn(f, '# STOCK x y water oil fluff sand air% feed%');
       WriteLn(f, '# BUCKET x y w h');
       WriteLn(f, '# LABEL x y text   (\n = new line)');
       WriteLn(f, '# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)');
       WriteLn(f, '# FRAME x y w h colour dashed fill carry title');
-      WriteLn(f, 'MFLOW 1');
+      WriteLn(f, '# LINK x y colour page|popup n caption');
+      WriteLn(f, 'MFLOW 2');
       if LayoutName <> '' then WriteLn(f, 'NAME ', LayoutName);
-      WriteLn(f, 'GRAVITY ', F2S(GravityScale));
-      for y := 0 to GH - 1 do
-        for x := 0 to GW - 1 do
+      for p := 0 to MAX_POPUPS - 1 do
+        if Popups[p].Active then
         begin
-          c := @Grid[x, y];
-          if c^.Kind = ckEmpty then Continue;
-          if c^.Kind = ckValve4 then
-            WriteLn(f, Format('CELL %d %d %s %s %d %s %d %s %s', [x, y, KindTags[c^.Kind],
-              ConnStr(c^.Conn), c^.Dia, DirStr(c^.Dir), Ord(c^.Open), F2S(c^.Strength), ClosedStr(c^.Closed)]))
-          else
-            WriteLn(f, Format('CELL %d %d %s %s %d %s %d %s', [x, y, KindTags[c^.Kind],
-              ConnStr(c^.Conn), c^.Dia, DirStr(c^.Dir), Ord(c^.Open), F2S(c^.Strength)]));
-          if IsStore(c^.Kind) then
-            WriteLn(f, Format('TANK %d %d %s %s %s %s %s %s', [x, y, F2S(c^.Stock[mWater]),
-              F2S(c^.Stock[mOil]), F2S(c^.Stock[mFluff]), F2S(c^.Stock[mSand]), F2S(c^.AirPct), F2S(c^.Feed)]));
+          WriteLn(f, Format('POPUP %d %d %d %s', [p + 1, Popups[p].GoPage + 1, Popups[p].Color,
+            EscapeText(Popups[p].Title)]));
+          WriteLn(f, Format('POPUPTEXT %d %s', [p + 1, EscapeText(Popups[p].Text)]));
         end;
-      for i := 0 to MAX_BUCKETS - 1 do
-        if Buckets[i].Active then
-          WriteLn(f, Format('BUCKET %s %s %s %s', [F2S(Buckets[i].X), F2S(Buckets[i].Y),
-            F2S(Buckets[i].W), F2S(Buckets[i].H)]));
-      for i := 0 to MAX_FRAMES - 1 do
-        if Frames[i].Active then
-          WriteLn(f, Format('FRAME %s %s %s %s %d %d %d %d %s', [F2S(Frames[i].X), F2S(Frames[i].Y),
-            F2S(Frames[i].W), F2S(Frames[i].H), Frames[i].Color, Ord(Frames[i].Dashed), Ord(Frames[i].Fill),
-            Ord(Frames[i].Carry), EscapeText(Frames[i].Title)]));
-      for i := 0 to MAX_LABELS - 1 do
-        if Labels[i].Active then
-        begin
-          if (Labels[i].Kind = LBL_TEXT) and (Labels[i].Color = 0) and not Labels[i].NoBox then
-            WriteLn(f, Format('LABEL %s %s %s', [F2S(Labels[i].X), F2S(Labels[i].Y), EscapeText(Labels[i].Text)]))
-          else
-            WriteLn(f, Format('LABEL2 %s %s %s %d %d %s %s', [LabelKinds[Labels[i].Kind], F2S(Labels[i].X),
-              F2S(Labels[i].Y), Labels[i].Color, Ord(not Labels[i].NoBox), EscapeToken(Labels[i].Fmt),
-              EscapeText(Labels[i].Text)]));
-        end;
+      for p := 0 to PageCount - 1 do
+      begin
+        { bring the page into the live globals, write it, park it again }
+        UnparkPage(p);
+        P2 := @Pages[p];
+        WriteLn(f);
+        WriteLn(f, 'PAGE ', EscapeText(PageName(p)));
+        WriteLn(f, Format('LAYERS %d %d', [P2^.NLayers, P2^.ActiveLayer + 1]));
+        for L := 0 to P2^.NLayers - 1 do
+          WriteLn(f, Format('LAYER %d %d %d %s', [L + 1, Ord(P2^.Layers[L].Visible), Ord(P2^.Layers[L].Locked),
+            EscapeText(P2^.Layers[L].Name)]));
+        WriteLn(f, 'GRAVITY ', F2S(GravityScale));
+        for L := 0 to P2^.NLayers - 1 do
+          WritePageBody(f, L, P2^.NLayers);
+        ParkPage(p);
+      end;
     finally
       CloseFile(f);
     end;
@@ -187,8 +242,9 @@ begin
   except
     on E: Exception do Err := E.Message;
   end;
+  CurPage := keep;
+  UnparkPage(CurPage);
 end;
-
 procedure Tokenize(const s: string; var Tok: array of string; out N: Integer);
 var
   i, start: Integer;
@@ -263,8 +319,8 @@ var
   f: TextFile;
   line, name: string;
   Tok: array[0..15] of string;
-  n, lineNo, x, y, i: Integer;
-  gotHeader, opened: Boolean;
+  n, lineNo, x, y, i, ver, pageActive, oldCount, oldCur: Integer;
+  gotHeader, opened, gotPage: Boolean;
   c: PCell;
   K: TCellKind;
   conn: Byte;
@@ -298,20 +354,36 @@ var
     if not InGrid(x, y) then Fail(Format('cell %d,%d is outside the %dx%d grid', [x, y, GW, GH]));
   end;
 
+  { the page being read is complete: park it with its active layer }
+  procedure EndPage;
+  begin
+    ParkPage(CurPage);
+    Pages[CurPage].ActiveLayer := EnsureRange(pageActive, 0, Pages[CurPage].NLayers - 1);
+  end;
+
 begin
   Result := False;
   Err := '';
-  OldGrid := Grid;
-  OldBuckets := Buckets;
+  { everything needed to put the old layout back if the file is bad }
+  ParkPage(CurPage);
+  OldPages := Pages;
+  OldPopups := Popups;
+  oldCount := PageCount;
+  oldCur := CurPage;
   opened := False;
   lineNo := 0;
   name := '';
+  ver := 1;
   try
     AssignFile(f, FileName);
     Reset(f);
     opened := True;
+    PagesReset;
+    for i := 0 to MAX_PAGES - 1 do Pages[i].Parts := nil;
     ClearAll;
     gotHeader := False;
+    gotPage := False;
+    pageActive := 0;
     while not EOF(f) do
     begin
       ReadLn(f, line);
@@ -322,12 +394,70 @@ begin
       if not gotHeader then
       begin
         if (n < 2) or not SameText(Tok[0], 'MFLOW') then Fail('not a Material Flow layout (missing MFLOW header)');
-        if Int(1) <> 1 then Fail('unsupported layout version ' + Tok[1]);
+        ver := Int(1);
+        if (ver < 1) or (ver > 2) then Fail('unsupported layout version ' + Tok[1]);
         gotHeader := True;
         Continue;
       end;
       if SameText(Tok[0], 'NAME') then
         name := Trim(Copy(line, 5, MaxInt))
+      else if SameText(Tok[0], 'POPUP') then
+      begin
+        Need(4);
+        i := Int(1) - 1;
+        if (i < 0) or (i >= MAX_POPUPS) then Fail(Format('popup number must be 1..%d', [MAX_POPUPS]));
+        Popups[i].Active := True;
+        Popups[i].GoPage := Max(-1, Int(2) - 1);
+        Popups[i].Color := EnsureRange(Int(3), 0, 5);
+        Popups[i].Title := Copy(UnescapeText(AfterTokens(line, 4)), 1, 60);
+        Popups[i].Text := '';
+      end
+      else if SameText(Tok[0], 'POPUPTEXT') then
+      begin
+        Need(2);
+        i := Int(1) - 1;
+        if (i < 0) or (i >= MAX_POPUPS) or not Popups[i].Active then Fail('POPUPTEXT for a popup that has no POPUP line');
+        Popups[i].Text := Copy(UnescapeText(AfterTokens(line, 2)), 1, 255);
+      end
+      else if SameText(Tok[0], 'PAGE') then
+      begin
+        if gotPage then
+        begin
+          EndPage;
+          i := AddPage('');
+          if i < 0 then Fail(Format('too many pages (max %d)', [MAX_PAGES]));
+          CurPage := i;
+          UnparkPage(i);
+        end;
+        gotPage := True;
+        Pages[CurPage].Name := Copy(UnescapeText(AfterTokens(line, 1)), 1, 40);
+        CurLayer := 0;
+        pageActive := 0;
+      end
+      else if SameText(Tok[0], 'LAYERS') then
+      begin
+        Need(3);
+        Pages[CurPage].NLayers := EnsureRange(Int(1), 1, MAX_LAYERS);
+        pageActive := Int(2) - 1;
+      end
+      else if SameText(Tok[0], 'LAYER') then
+      begin
+        Need(4);
+        i := Int(1) - 1;
+        if (i < 0) or (i >= MAX_LAYERS) then Fail(Format('layer number must be 1..%d', [MAX_LAYERS]));
+        if i >= Pages[CurPage].NLayers then Pages[CurPage].NLayers := i + 1;
+        Pages[CurPage].Layers[i].Visible := Int(2) <> 0;
+        Pages[CurPage].Layers[i].Locked := Int(3) <> 0;
+        Pages[CurPage].Layers[i].Name := Copy(UnescapeText(AfterTokens(line, 4)), 1, 24);
+      end
+      else if SameText(Tok[0], 'ON') then
+      begin
+        Need(2);
+        i := Int(1) - 1;
+        if (i < 0) or (i >= MAX_LAYERS) then Fail(Format('layer number must be 1..%d', [MAX_LAYERS]));
+        if i >= Pages[CurPage].NLayers then Pages[CurPage].NLayers := i + 1;
+        CurLayer := i;
+      end
       else if SameText(Tok[0], 'GRAVITY') then
       begin
         Need(2);
@@ -337,12 +467,14 @@ begin
       begin
         Need(9);
         GridPos;
-        if not ParseKind(Tok[3], K) then Fail('unknown part "' + Tok[3] + '"');
+        if SameText(Tok[3], 'tank') then K := ckSource
+        else if not ParseKind(Tok[3], K) then Fail('unknown part "' + Tok[3] + '"');
         if not ParseConn(Tok[4], conn) then Fail('bad connections "' + Tok[4] + '"');
         if not ParseDir(Tok[6], dir) then Fail('bad direction "' + Tok[6] + '"');
         c := @Grid[x, y];
         ResetCell(x, y);
         c^.Kind := K;
+        c^.Layer := CurLayer;
         c^.Conn := conn;
         c^.Dia := EnsureRange(Int(5), 1, MAX_DIA);
         if (dir < 0) and (K <> ckValve3) then dir := 0;
@@ -365,6 +497,18 @@ begin
         Frames[i].Dashed := Int(6) <> 0;
         Frames[i].Fill := Int(7) <> 0;
         Frames[i].Carry := Int(8) <> 0;
+      end
+      else if SameText(Tok[0], 'LINK') then
+      begin
+        Need(6);
+        for i := 0 to 1 do v[i] := Num(1 + i);
+        k2 := -1;
+        for i := 0 to 1 do
+          if SameText(Tok[4], LinkKinds[i]) then k2 := i;
+        if k2 < 0 then Fail('a LINK goes to "page" or "popup", not "' + Tok[4] + '"');
+        i := AddLink(v[0], v[1], Copy(UnescapeText(AfterTokens(line, 6)), 1, 40), k2 = 1, Int(5) - 1);
+        if i < 0 then Fail(Format('too many links (max %d)', [MAX_LINKS]));
+        Links[i].Color := EnsureRange(Int(3), 0, 5);
       end
       else if SameText(Tok[0], 'LABEL2') then
       begin
@@ -389,12 +533,12 @@ begin
         if AddLabel(v[0], v[1], UnescapeText(AfterTokens(line, 3))) < 0 then
           Fail(Format('too many labels (max %d)', [MAX_LABELS]));
       end
-      else if SameText(Tok[0], 'TANK') then
+      else if SameText(Tok[0], 'TANK') or SameText(Tok[0], 'STOCK') then
       begin
         Need(9);
         GridPos;
         c := @Grid[x, y];
-        if not IsStore(c^.Kind) then Fail(Format('TANK at %d,%d has no tank, hopper or silo CELL before it', [x, y]));
+        if not IsStore(c^.Kind) then Fail(Format('%s at %d,%d has no feeder, hopper or silo CELL before it', [Tok[0], x, y]));
         for i := 0 to 5 do v[i] := Num(3 + i);
         c^.Stock[mWater] := fclamp(v[0], 0, STOCK_MAX);
         c^.Stock[mOil] := fclamp(v[1], 0, STOCK_MAX);
@@ -416,6 +560,12 @@ begin
     if not gotHeader then Fail('file is empty');
     CloseFile(f);
     opened := False;
+    EndPage;
+    { links and popups that point past the last page lose their target }
+    for i := 0 to MAX_POPUPS - 1 do
+      if Popups[i].GoPage >= PageCount then Popups[i].GoPage := -1;
+    CurPage := 0;
+    UnparkPage(0);
     if name = '' then name := ChangeFileExt(ExtractFileName(UTF8Encode(FileName)), '');
     LayoutName := name;
     Result := True;
@@ -424,13 +574,17 @@ begin
     begin
       if opened then CloseFile(f);
       { keep the previous layout when the file can't be read }
-      Grid := OldGrid;
-      Buckets := OldBuckets;
+      Pages := OldPages;
+      Popups := OldPopups;
+      PageCount := oldCount;
+      CurPage := oldCur;
+      ShownPopup := -1;
+      UnparkPage(CurPage);
       Err := E.Message;
     end;
   end;
+  for i := 0 to MAX_PAGES - 1 do OldPages[i].Parts := nil;
 end;
-
 initialization
   FS := DefaultFormatSettings;
   FS.DecimalSeparator := '.';

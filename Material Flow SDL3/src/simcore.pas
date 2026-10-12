@@ -37,6 +37,7 @@ const
   MAX_BUCKETS = 8;
   MAX_LABELS = 64;
   MAX_FRAMES = 32;
+  MAX_LINKS = 32;
   LBL_TEXT = 0;
   LBL_DATE = 1;
   LBL_TIME = 2;
@@ -78,6 +79,7 @@ type
     Dir: Integer;        { device direction (blower/check: flow, others: mouth; valve3: closed branch or -1) }
     Open: Boolean;       { 2-way valve state }
     Closed: Byte;        { 4-way valve: bit d = branch d is shut }
+    Layer: Byte;         { the page layer the part is on }
     Strength: Single;    { 0..100: blow / suction / push-out / drop gate }
     Stock: array[TMat] of Single;  { tank contents }
     AirPct, Feed: Single;          { tank air mix % and feed rate % }
@@ -104,6 +106,7 @@ type
 
   TBucket = record
     Active: Boolean;
+    Layer: Byte;
     X, Y, W, H: Single;  { interior; walls are outside it }
     Count: Integer;
     Spilled: Integer;
@@ -119,6 +122,7 @@ type
     Fmt: string[40];       { date / time format (FormatDateTime codes) }
     Color: Byte;           { 0 theme, 1 blue, 2 green, 3 amber, 4 red, 5 white }
     NoBox: Boolean;        { no frame / background behind the text }
+    Layer: Byte;
   end;
 
   { a titled frame drawn behind a group of parts, to group and categorise them }
@@ -130,6 +134,18 @@ type
     Dashed: Boolean;       { dashed outline }
     Fill: Boolean;         { a light tint inside }
     Carry: Boolean;        { moving the frame moves what is inside it }
+    Layer: Byte;
+  end;
+
+  { a button on the canvas that jumps to a page or opens a frame popup }
+  TLinkObj = record
+    Active: Boolean;
+    X, Y: Single;
+    Caption: string[40];
+    ToPopup: Boolean;      { False: go to page Target; True: open frame popup Target }
+    Target: Integer;
+    Color: Byte;
+    Layer: Byte;
   end;
 
   TIntake = record
@@ -166,6 +182,8 @@ var
   Buckets: array[0..MAX_BUCKETS - 1] of TBucket;
   Labels: array[0..MAX_LABELS - 1] of TLabelObj;
   Frames: array[0..MAX_FRAMES - 1] of TFrameObj;
+  Links: array[0..MAX_LINKS - 1] of TLinkObj;
+  CurLayer: Byte = 0;      { new parts, buckets, labels, frames and links go on this layer }
   Intakes: array[0..63] of TIntake;
   NIntake: Integer = 0;
   Jets: array[0..63] of TJet;
@@ -222,6 +240,8 @@ function AddLabel(X, Y: Single; const Text: string): Integer;
 procedure DeleteLabel(i: Integer);
 function AddFrame(X, Y, W, H: Single; const Title: string): Integer;
 procedure DeleteFrame(i: Integer);
+function AddLink(X, Y: Single; const Caption: string; ToPopup: Boolean; Target: Integer): Integer;
+procedure DeleteLink(i: Integer);
 
 procedure LoadDemo;
 
@@ -447,6 +467,8 @@ begin
     Labels[i].Active := False;
   for i := 0 to MAX_FRAMES - 1 do
     Frames[i].Active := False;
+  for i := 0 to MAX_LINKS - 1 do
+    Links[i].Active := False;
   ClearParticles;
 end;
 
@@ -465,6 +487,7 @@ begin
       Labels[i].Fmt := '';
       Labels[i].Color := 0;
       Labels[i].NoBox := False;
+      Labels[i].Layer := CurLayer;
       Exit(i);
     end;
   Result := -1;
@@ -492,6 +515,7 @@ begin
       Frames[i].Dashed := False;
       Frames[i].Fill := True;
       Frames[i].Carry := True;
+      Frames[i].Layer := CurLayer;
       Exit(i);
     end;
   Result := -1;
@@ -502,10 +526,36 @@ begin
   if (i >= 0) and (i < MAX_FRAMES) then Frames[i].Active := False;
 end;
 
+function AddLink(X, Y: Single; const Caption: string; ToPopup: Boolean; Target: Integer): Integer;
+var
+  i: Integer;
+begin
+  for i := 0 to MAX_LINKS - 1 do
+    if not Links[i].Active then
+    begin
+      Links[i].Active := True;
+      Links[i].X := fclamp(X, 0, CANVAS_W - 24);
+      Links[i].Y := fclamp(Y, 0, CANVAS_H - 18);
+      Links[i].Caption := Caption;
+      Links[i].ToPopup := ToPopup;
+      Links[i].Target := Target;
+      Links[i].Color := 1;
+      Links[i].Layer := CurLayer;
+      Exit(i);
+    end;
+  Result := -1;
+end;
+
+procedure DeleteLink(i: Integer);
+begin
+  if (i >= 0) and (i < MAX_LINKS) then Links[i].Active := False;
+end;
+
 procedure MakePipe(x, y, Dia: Integer);
 begin
   ResetCell(x, y);
   Grid[x, y].Kind := ckPipe;
+  Grid[x, y].Layer := CurLayer;
   Grid[x, y].Dia := EnsureRange(Dia, 1, MAX_DIA);
 end;
 
@@ -1201,6 +1251,7 @@ begin
       Buckets[i].Count := 0;
       Buckets[i].Spilled := 0;
       Buckets[i].Flash := 0;
+      Buckets[i].Layer := CurLayer;
       ClampBucket(i);
       Exit(i);
     end;
