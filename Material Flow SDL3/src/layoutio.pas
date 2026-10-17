@@ -15,6 +15,19 @@ unit layoutio;
   CELL <x> <y> <kind> <conn> <dia> <dir> <open> <strength>
   STOCK <x> <y> <water> <oil> <fluff> <sand> <air%> <feed%>   (TANK in old files)
   LINK <x> <y> <colour> <page|popup> <n> <caption>
+  EQUIP <kind> <x> <y> <w> <h> <stop|run|fault> <flip> <link x> <link y> <level%> <name>
+        kind: motor blower paddle screw cyclone silo stand lamp legend sequence diverter
+              shutter slide heater irheater rain fire pond pool well pump;
+        state: stop run fault mstart mstop disable
+  EQX <mode> <seq step> <delay s> <pos 1 shuts> <pos 2 shuts>   (after an EQUIP line)
+  EQSRC <min> <max> <source>                   (after an EQUIP line: what a gauge / display shows)
+  PIN <kind> <a> <b> <x> <y> <w> <h>           a Focus Properties window on the page
+  FCELL <x> <y> <kind> <conn> <dir> <act> <sel> <on> <p1> <p2> <tag> <ref> <sol a> <sol b>
+        a pneumatic / hydraulic cell (strings: - when empty, \s = space)
+        kind: cell bucket label frame link equip ecell; a b: cell x y, or the item's index
+  ECELL <x> <y> <kind> <conn> <dir> <pos> <npos> <sel> <on> <tripped> <p1> <p2> <tag> <ref> [<src> [<p3>]]
+        an electrical cell (tag / ref: - when empty, \s = space)
+        link -1 -1 = not linked to a part
   BUCKET <x> <y> <w> <h>
   LABEL <x> <y> <text>            (\n = new line in the text)
   FRAME <x> <y> <w> <h> <colour> <dashed> <fill> <carry> <title>
@@ -22,7 +35,7 @@ unit layoutio;
                                   (kind text/date/time; format: FormatDateTime
                                    codes, \s = space, - = none; box 1/0)
 
-  kind: pipe feeder blower suction nozzle drop check valve2 valve3 valve4 hopper silo
+  kind: pipe feeder blower suction nozzle drop check valve2 valve3 valve4 hopper silo vfeeder
   ("tank" is read as feeder; STOCK lines hold the contents of feeders, hoppers, silos)
   A version 1 file (no PAGE lines) loads as a single page with one layer.
   Pages, layers, links and popups are numbered from 1 in the file.
@@ -44,19 +57,24 @@ function LoadLayout(const FileName: UnicodeString; out Err: string): Boolean;
 implementation
 
 uses
-  SysUtils, Math, simcore, mfpages;
+  SysUtils, Math, simcore, mfpages, elec, fluid;
 
 const
   LabelKinds: array[0..2] of string = ('text', 'date', 'time');
   KindTags: array[TCellKind] of string = ('empty', 'pipe', 'feeder', 'blower', 'suction',
-    'nozzle', 'drop', 'check', 'valve2', 'valve3', 'valve4', 'hopper', 'silo');
+    'nozzle', 'drop', 'check', 'valve2', 'valve3', 'valve4', 'hopper', 'silo', 'vfeeder');
   DirLetters = 'ESWN';
+  EquipStates: array[0..EQS_COUNT - 1] of string = ('stop', 'run', 'fault', 'mstart', 'mstop', 'disable');
   LinkKinds: array[0..1] of string = ('page', 'popup');
+  { the app's selection kinds, in their order }
+  PinKinds: array[0..9] of string = ('none', 'cell', 'bucket', 'multi', 'label', 'frame', 'link', 'equip', 'ecell',
+    'fcell');
 
 var
   FS: TFormatSettings;
   OldPages: array[0..MAX_PAGES - 1] of TPageData;
   OldPopups: array[0..MAX_POPUPS - 1] of TPopup;
+  OldPins: array of TPinWin;
 
 function F2S(v: Single): string;
 begin
@@ -184,8 +202,60 @@ begin
     if Links[i].Active and Mine(Links[i].Layer) then
       WriteLn(f, Format('LINK %s %s %d %s %d %s', [F2S(Links[i].X), F2S(Links[i].Y), Links[i].Color,
         LinkKinds[Ord(Links[i].ToPopup)], Links[i].Target + 1, EscapeText(Links[i].Caption)]));
+  for i := 0 to MAX_EQUIP - 1 do
+    if Equips[i].Active and Mine(Equips[i].Layer) then
+    begin
+      WriteLn(f, Format('EQUIP %s %s %s %s %s %s %d %d %d %s %s', [EquipTags[Equips[i].Kind], F2S(Equips[i].X),
+        F2S(Equips[i].Y), F2S(Equips[i].W), F2S(Equips[i].H), EquipStates[Min(Equips[i].State, EQS_COUNT - 1)],
+        Ord(Equips[i].Flip), Equips[i].LinkX, Equips[i].LinkY, F2S(Equips[i].Level), EscapeText(Equips[i].Name)]));
+      if (Equips[i].Mode <> 0) or (Equips[i].SeqStep <> 0) or (Equips[i].DivA >= 0) or (Equips[i].DivB >= 0) or
+        (Equips[i].Delay <> 2) then
+        WriteLn(f, Format('EQX %d %d %s %d %d', [Equips[i].Mode, Equips[i].SeqStep, F2S(Equips[i].Delay),
+          Equips[i].DivA, Equips[i].DivB]));
+      if Equips[i].Kind in [EQ_GAUGE, EQ_DIGITAL, EQ_CONTROLLER, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER] then
+        WriteLn(f, Format('EQSRC %s %s %s', [F2S(Equips[i].RMin), F2S(Equips[i].RMax), EscapeText(Equips[i].Src)]));
+    end;
 end;
 
+{ the electrical cells of the live page on layer L }
+procedure WriteElec(var f: TextFile; L, NL: Integer);
+var
+  x, y: Integer;
+  c: PECell;
+  lay: Integer;
+begin
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+    begin
+      c := @EGrid[x, y];
+      if c^.Kind = ekNone then Continue;
+      lay := c^.Layer;
+      if lay >= NL then lay := NL - 1;
+      if lay <> L then Continue;
+      WriteLn(f, Format('ECELL %d %d %s %s %d %d %d %d %d %d %s %s %s %s %s %s', [x, y, EKindTags[c^.Kind], ConnStr(c^.Conn),
+        c^.Dir, c^.Pos, c^.NPos, c^.Sel, Ord(c^.On), Ord(c^.Tripped), F2S(c^.P1), F2S(c^.P2), EscapeToken(c^.Tag),
+        EscapeToken(c^.Ref), EscapeToken(c^.Src), F2S(c^.P3)]));
+    end;
+end;
+{ the fluid power cells of the live page on layer L }
+procedure WriteFluid(var f: TextFile; L, NL: Integer);
+var
+  x, y, lay: Integer;
+  c: PFCell;
+begin
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+    begin
+      c := @FGrid[x, y];
+      if c^.Kind = fkNone then Continue;
+      lay := c^.Layer;
+      if lay >= NL then lay := NL - 1;
+      if lay <> L then Continue;
+      WriteLn(f, Format('FCELL %d %d %s %s %d %d %d %d %s %s %s %s %s %s', [x, y, FKindTags[c^.Kind], ConnStr(c^.Conn),
+        c^.Dir, c^.Act, c^.Sel, Ord(c^.On), F2S(c^.P1), F2S(c^.P2), EscapeToken(c^.Tag), EscapeToken(c^.Ref),
+        EscapeToken(c^.SolA), EscapeToken(c^.SolB)]));
+    end;
+end;
 function SaveLayout(const FileName: UnicodeString; out Err: string): Boolean;
 var
   f: TextFile;
@@ -210,6 +280,8 @@ begin
       WriteLn(f, '# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)');
       WriteLn(f, '# FRAME x y w h colour dashed fill carry title');
       WriteLn(f, '# LINK x y colour page|popup n caption');
+      WriteLn(f, '# EQUIP kind x y w h state flip linkx linky level name');
+      WriteLn(f, '# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3');
       WriteLn(f, 'MFLOW 2');
       if LayoutName <> '' then WriteLn(f, 'NAME ', LayoutName);
       for p := 0 to MAX_POPUPS - 1 do
@@ -232,7 +304,15 @@ begin
             EscapeText(P2^.Layers[L].Name)]));
         WriteLn(f, 'GRAVITY ', F2S(GravityScale));
         for L := 0 to P2^.NLayers - 1 do
+        begin
           WritePageBody(f, L, P2^.NLayers);
+          WriteElec(f, L, P2^.NLayers);
+          WriteFluid(f, L, P2^.NLayers);
+        end;
+        for L := 0 to High(Pins) do
+          if (Pins[L].Page = p) and (Pins[L].Kind <= High(PinKinds)) then
+            WriteLn(f, Format('PIN %s %d %d %s %s %s %s', [PinKinds[Pins[L].Kind], Pins[L].A, Pins[L].B, F2S(Pins[L].X),
+              F2S(Pins[L].Y), F2S(Pins[L].W), F2S(Pins[L].H)]));
         ParkPage(p);
       end;
     finally
@@ -318,14 +398,16 @@ function LoadLayout(const FileName: UnicodeString; out Err: string): Boolean;
 var
   f: TextFile;
   line, name: string;
-  Tok: array[0..15] of string;
-  n, lineNo, x, y, i, ver, pageActive, oldCount, oldCur: Integer;
+  Tok: array[0..16] of string;
+  n, lineNo, x, y, i, q, ver, pageActive, oldCount, oldCur, lastEq: Integer;
   gotHeader, opened, gotPage: Boolean;
   c: PCell;
   K: TCellKind;
   conn: Byte;
   dir, k2: Integer;
   v: array[0..5] of Single;
+  ek, e2: TEKind;
+  fk, f2: TFKind;
 
   procedure Fail(const Msg: string);
   begin
@@ -368,12 +450,14 @@ begin
   ParkPage(CurPage);
   OldPages := Pages;
   OldPopups := Popups;
+  OldPins := Copy(Pins, 0, Length(Pins));
   oldCount := PageCount;
   oldCur := CurPage;
   opened := False;
   lineNo := 0;
   name := '';
   ver := 1;
+  lastEq := -1;
   try
     AssignFile(f, FileName);
     Reset(f);
@@ -510,6 +594,121 @@ begin
         if i < 0 then Fail(Format('too many links (max %d)', [MAX_LINKS]));
         Links[i].Color := EnsureRange(Int(3), 0, 5);
       end
+      else if SameText(Tok[0], 'FCELL') then
+      begin
+        Need(15);
+        GridPos;
+        fk := fkNone;
+        for f2 := Succ(fkNone) to High(TFKind) do
+          if SameText(Tok[3], FKindTags[f2]) then fk := f2;
+        if fk = fkNone then Fail('unknown fluid power part "' + Tok[3] + '"');
+        if not ParseConn(Tok[4], conn) then Fail('bad connections "' + Tok[4] + '"');
+        FReset(x, y);
+        FGrid[x, y].Kind := fk;
+        FGrid[x, y].Conn := conn;
+        FGrid[x, y].Dir := EnsureRange(Int(5), 0, 3);
+        FGrid[x, y].Act := EnsureRange(Int(6), 0, 3);
+        FGrid[x, y].Sel := EnsureRange(Int(7), 0, 2);
+        FGrid[x, y].On := Int(8) <> 0;
+        FGrid[x, y].P1 := Num(9);
+        FGrid[x, y].P2 := Num(10);
+        if Tok[11] <> '-' then FGrid[x, y].Tag := Copy(UnescapeText(Tok[11]), 1, 12);
+        if Tok[12] <> '-' then FGrid[x, y].Ref := Copy(UnescapeText(Tok[12]), 1, 24);
+        if Tok[13] <> '-' then FGrid[x, y].SolA := Copy(UnescapeText(Tok[13]), 1, 12);
+        if Tok[14] <> '-' then FGrid[x, y].SolB := Copy(UnescapeText(Tok[14]), 1, 12);
+        FGrid[x, y].Layer := CurLayer;
+      end
+      else if SameText(Tok[0], 'PIN') then
+      begin
+        Need(8);
+        q := -1;
+        for i := 1 to High(PinKinds) do
+          if SameText(Tok[1], PinKinds[i]) then q := i;
+        if q < 0 then Fail('unknown Focus Properties item "' + Tok[1] + '"');
+        SetLength(Pins, Length(Pins) + 1);
+        with Pins[High(Pins)] do
+        begin
+          Kind := q;
+          A := Int(2);
+          B := Int(3);
+          X := Num(4);
+          Y := Num(5);
+          W := fclamp(Num(6), 120, 600);
+          H := fclamp(Num(7), 60, 800);
+          Page := CurPage;
+          Dragging := False;
+        end;
+      end
+      else if SameText(Tok[0], 'ECELL') then
+      begin
+        Need(15);
+        GridPos;
+        ek := ekNone;
+        for e2 := Succ(ekNone) to High(TEKind) do
+          if SameText(Tok[3], EKindTags[e2]) then ek := e2;
+        if ek = ekNone then Fail('unknown electrical part "' + Tok[3] + '"');
+        if not ParseConn(Tok[4], conn) then Fail('bad connections "' + Tok[4] + '"');
+        EReset(x, y);
+        EGrid[x, y].Kind := ek;
+        EGrid[x, y].Conn := conn;
+        EGrid[x, y].Dir := EnsureRange(Int(5), 0, 3);
+        EGrid[x, y].Pos := EnsureRange(Int(6), 0, 9);
+        EGrid[x, y].NPos := EnsureRange(Int(7), 0, 9);
+        EGrid[x, y].Sel := EnsureRange(Int(8), 0, 9);
+        EGrid[x, y].On := Int(9) <> 0;
+        EGrid[x, y].Tripped := Int(10) <> 0;
+        EGrid[x, y].P1 := Num(11);
+        EGrid[x, y].P2 := Num(12);
+        if Tok[13] <> '-' then EGrid[x, y].Tag := Copy(UnescapeText(Tok[13]), 1, 12);
+        if Tok[14] <> '-' then EGrid[x, y].Ref := Copy(UnescapeText(Tok[14]), 1, 24);
+        if (n >= 16) and (Tok[15] <> '-') then EGrid[x, y].Src := Copy(UnescapeText(Tok[15]), 1, 12);
+        if n >= 17 then EGrid[x, y].P3 := Num(16);
+        EGrid[x, y].Layer := CurLayer;
+      end
+      else if SameText(Tok[0], 'EQSRC') then
+      begin
+        Need(3);
+        if lastEq < 0 then Fail('EQSRC without an EQUIP line before it');
+        Equips[lastEq].RMin := Num(1);
+        Equips[lastEq].RMax := Num(2);
+        Equips[lastEq].Src := Copy(UnescapeText(AfterTokens(line, 3)), 1, 24);
+      end
+      else if SameText(Tok[0], 'EQX') then
+      begin
+        { the sequence settings of the EQUIP line before it }
+        Need(6);
+        if lastEq < 0 then Fail('EQX without an EQUIP line before it');
+        Equips[lastEq].Mode := EnsureRange(Int(1), 0, 2);
+        Equips[lastEq].SeqStep := EnsureRange(Int(2), 0, MAX_SEQ_STEP);
+        Equips[lastEq].Delay := fclamp(Num(3), 0, 600);
+        Equips[lastEq].DivA := EnsureRange(Int(4), -1, 3);
+        Equips[lastEq].DivB := EnsureRange(Int(5), -1, 3);
+      end
+      else if SameText(Tok[0], 'EQUIP') then
+      begin
+        Need(11);
+        k2 := -1;
+        for i := 0 to EQ_KINDS - 1 do
+          if SameText(Tok[1], EquipTags[i]) then k2 := i;
+        if k2 < 0 then Fail('unknown equipment "' + Tok[1] + '"');
+        for i := 0 to 3 do v[i] := Num(2 + i);
+        i := AddEquip(k2, v[0], v[1]);
+        if i < 0 then Fail(Format('too many equipment items (max %d)', [MAX_EQUIP]));
+        Equips[i].W := fclamp(v[2], 8, CANVAS_W);
+        Equips[i].H := fclamp(v[3], 8, CANVAS_H);
+        Equips[i].X := v[0];
+        Equips[i].Y := v[1];
+        Equips[i].State := EQS_STOP;
+        for q := 0 to EQS_COUNT - 1 do
+          if SameText(Tok[6], EquipStates[q]) then Equips[i].State := q;
+        if (Equips[i].Kind = EQ_FIRE) and (Equips[i].State = EQS_RUN) then Equips[i].Heat := Equips[i].Level;
+        lastEq := i;
+        Equips[i].Flip := Int(7) <> 0;
+        Equips[i].LinkX := EnsureRange(Int(8), -1, GW - 1);
+        Equips[i].LinkY := EnsureRange(Int(9), -1, GH - 1);
+        Equips[i].Level := fclamp(Num(10), 0, 100);
+        Equips[i].Name := Copy(UnescapeText(AfterTokens(line, 11)), 1, 24);
+      end
       else if SameText(Tok[0], 'LABEL2') then
       begin
         Need(7);
@@ -576,6 +775,7 @@ begin
       { keep the previous layout when the file can't be read }
       Pages := OldPages;
       Popups := OldPopups;
+      Pins := Copy(OldPins, 0, Length(OldPins));
       PageCount := oldCount;
       CurPage := oldCur;
       ShownPopup := -1;

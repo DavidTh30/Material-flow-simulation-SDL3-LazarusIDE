@@ -1,0 +1,85 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+MFLOW 2
+NAME Rain, fire & heaters
+POPUP 1 2 2 How it works
+POPUPTEXT 1 Rain01 rains on the left bucket; IRHeater01\nboils the drops below it off as steam.\nFluff drops on Fire01 and keeps it burning;\nstart Rain02 to put the fire out. Heater01\nboils the water in its pipe to steam.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Rain02: Rain - the fire goes out (OUT).\nFire01: Ignite again; shut Shutter01 to stop\nthe fluff. IRHeater01 / Heater01: Auto start.\nSlide01 shuts the water line.
+
+PAGE Plant
+LAYERS 3 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+GRAVITY 1.00
+ON 1
+CELL 20 3 feeder S 4 E 1 0.00
+STOCK 20 3 0.00 0.00 2500.00 0.00 20.00 60.00
+CELL 34 3 feeder S 4 E 1 0.00
+STOCK 34 3 2500.00 0.00 0.00 0.00 10.00 70.00
+CELL 20 4 pipe SN 3 E 1 0.00
+CELL 34 4 pipe SN 3 E 1 0.00
+CELL 20 5 pipe SN 3 E 1 0.00
+CELL 34 5 pipe SN 3 E 1 0.00
+CELL 20 6 pipe SN 3 E 1 0.00
+CELL 34 6 pipe SN 3 E 1 0.00
+CELL 20 7 valve2 SN 3 E 1 0.00
+CELL 34 7 pipe SN 3 E 1 0.00
+CELL 20 8 pipe SN 3 E 1 0.00
+CELL 34 8 valve2 SN 3 E 1 0.00
+CELL 20 9 pipe SN 3 E 1 0.00
+CELL 34 9 pipe SN 3 E 1 0.00
+CELL 20 10 drop N 3 S 1 100.00
+CELL 34 10 pipe SN 3 E 1 0.00
+CELL 34 11 pipe SN 3 E 1 0.00
+CELL 34 12 pipe SN 3 E 1 0.00
+CELL 34 13 pipe SN 3 E 1 0.00
+CELL 34 14 pipe SN 3 E 1 0.00
+CELL 34 15 pipe SN 3 E 1 0.00
+CELL 34 16 pipe SN 3 E 1 0.00
+CELL 34 17 pipe SN 3 E 1 0.00
+CELL 34 18 pipe SN 3 E 1 0.00
+CELL 34 19 pipe SN 3 E 1 0.00
+CELL 34 20 drop N 3 S 1 100.00
+BUCKET 56.00 726.00 200.00 80.00
+BUCKET 758.00 726.00 140.00 80.00
+ON 2
+LABEL 280.00 240.00 RAIN\nReal water drops:\nthey fill the bucket.\nIRHeater01 dries them.
+LABEL 600.00 600.00 FIRE\nFluff keeps it burning.\nRain02 puts it out.
+LABEL 880.00 360.00 DUCT HEATER\nWater boils to\nsteam in the pipe.
+LINK 920.00 6.00 1 page 2 About
+LINK 920.00 28.00 2 popup 1 How it works
+LINK 920.00 50.00 3 popup 2 Try this
+ON 3
+EQUIP rain 56.00 200.00 200.00 56.00 run 0 -1 -1 50.00 Rain01
+EQUIP irheater 56.00 520.00 200.00 28.00 stop 0 -1 -1 100.00 IRHeater01
+EQUIP fire 444.00 728.00 96.00 84.00 run 0 -1 -1 100.00 Fire01
+EQUIP rain 412.00 480.00 160.00 48.00 stop 0 -1 -1 80.00 Rain02
+EQUIP shutter 456.00 150.00 72.00 44.00 run 0 20 7 50.00 Shutter01
+EQUIP slide 784.00 168.00 64.00 64.00 run 0 34 8 50.00 Slide01
+EQUIP heater 768.00 328.00 96.00 48.00 stop 0 34 14 100.00 Heater01
+EQUIP legend 24.00 24.00 232.00 136.00 stop 0 -1 -1 50.00 Legend
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 8 - RAIN, FIRE & HEATERS\nRain drops real water; the IR heater dries the\ndrops below it; fluff feeds a fire that rain\nputs out; a duct heater boils water to steam.\nShutter and slide valves open and shut lines.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

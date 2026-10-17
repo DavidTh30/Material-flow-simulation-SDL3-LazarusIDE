@@ -38,6 +38,65 @@ const
   MAX_LABELS = 64;
   MAX_FRAMES = 32;
   MAX_LINKS = 32;
+  MAX_EQUIP = 48;
+  STEAM_MARK = 7;     { ExitDir of a free steam wisp }
+  { equipment kinds (drawn plant equipment, see TEquipObj) }
+  EQ_MOTOR = 0;
+  EQ_BLOWER = 1;
+  EQ_PADDLE = 2;
+  EQ_SCREW = 3;
+  EQ_CYCLONE = 4;
+  EQ_SILO = 5;
+  EQ_STAND = 6;
+  EQ_LAMP = 7;
+  EQ_LEGEND = 8;
+  EQ_SEQUENCE = 9;
+  EQ_DIVERTER = 10;
+  EQ_SHUTTER = 11;
+  EQ_SLIDE = 12;
+  EQ_HEATER = 13;
+  EQ_IRHEATER = 14;
+  EQ_RAIN = 15;
+  EQ_FIRE = 16;
+  EQ_POND = 17;
+  EQ_POOL = 18;
+  EQ_WELL = 19;
+  EQ_PUMP = 20;
+  EQ_PANEL = 21;
+  EQ_CONVEYOR = 22;
+  EQ_BELT = 23;
+  EQ_GAUGE = 24;
+  EQ_DIGITAL = 25;
+  EQ_CYLINDER = 26;
+  EQ_COMPRESSOR = 27;
+  EQ_HPU = 28;
+  EQ_RECEIVER = 29;
+  EQ_CONTROLLER = 30;
+  EQ_HEATEX = 31;
+  EQ_COOLTOWER = 32;
+  EQ_CHILLER = 33;
+  EQ_KINDS = 34;
+  EquipNames: array[0..EQ_KINDS - 1] of string = ('Motor', 'Blower', 'Paddle', 'Screw', 'Cyclone',
+    'Silo bin', 'Silo stand', 'Lamp', 'Legend', 'Sequence', 'Diverter valve', 'Shutter valve', 'Slide valve',
+    'Heater', 'IR heater', 'Rain', 'Fire', 'Pond', 'Pool', 'Well', 'Pump',
+    'Electrical cabinet', 'Roller conveyor', 'Belt conveyor', 'Analog gauge', 'Digital display',
+    'Cylinder', 'Air compressor', 'Hydraulic power unit', 'Air receiver', 'Controller faceplate', 'Heat exchanger', 'Cooling tower', 'Chiller');
+  EquipTags: array[0..EQ_KINDS - 1] of string = ('motor', 'blower', 'paddle', 'screw', 'cyclone',
+    'silo', 'stand', 'lamp', 'legend', 'sequence', 'diverter', 'shutter', 'slide', 'heater', 'irheater',
+    'rain', 'fire', 'pond', 'pool', 'well', 'pump', 'panel', 'conveyor', 'belt', 'gauge', 'digital', 'cylinder', 'compressor', 'hpu', 'receiver', 'faceplate', 'heatex', 'coolingtower', 'chiller');
+  { equipment states }
+  EQS_STOP = 0;
+  EQS_RUN = 1;
+  EQS_FAULT = 2;
+  EQS_MSTART = 3;    { manual start (running) }
+  EQS_MSTOP = 4;     { manual stop }
+  EQS_DISABLE = 5;   { taken out of service }
+  EQS_COUNT = 6;
+  { sequence modes }
+  SEQ_AUTO = 0;
+  SEQ_MANUAL = 1;
+  SEQ_ESTOP = 2;
+  MAX_SEQ_STEP = 9;
   LBL_TEXT = 0;
   LBL_DATE = 1;
   LBL_TIME = 2;
@@ -48,11 +107,6 @@ const
   HOPPER_CAP = 300;   { a hopper holds little: it passes material on }
   SILO_CAP = 4000;    { a silo stores }
   MAX_DIA = 5;
-  GRAVITY = 500.0;   { px/s^2 at 100% gravity }
-  VK = 120.0;        { air speed (px/s) per unit of flow in a size-3 pipe }
-  EMIT_K = 40.0;     { tank particles per second per unit of out-flow }
-  GRAV_FEED = 70.0;  { tank particles per second fed by gravity alone }
-  AIR_K = 12.0;      { air tracer dots per second per unit of flow }
 
   DXS: array[0..3] of Integer = (1, 0, -1, 0);   { E, S, W, N }
   DYS: array[0..3] of Integer = (0, 1, 0, -1);
@@ -66,10 +120,11 @@ type
     Mass, Grav, Couple, Drag, Fric, Dens: Single;
     Liquid: Boolean;
     Size: Single;
+    PH: Single;            { its pH when wet (pH sensors) }
   end;
 
   TCellKind = (ckEmpty, ckPipe, ckSource, ckBlower, ckSuction, ckNozzle,
-    ckDrop, ckCheck, ckValve2, ckValve3, ckValve4, ckHopper, ckSilo);
+    ckDrop, ckCheck, ckValve2, ckValve3, ckValve4, ckHopper, ckSilo, ckVFeeder);
 
   PCell = ^TCell;
   TCell = record
@@ -81,6 +136,7 @@ type
     Closed: Byte;        { 4-way valve: bit d = branch d is shut }
     Layer: Byte;         { the page layer the part is on }
     Strength: Single;    { 0..100: blow / suction / push-out / drop gate }
+    Halted: Boolean;     { stopped: the equipment linked to it is not running }
     Stock: array[TMat] of Single;  { tank contents }
     AirPct, Feed: Single;          { tank air mix % and feed rate % }
     EmitAcc, AirAcc: Single;
@@ -148,6 +204,39 @@ type
     Layer: Byte;
   end;
 
+  { a piece of plant equipment drawn on the canvas: motor, blower, paddle agitator,
+    screw conveyor, cyclone, silo bin, silo stand, status lamp or legend.
+    It may be linked to a grid part: while a motor-driven one is not running
+    (stopped or faulted) the linked part is halted; a silo bin shows the
+    linked store's level; a lamp lights while the linked part carries flow. }
+  TEquipObj = record
+    Active: Boolean;
+    Kind: Byte;            { EQ_* }
+    X, Y, W, H: Single;    { canvas pixels }
+    Name: string[24];
+    State: Byte;           { EQS_STOP, EQS_RUN, EQS_FAULT }
+    Flip: Boolean;         { mirrored left-right (motor on the other side) }
+    LinkX, LinkY: SmallInt;{ linked grid cell, -1 = none }
+    Level: Single;         { silo bin level 0..100 when not linked }
+    Layer: Byte;
+    Mode: Byte;            { sequence: SEQ_AUTO, SEQ_MANUAL, SEQ_ESTOP }
+    SeqStep: Byte;         { its step in the start sequence 1..MAX_SEQ_STEP, 0 = not in it }
+    Delay: Single;         { seconds the sequence waits before starting / stopping its step }
+    DivA, DivB: ShortInt;  { diverter: the branch shut in position 1 (running) / position 2, -1 none }
+    RunTime: Single;       { seconds in the running state (not saved) }
+    Phase: Single;         { animation: impeller / screw / paddle turn (not saved) }
+    Heat: Single;          { fire: how strongly it burns; rain: drops to come (not saved) }
+    Wait: Single;          { > 0: the sequence starts it in Wait s, < 0: stops it in -Wait s (not saved) }
+    SeqPos: SmallInt;      { sequence: steps started so far (not saved) }
+    SeqT, ReqT: Single;    { sequence: time in the current step / the request held (not saved) }
+    LastReq: Boolean;
+    Src: string[24];       { gauge / display: what it shows (an electrical tag or an equipment name) }
+    RMin, RMax: Single;    { gauge / display: its range }
+    Temp: Single;          { heater / IR heater / fire: its temperature in C, 0 = not yet worked out; heat exchanger:
+                             its cold (shell) outlet (not saved) }
+    HotIn, HotOut, ColdIn, Duty: Single;   { heat exchanger: C and kW (not saved) }
+  end;
+
   TIntake = record
     MX, MY, R, CapR, Str: Single;
     CX, CY, D: Integer;
@@ -165,13 +254,19 @@ type
     D: Integer;
   end;
 
-const
+var
+  { the world and material physics: variables, so the Physics Lab can change them }
+  GRAVITY: Single = 500.0;   { px/s^2 at 100% gravity }
+  VK: Single = 120.0;        { air speed (px/s) per unit of flow in a size-3 pipe }
+  EMIT_K: Single = 40.0;     { tank particles per second per unit of out-flow }
+  GRAV_FEED: Single = 70.0;  { tank particles per second fed by gravity alone }
+  AIR_K: Single = 12.0;      { air tracer dots per second per unit of flow }
   MatP: array[TMat] of TMatProps = (
-    (Name: 'Water'; R: 40; G: 130; B: 255; A: 255; Mass: 1.0; Grav: 1.0; Couple: 6.0; Drag: 0.15; Fric: 0.02; Dens: 1.0; Liquid: True; Size: 3),
-    (Name: 'Oil'; R: 230; G: 165; B: 25; A: 255; Mass: 0.85; Grav: 1.0; Couple: 4.5; Drag: 0.2; Fric: 0.08; Dens: 0.85; Liquid: True; Size: 3),
-    (Name: 'Fluff'; R: 245; G: 220; B: 235; A: 225; Mass: 0.15; Grav: 0.25; Couple: 12.0; Drag: 3.0; Fric: 0.25; Dens: 0.1; Liquid: False; Size: 4),
-    (Name: 'Sand'; R: 196; G: 158; B: 92; A: 255; Mass: 1.6; Grav: 1.0; Couple: 4.0; Drag: 0.08; Fric: 0.55; Dens: 1.6; Liquid: False; Size: 3),
-    (Name: 'Air'; R: 190; G: 225; B: 255; A: 80; Mass: 0.05; Grav: -0.2; Couple: 30.0; Drag: 4.0; Fric: 0.0; Dens: 0.0; Liquid: False; Size: 2)
+    (Name: 'Water'; R: 40; G: 130; B: 255; A: 255; Mass: 1.0; Grav: 1.0; Couple: 6.0; Drag: 0.15; Fric: 0.02; Dens: 1.0; Liquid: True; Size: 3; PH: 7.0),
+    (Name: 'Oil'; R: 230; G: 165; B: 25; A: 255; Mass: 0.85; Grav: 1.0; Couple: 4.5; Drag: 0.2; Fric: 0.08; Dens: 0.85; Liquid: True; Size: 3; PH: 6.5),
+    (Name: 'Fluff'; R: 245; G: 220; B: 235; A: 225; Mass: 0.15; Grav: 0.25; Couple: 12.0; Drag: 3.0; Fric: 0.25; Dens: 0.1; Liquid: False; Size: 4; PH: 5.5),
+    (Name: 'Sand'; R: 196; G: 158; B: 92; A: 255; Mass: 1.6; Grav: 1.0; Couple: 4.0; Drag: 0.08; Fric: 0.55; Dens: 1.6; Liquid: False; Size: 3; PH: 8.8),
+    (Name: 'Air'; R: 190; G: 225; B: 255; A: 80; Mass: 0.05; Grav: -0.2; Couple: 30.0; Drag: 4.0; Fric: 0.0; Dens: 0.0; Liquid: False; Size: 2; PH: 5.6)
   );
 
 var
@@ -183,6 +278,7 @@ var
   Labels: array[0..MAX_LABELS - 1] of TLabelObj;
   Frames: array[0..MAX_FRAMES - 1] of TFrameObj;
   Links: array[0..MAX_LINKS - 1] of TLinkObj;
+  Equips: array[0..MAX_EQUIP - 1] of TEquipObj;
   CurLayer: Byte = 0;      { new parts, buckets, labels, frames and links go on this layer }
   Intakes: array[0..63] of TIntake;
   NIntake: Integer = 0;
@@ -193,6 +289,12 @@ var
   Bodies: array[0..63] of TCatch;
   NBody: Integer = 0;
   GravityScale: Single = 1.0;
+  { set by the electrical unit: solve the circuits before each frame / clear them with the layout }
+  ElecHook: procedure(dt: Single; Running: Boolean) = nil;
+  ClearHook: procedure = nil;
+  { set by the fluid power unit: solve the pneumatic / hydraulic circuits (after the electrical ones) / clear them }
+  FluidHook: procedure(dt: Single; Running: Boolean) = nil;
+  ClearHook2: procedure = nil;
   LimitHit: Boolean = False;
 
 function fmin(a, b: Single): Single; inline;
@@ -243,12 +345,47 @@ procedure DeleteFrame(i: Integer);
 function AddLink(X, Y: Single; const Caption: string; ToPopup: Boolean; Target: Integer): Integer;
 procedure DeleteLink(i: Integer);
 
+{ equipment }
+function EquipHasMotor(Kind: Integer): Boolean;
+{ motors, valves and heaters: the six states, the start sequence and Run / Stop }
+function EquipActuated(Kind: Integer): Boolean;
+function EquipIsValve(Kind: Integer): Boolean;
+{ running: auto start or manual start }
+function EquipRunning(i: Integer): Boolean;
+{ the distinct sequence steps in use on the page, in order; returns their count }
+function SeqStepList(out Steps: array of Byte): Integer;
+function StepDelay(Step: Integer): Single;
+{ the sequence box that runs the page (the first one), or -1 }
+function MasterSequence: Integer;
+{ ponds, pools and wells hold water (their Level, % of WaterCap) }
+function EquipIsWater(Kind: Integer): Boolean;
+function WaterCap(i: Integer): Single;
+{ the pond / pool / well a pump draws from: the nearest one, or -1 }
+function PumpSource(i: Integer): Integer;
+
+type
+  TEquipSizeHook = function(Kind: Integer; out W, H: Single): Boolean;
+
+var
+  EquipSizeHook: TEquipSizeHook = nil;   { a size of its own for new pieces of a kind (set by shapes) }
+
+procedure EquipDefaultSize(Kind: Integer; out W, H: Single);
+function AddEquip(Kind: Integer; X, Y: Single): Integer;
+procedure DeleteEquip(i: Integer);
+{ the linked grid cell of equipment i, or nil }
+function EquipLinkCell(i: Integer): PCell;
+{ the blow / suction / push-out / gate strength and the feed % of a part, 0 while it is halted }
+function DevStr(c: PCell): Single;
+function DevFeed(c: PCell): Single;
+{ True while material or air moves through cell x,y }
+function CellFlowing(x, y: Integer): Boolean;
+
 procedure LoadDemo;
 
 implementation
 
 uses
-  Math;
+  Math, SysUtils;
 
 var
   ActiveIdx: array[0..GW * GH - 1] of Integer;
@@ -289,7 +426,7 @@ end;
 { tanks, hoppers and silos hold material and feed it into their pipes }
 function IsStore(K: TCellKind): Boolean;
 begin
-  Result := K in [ckSource, ckHopper, ckSilo];
+  Result := K in [ckSource, ckHopper, ckSilo, ckVFeeder];
 end;
 
 function StoreTotal(const c: TCell): Single;
@@ -314,6 +451,7 @@ end;
 { can store c take one more particle of material m }
 function StoreAccepts(const c: TCell; m: TMat): Boolean;
 begin
+  if c.Kind = ckVFeeder then Exit(True);   { a virtual feeder takes anything back }
   if m = mAir then Exit(True);
   Result := (c.Stock[m] < STOCK_MAX) and (StoreTotal(c) < StoreCap(c.Kind));
 end;
@@ -396,8 +534,8 @@ begin
   a := @Grid[x, y];
   b := @Grid[x + DXS[d], y + DYS[d]];
   Result := Sqr(Min(a^.Dia, b^.Dia) / 3);
-  if a^.Kind = ckDrop then Result := Result * fmax(0.05, a^.Strength / 100);
-  if b^.Kind = ckDrop then Result := Result * fmax(0.05, b^.Strength / 100);
+  if a^.Kind = ckDrop then Result := Result * fmax(0.05, DevStr(a) / 100);
+  if b^.Kind = ckDrop then Result := Result * fmax(0.05, DevStr(b) / 100);
 end;
 
 { Pump head acting on the flow from (x,y) towards direction d }
@@ -410,21 +548,21 @@ begin
   b := @Grid[x + DXS[d], y + DYS[d]];
   case a^.Kind of
     ckBlower:
-      if a^.Dir = d then Result := Result + a^.Strength * 0.5
-      else if a^.Dir = Opp(d) then Result := Result - a^.Strength * 0.5;
+      if a^.Dir = d then Result := Result + DevStr(a) * 0.5
+      else if a^.Dir = Opp(d) then Result := Result - DevStr(a) * 0.5;
     ckSuction:
-      if a^.Mouth >= 0 then Result := Result + a^.Strength;
+      if a^.Mouth >= 0 then Result := Result + DevStr(a);
     ckNozzle:
-      if a^.Mouth >= 0 then Result := Result - a^.Strength;
+      if a^.Mouth >= 0 then Result := Result - DevStr(a);
   end;
   case b^.Kind of
     ckBlower:
-      if b^.Dir = d then Result := Result + b^.Strength * 0.5
-      else if b^.Dir = Opp(d) then Result := Result - b^.Strength * 0.5;
+      if b^.Dir = d then Result := Result + DevStr(b) * 0.5
+      else if b^.Dir = Opp(d) then Result := Result - DevStr(b) * 0.5;
     ckSuction:
-      if b^.Mouth >= 0 then Result := Result - b^.Strength;
+      if b^.Mouth >= 0 then Result := Result - DevStr(b);
     ckNozzle:
-      if b^.Mouth >= 0 then Result := Result + b^.Strength;
+      if b^.Mouth >= 0 then Result := Result + DevStr(b);
   end;
 end;
 
@@ -469,6 +607,10 @@ begin
     Frames[i].Active := False;
   for i := 0 to MAX_LINKS - 1 do
     Links[i].Active := False;
+  for i := 0 to MAX_EQUIP - 1 do
+    Equips[i].Active := False;
+  if Assigned(ClearHook) then ClearHook;
+  if Assigned(ClearHook2) then ClearHook2;
   ClearParticles;
 end;
 
@@ -551,6 +693,411 @@ begin
   if (i >= 0) and (i < MAX_LINKS) then Links[i].Active := False;
 end;
 
+{ ---------------------------------------------------------------- equipment }
+
+function EquipHasMotor(Kind: Integer): Boolean;
+begin
+  Result := Kind in [EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW];
+end;
+
+function EquipActuated(Kind: Integer): Boolean;
+begin
+  Result := Kind in [EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW, EQ_DIVERTER, EQ_SHUTTER, EQ_SLIDE, EQ_HEATER, EQ_IRHEATER,
+    EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER];
+end;
+
+function EquipIsValve(Kind: Integer): Boolean;
+begin
+  Result := Kind in [EQ_DIVERTER, EQ_SHUTTER, EQ_SLIDE];
+end;
+
+function EquipRunning(i: Integer): Boolean;
+begin
+  Result := Equips[i].State in [EQS_RUN, EQS_MSTART];
+end;
+
+function SeqStepList(out Steps: array of Byte): Integer;
+var
+  s, i: Integer;
+  used: Boolean;
+begin
+  Result := 0;
+  for s := 1 to MAX_SEQ_STEP do
+  begin
+    used := False;
+    for i := 0 to MAX_EQUIP - 1 do
+      if Equips[i].Active and EquipActuated(Equips[i].Kind) and (Equips[i].SeqStep = s) then used := True;
+    if used and (Result <= High(Steps)) then
+    begin
+      Steps[Result] := s;
+      Inc(Result);
+    end;
+  end;
+end;
+
+function StepDelay(Step: Integer): Single;
+var
+  i: Integer;
+begin
+  Result := 0;
+  for i := 0 to MAX_EQUIP - 1 do
+    if Equips[i].Active and EquipActuated(Equips[i].Kind) and (Equips[i].SeqStep = Step) then
+      Result := fmax(Result, Equips[i].Delay);
+end;
+
+function EquipIsWater(Kind: Integer): Boolean;
+begin
+  Result := Kind in [EQ_POND, EQ_POOL, EQ_WELL];
+end;
+
+function WaterCap(i: Integer): Single;
+begin
+  { water units (particles) when full }
+  if Equips[i].Kind = EQ_WELL then Result := 1500
+  else Result := fmax(50, Equips[i].W * Equips[i].H / 16);
+end;
+
+function PumpSource(i: Integer): Integer;
+var
+  j: Integer;
+  d, best, cx, cy: Single;
+begin
+  Result := -1;
+  best := 360;
+  cx := Equips[i].X + Equips[i].W / 2;
+  cy := Equips[i].Y + Equips[i].H / 2;
+  for j := 0 to MAX_EQUIP - 1 do
+    if Equips[j].Active and EquipIsWater(Equips[j].Kind) then
+    begin
+      d := Sqrt(Sqr(Equips[j].X + Equips[j].W / 2 - cx) + Sqr(Equips[j].Y + Equips[j].H / 2 - cy));
+      if d < best then
+      begin
+        best := d;
+        Result := j;
+      end;
+    end;
+end;
+
+function MasterSequence: Integer;
+var
+  i: Integer;
+begin
+  for i := 0 to MAX_EQUIP - 1 do
+    if Equips[i].Active and (Equips[i].Kind = EQ_SEQUENCE) then Exit(i);
+  Result := -1;
+end;
+
+procedure EquipDefaultSize(Kind: Integer; out W, H: Single);
+begin
+  if Assigned(EquipSizeHook) and EquipSizeHook(Kind, W, H) then Exit;
+  case Kind of
+    EQ_MOTOR: begin W := 72; H := 36; end;
+    EQ_BLOWER: begin W := 120; H := 110; end;
+    EQ_PADDLE: begin W := 264; H := 44; end;
+    EQ_SCREW: begin W := 336; H := 40; end;
+    EQ_CYCLONE: begin W := 48; H := 96; end;
+    EQ_SILO: begin W := 240; H := 192; end;
+    EQ_STAND: begin W := 264; H := 72; end;
+    EQ_LAMP: begin W := 16; H := 16; end;
+    EQ_SEQUENCE: begin W := 296; H := 66; end;
+    EQ_DIVERTER: begin W := 56; H := 72; end;
+    EQ_SHUTTER: begin W := 72; H := 44; end;
+    EQ_SLIDE: begin W := 64; H := 64; end;
+    EQ_HEATER: begin W := 96; H := 48; end;
+    EQ_IRHEATER: begin W := 120; H := 28; end;
+    EQ_RAIN: begin W := 192; H := 56; end;
+    EQ_FIRE: begin W := 72; H := 80; end;
+    EQ_POND: begin W := 264; H := 80; end;
+    EQ_POOL: begin W := 216; H := 96; end;
+    EQ_WELL: begin W := 96; H := 192; end;
+    EQ_PUMP: begin W := 104; H := 56; end;
+    EQ_PANEL: begin W := 360; H := 432; end;
+    EQ_CONVEYOR: begin W := 288; H := 48; end;
+    EQ_BELT: begin W := 312; H := 48; end;
+    EQ_GAUGE: begin W := 120; H := 120; end;
+    EQ_DIGITAL: begin W := 156; H := 56; end;
+    EQ_CYLINDER: begin W := 200; H := 40; end;
+    EQ_COMPRESSOR: begin W := 168; H := 100; end;
+    EQ_HPU: begin W := 168; H := 112; end;
+    EQ_RECEIVER: begin W := 64; H := 144; end;
+    EQ_CONTROLLER: begin W := 168; H := 112; end;
+    EQ_HEATEX: begin W := 168; H := 64; end;
+    EQ_COOLTOWER: begin W := 144; H := 168; end;
+    EQ_CHILLER: begin W := 216; H := 120; end;
+  else
+    begin W := 232; H := 136; end;
+  end;
+end;
+
+function AddEquip(Kind: Integer; X, Y: Single): Integer;
+var
+  i, k, n: Integer;
+  w, h: Single;
+begin
+  Result := -1;
+  if (Kind < 0) or (Kind >= EQ_KINDS) then Exit;
+  for i := 0 to MAX_EQUIP - 1 do
+    if not Equips[i].Active then
+    begin
+      EquipDefaultSize(Kind, w, h);
+      n := 1;
+      for k := 0 to MAX_EQUIP - 1 do
+        if Equips[k].Active and (Equips[k].Kind = Kind) then Inc(n);
+      FillChar(Equips[i], SizeOf(TEquipObj), 0);
+      Equips[i].Active := True;
+      Equips[i].Kind := Kind;
+      Equips[i].W := w;
+      Equips[i].H := h;
+      Equips[i].X := fclamp(X, 0, CANVAS_W - w);
+      Equips[i].Y := fclamp(Y, 0, CANVAS_H - h);
+      if Kind in [EQ_LEGEND, EQ_SEQUENCE] then Equips[i].Name := EquipNames[Kind]
+      else if Kind in [EQ_DIVERTER, EQ_SHUTTER, EQ_SLIDE] then
+        Equips[i].Name := Copy(EquipNames[Kind], 1, Pos(' ', EquipNames[Kind]) - 1) + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_IRHEATER then Equips[i].Name := 'IRHeater' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_PANEL then Equips[i].Name := 'Panel' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_CONVEYOR then Equips[i].Name := 'Conveyor' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_BELT then Equips[i].Name := 'Belt' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_GAUGE then Equips[i].Name := 'Gauge' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_DIGITAL then Equips[i].Name := 'Display' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_CYLINDER then Equips[i].Name := 'Cyl' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_COMPRESSOR then Equips[i].Name := 'Comp' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_HPU then Equips[i].Name := 'HPU' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_RECEIVER then Equips[i].Name := 'Tank' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_CONTROLLER then Equips[i].Name := 'Faceplate' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_HEATEX then Equips[i].Name := 'HX' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_COOLTOWER then Equips[i].Name := 'Tower' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_CHILLER then Equips[i].Name := 'Chiller' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if n < 10 then Equips[i].Name := EquipNames[Kind] + '0' + Chr(Ord('0') + n)
+      else Equips[i].Name := EquipNames[Kind] + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10);
+      if Kind = EQ_SILO then Equips[i].Name := 'Silo' + Copy(Equips[i].Name, 9, 2);
+      if Kind = EQ_STAND then Equips[i].Name := '';
+      Equips[i].State := EQS_STOP;
+      Equips[i].LinkX := -1;
+      Equips[i].LinkY := -1;
+      Equips[i].Level := 50;
+      if Kind in [EQ_HEATER, EQ_IRHEATER, EQ_FIRE] then Equips[i].Level := 100;
+      if Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT] then Equips[i].Level := 60;   { flow / speed % }
+      if Kind = EQ_WELL then Equips[i].Level := 80;
+      Equips[i].RMax := 100;
+      Equips[i].DivA := -1;
+      Equips[i].DivB := -1;
+      Equips[i].Delay := 2;
+      if Kind = EQ_HEATEX then
+      begin
+        Equips[i].State := EQS_RUN;    { its hot side flows }
+        Equips[i].Level := 60;         { hot flow % }
+        Equips[i].RMax := 120;         { tube inlet C }
+        Equips[i].RMin := 20;          { shell inlet C }
+      end;
+      if Kind = EQ_COOLTOWER then
+      begin
+        Equips[i].Level := 80;         { fan % }
+        Equips[i].RMax := 38;          { water in C }
+        Equips[i].RMin := 21;          { wet bulb C }
+      end;
+      if Kind = EQ_CHILLER then
+      begin
+        Equips[i].Level := 100;        { capacity % }
+        Equips[i].RMax := 7;           { chilled water set point C }
+        Equips[i].RMin := 12;          { return water C }
+      end;
+      if Kind = EQ_FIRE then
+      begin
+        Equips[i].State := EQS_RUN;    { a new fire burns }
+        Equips[i].Heat := 100;
+      end;
+      Equips[i].Layer := CurLayer;
+      Exit(i);
+    end;
+end;
+
+procedure DeleteEquip(i: Integer);
+begin
+  if (i >= 0) and (i < MAX_EQUIP) then Equips[i].Active := False;
+end;
+
+function EquipLinkCell(i: Integer): PCell;
+begin
+  Result := nil;
+  if (i < 0) or (i >= MAX_EQUIP) or not Equips[i].Active then Exit;
+  if InGrid(Equips[i].LinkX, Equips[i].LinkY) and (Grid[Equips[i].LinkX, Equips[i].LinkY].Kind <> ckEmpty) then
+    Result := @Grid[Equips[i].LinkX, Equips[i].LinkY];
+end;
+
+function DevStr(c: PCell): Single;
+begin
+  if c^.Halted then Result := 0 else Result := c^.Strength;
+end;
+
+function DevFeed(c: PCell): Single;
+begin
+  if c^.Halted then Result := 0 else Result := c^.Feed;
+end;
+
+function CellFlowing(x, y: Integer): Boolean;
+var
+  d: Integer;
+begin
+  Result := False;
+  if not InGrid(x, y) or (Grid[x, y].Kind = ckEmpty) then Exit;
+  for d := 0 to 3 do
+    if Abs(Grid[x, y].F[d]) > 0.02 then Exit(True);
+end;
+
+{ the start / stop sequence of the page, run by sequence box q }
+procedure RunSequence(q: Integer; dt: Single);
+var
+  steps: array[0..MAX_SEQ_STEP - 1] of Byte;
+  n, j, st: Integer;
+  req: Boolean;
+  d: Single;
+  S: ^TEquipObj;
+
+  function Member(k: Integer): Boolean;
+  begin
+    Result := Equips[k].Active and EquipActuated(Equips[k].Kind) and (Equips[k].SeqStep > 0);
+  end;
+
+begin
+  S := @Equips[q];
+  n := SeqStepList(steps);
+  if S^.SeqPos > n then S^.SeqPos := n;
+  if S^.SeqPos < 0 then S^.SeqPos := 0;
+  { the external request: its Run state, or flow through the linked part }
+  req := (S^.State = EQS_RUN) or ((EquipLinkCell(q) <> nil) and CellFlowing(S^.LinkX, S^.LinkY));
+  if req then S^.ReqT := S^.ReqT + dt else S^.ReqT := 0;
+  if req <> S^.LastReq then
+  begin
+    S^.SeqT := 0;
+    S^.LastReq := req;
+  end;
+  case S^.Mode of
+    SEQ_ESTOP:
+      begin
+        { everything in the sequence stops at once }
+        for j := 0 to MAX_EQUIP - 1 do
+          if Member(j) then
+            if Equips[j].State = EQS_RUN then Equips[j].State := EQS_STOP
+            else if Equips[j].State = EQS_MSTART then Equips[j].State := EQS_MSTOP;
+        S^.SeqPos := 0;
+        S^.SeqT := 0;
+      end;
+    SEQ_AUTO:
+      if req and (S^.SeqPos < n) then
+      begin
+        { auto start: the next step after its delay }
+        st := steps[S^.SeqPos];
+        d := StepDelay(st);
+        S^.SeqT := S^.SeqT + dt;
+        for j := 0 to MAX_EQUIP - 1 do
+          if Member(j) and (Equips[j].SeqStep = st) and (Equips[j].State = EQS_STOP) then
+            Equips[j].Wait := fmax(0.01, d - S^.SeqT);
+        if S^.SeqT >= d then
+        begin
+          for j := 0 to MAX_EQUIP - 1 do
+            if Member(j) and (Equips[j].SeqStep = st) and (Equips[j].State = EQS_STOP) then
+            begin
+              Equips[j].State := EQS_RUN;
+              Equips[j].RunTime := 0;
+              Equips[j].Wait := 0;
+            end;
+          Inc(S^.SeqPos);
+          S^.SeqT := 0;
+        end;
+      end
+      else if (not req) and (S^.SeqPos > 0) then
+      begin
+        { auto stop: the steps in reverse order }
+        st := steps[S^.SeqPos - 1];
+        d := StepDelay(st);
+        S^.SeqT := S^.SeqT + dt;
+        for j := 0 to MAX_EQUIP - 1 do
+          if Member(j) and (Equips[j].SeqStep = st) and (Equips[j].State = EQS_RUN) then
+            Equips[j].Wait := -fmax(0.01, d - S^.SeqT);
+        if S^.SeqT >= d then
+        begin
+          for j := 0 to MAX_EQUIP - 1 do
+            if Member(j) and (Equips[j].SeqStep = st) and (Equips[j].State = EQS_RUN) then
+            begin
+              Equips[j].State := EQS_STOP;
+              Equips[j].Wait := 0;
+            end;
+          Dec(S^.SeqPos);
+          S^.SeqT := 0;
+        end;
+      end
+      else
+        S^.SeqT := 0;
+  else
+    S^.SeqT := 0;   { manual: the operator starts and stops by hand }
+  end;
+end;
+
+{ before each frame: the sequence, linked parts follow their equipment, timers and animation }
+procedure ApplyEquipment(dt: Single; Running: Boolean);
+var
+  x, y, i, q: Integer;
+  c: PCell;
+  E: ^TEquipObj;
+  run: Boolean;
+begin
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+      Grid[x, y].Halted := False;
+  if Running then
+  begin
+    for i := 0 to MAX_EQUIP - 1 do Equips[i].Wait := 0;
+    q := MasterSequence;
+    if q >= 0 then RunSequence(q, dt);
+  end;
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    E := @Equips[i];
+    if not E^.Active then Continue;
+    c := EquipLinkCell(i);
+    run := EquipRunning(i);
+    case E^.Kind of
+      EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW, EQ_PUMP:
+        if (c <> nil) and not run then c^.Halted := True;
+      EQ_SHUTTER, EQ_SLIDE:
+        if c <> nil then
+        begin
+          if c^.Kind = ckValve2 then c^.Open := run
+          else if not run then c^.Halted := True;   { a shut gate stops a feeder, hopper, silo or outlet }
+        end;
+      EQ_DIVERTER:
+        if c <> nil then
+        begin
+          if c^.Kind = ckValve3 then
+          begin
+            if run then c^.Dir := E^.DivA else c^.Dir := E^.DivB;
+          end
+          else if c^.Kind = ckValve2 then c^.Open := run
+          else if not run then c^.Halted := True;
+        end;
+      EQ_LAMP:
+        if (c <> nil) and not (E^.State in [EQS_FAULT, EQS_DISABLE]) then
+        begin
+          if CellFlowing(E^.LinkX, E^.LinkY) then E^.State := EQS_RUN
+          else E^.State := EQS_STOP;
+        end;
+      EQ_FIRE:
+        if not run then E^.Heat := 0;
+    end;
+    if run and (EquipActuated(E^.Kind) or (E^.Kind in [EQ_RAIN, EQ_FIRE])) then
+    begin
+      if Running then
+      begin
+        E^.RunTime := E^.RunTime + dt;
+        E^.Phase := E^.Phase + dt * 6;
+        if E^.Phase > 1000 then E^.Phase := E^.Phase - 1000;
+      end;
+    end
+    else if E^.Kind <> EQ_SEQUENCE then
+      E^.RunTime := 0;
+  end;
+end;
+
 procedure MakePipe(x, y, Dia: Integer);
 begin
   ResetCell(x, y);
@@ -620,6 +1167,17 @@ begin
       one := d;
     end;
   case K of
+    ckVFeeder:
+      begin
+        { a mix ratio, never used up; what it emits lives Strength seconds }
+        c^.Stock[mWater] := 1000;
+        c^.Stock[mOil] := 0;
+        c^.Stock[mFluff] := 0;
+        c^.Stock[mSand] := 1000;
+        c^.AirPct := 20;
+        c^.Feed := 60;
+        c^.Strength := 10;
+      end;
     ckSource:
       begin
         c^.Stock[mWater] := 1000;
@@ -775,7 +1333,7 @@ begin
         ckSuction, ckNozzle:
           if (c^.Dir >= 0) and not c^.ECon[c^.Dir] then c^.Mouth := c^.Dir;
         ckDrop:
-          if (c^.Dir >= 0) and not c^.ECon[c^.Dir] and (c^.Strength > 0.5) then
+          if (c^.Dir >= 0) and not c^.ECon[c^.Dir] and (DevStr(c) > 0.5) then
             c^.Mouth := c^.Dir;
       end;
       c^.Fixed := IsStore(c^.Kind) or (c^.Mouth >= 0);
@@ -915,7 +1473,7 @@ end;
 
 function SuctionRadius(x, y: Integer): Single;
 begin
-  Result := 20 + Grid[x, y].Strength * 1.3;
+  Result := 20 + DevStr(@Grid[x, y]) * 1.3;
 end;
 
 procedure BuildDeviceLists;
@@ -973,7 +1531,7 @@ begin
       if c^.Kind = ckSuction then
       begin
         Intakes[NIntake].R := SuctionRadius(x, y);
-        Intakes[NIntake].Str := c^.Strength;
+        Intakes[NIntake].Str := DevStr(c);
       end
       else
       begin
@@ -986,12 +1544,22 @@ begin
     begin
       Jets[NJet].MX := x * CELL + HALF + DXS[m] * HALF;
       Jets[NJet].MY := y * CELL + HALF + DYS[m] * HALF;
-      Jets[NJet].L := 40 + c^.Strength * 2.5;
-      Jets[NJet].Str := c^.Strength;
+      Jets[NJet].L := 40 + DevStr(c) * 2.5;
+      Jets[NJet].Str := DevStr(c);
       Jets[NJet].D := m;
       Inc(NJet);
     end;
   end;
+  { conveyor decks are solid: material lands on them and rides along }
+  for i := 0 to MAX_EQUIP - 1 do
+    if Equips[i].Active and (Equips[i].Kind in [EQ_CONVEYOR, EQ_BELT]) and (NBody <= High(Bodies)) then
+    begin
+      Bodies[NBody].X1 := Equips[i].X;
+      Bodies[NBody].X2 := Equips[i].X + Equips[i].W;
+      Bodies[NBody].Y1 := Equips[i].Y + Equips[i].H * 0.2;
+      Bodies[NBody].Y2 := Equips[i].Y + Equips[i].H * 0.5;
+      Inc(NBody);
+    end;
 end;
 
 { ---------------------------------------------------------------- pipe geometry }
@@ -1167,7 +1735,7 @@ begin
   iy := Trunc(py / CELL);
   if not InGrid(ix, iy) then Exit;
   if Grid[ix, iy].Kind = ckEmpty then Exit;
-  if Grid[ix, iy].Kind in [ckSource, ckBlower, ckHopper, ckSilo] then Exit(True);
+  if Grid[ix, iy].Kind in [ckSource, ckBlower, ckHopper, ckSilo, ckVFeeder] then Exit(True);
   lx := px - (ix * CELL + HALF);
   ly := py - (iy * CELL + HALF);
   Result := ClampShape(ix, iy, lx, ly, 2 + PRAD);
@@ -1399,7 +1967,7 @@ begin
         if c^.F[d] > 0 then q := q + c^.F[d];
       rate := q * EMIT_K;
       if c^.EPf[1] then rate := rate + GRAV_FEED * GravityScale;  { gravity discharge downwards }
-      rate := rate * c^.Feed / 100;
+      rate := rate * DevFeed(c) / 100;
       c^.EmitAcc := fmin(50, c^.EmitAcc + rate * dt);
       while c^.EmitAcc >= 1 do
       begin
@@ -1424,8 +1992,16 @@ begin
               end;
             if c^.Stock[chosen] >= 1 then
             begin
-              c^.Stock[chosen] := c^.Stock[chosen] - 1;
-              Spawn(x, y, chosen, False);
+              if c^.Kind = ckVFeeder then
+              begin
+                Spawn(x, y, chosen, False);
+                if NPart > 0 then Parts[NPart - 1].Life := fmax(0.5, c^.Strength);
+              end
+              else
+              begin
+                c^.Stock[chosen] := c^.Stock[chosen] - 1;
+                Spawn(x, y, chosen, False);
+              end;
             end;
           end
           else
@@ -1482,9 +2058,9 @@ begin
   if (c^.Kind = ckDrop) and (c^.Mouth >= 0) then
   begin
     { drop outlet: extra pull out of the mouth, rate limited by the gate }
-    p.VX := p.VX + DXS[c^.Mouth] * GRAVITY * GravityScale * dt * c^.Strength / 100;
-    p.VY := p.VY + DYS[c^.Mouth] * GRAVITY * GravityScale * dt * c^.Strength / 100;
-    vmax := 60 + 7 * c^.Strength;
+    p.VX := p.VX + DXS[c^.Mouth] * GRAVITY * GravityScale * dt * DevStr(c) / 100;
+    p.VY := p.VY + DYS[c^.Mouth] * GRAVITY * GravityScale * dt * DevStr(c) / 100;
+    vmax := 60 + 7 * DevStr(c);
   end;
   sp := Sqrt(Sqr(p.VX) + Sqr(p.VY));
   if sp > vmax then
@@ -1526,7 +2102,7 @@ begin
       begin
         { flowing into a tank, hopper or silo: it is stored }
         if p.Mat <> mAir then
-          Grid[nx, ny].Stock[p.Mat] := Grid[nx, ny].Stock[p.Mat] + 1;
+          if Grid[nx, ny].Kind <> ckVFeeder then Grid[nx, ny].Stock[p.Mat] := Grid[nx, ny].Stock[p.Mat] + 1;
         p.Life := -1;
         Exit;
       end;
@@ -1849,8 +2425,9 @@ begin
   for i := 0 to NPart - 1 do
   begin
     if Parts[i].Life <= 0 then Continue;
-    if Parts[i].Mat = mAir then
+    if Parts[i].Life < 1e8 then
     begin
+      { air dots and what a virtual feeder emits fade away }
       Parts[i].Life := Parts[i].Life - dt;
       if Parts[i].Life <= 0 then Continue;
     end;
@@ -1892,11 +2469,391 @@ begin
   end;
 end;
 
-procedure SimFrame(dt: Single; Running: Boolean);
+{ a free particle at px, py (rain) }
+procedure SpawnFree(px, py: Single; M: TMat; vx, vy: Single);
 var
+  p: PParticle;
+begin
+  if NPart >= MAX_PART then
+  begin
+    LimitHit := True;
+    Exit;
+  end;
+  p := @Parts[NPart];
+  Inc(NPart);
+  p^.X := px;
+  p^.Y := py;
+  p^.VX := vx;
+  p^.VY := vy;
+  p^.CX := EnsureRange(Trunc(px / CELL), 0, GW - 1);
+  p^.CY := EnsureRange(Trunc(py / CELL), 0, GH - 1);
+  p^.Mat := M;
+  p^.InPipe := False;
+  p^.Bucket := -1;
+  p^.Life := 1e9;
+  p^.ExitDir := -1;
+end;
+
+{ a water particle boils off: it becomes a rising wisp of steam (an air dot) }
+procedure Steam(var p: TParticle);
+begin
+  p.Mat := mAir;
+  p.Life := 1.5;
+  p.Bucket := -1;
+  if not p.InPipe then p.ExitDir := STEAM_MARK;   { humidity sensors tell steam from blown air }
+  if not p.InPipe then p.VY := -40;
+end;
+
+{ rain falls from its cloud; fire burns fluff and oil and is put out by water;
+  heaters boil water off }
+procedure EquipEffects(dt: Single);
+var
+  i, j, k: Integer;
+  E: ^TEquipObj;
+  p: PParticle;
+  zx1, zy1, zx2, zy2, chance: Single;
+begin
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    E := @Equips[i];
+    if not (E^.Active and EquipRunning(i)) then Continue;
+    case E^.Kind of
+      EQ_RAIN:
+        begin
+          E^.Heat := E^.Heat + E^.Level / 100 * E^.W / 240 * 140 * dt;
+          while E^.Heat >= 1 do
+          begin
+            E^.Heat := E^.Heat - 1;
+            SpawnFree(E^.X + 8 + Random * (E^.W - 16), E^.Y + E^.H * 0.85, mWater, (Random - 0.5) * 10, 60 + Random * 40);
+          end;
+        end;
+      EQ_FIRE:
+        begin
+          zx1 := E^.X;
+          zx2 := E^.X + E^.W;
+          zy1 := E^.Y + E^.H * (1 - fmax(0.2, E^.Heat / 100));
+          zy2 := E^.Y + E^.H;
+          for k := 0 to NPart - 1 do
+          begin
+            p := @Parts[k];
+            if (p^.Life <= 0) or p^.InPipe or (p^.Mat = mAir) then Continue;
+            if (p^.X < zx1) or (p^.X > zx2) or (p^.Y < zy1) or (p^.Y > zy2) then Continue;
+            case p^.Mat of
+              mWater:
+                begin
+                  Steam(p^);
+                  E^.Heat := E^.Heat - 0.8;
+                end;
+              mFluff:
+                begin
+                  p^.Life := -1;
+                  E^.Heat := fmin(100, E^.Heat + 0.4);
+                end;
+              mOil:
+                begin
+                  p^.Life := -1;
+                  E^.Heat := fmin(100, E^.Heat + 0.8);
+                end;
+            end;
+          end;
+          { it grows back slowly toward its size }
+          if E^.Heat < E^.Level then E^.Heat := fmin(E^.Level, E^.Heat + 3 * dt);
+          if E^.Heat <= 0 then
+          begin
+            E^.Heat := 0;
+            E^.State := EQS_STOP;   { put out }
+            Continue;
+          end;
+          { equipment caught in the flames goes to fault }
+          for j := 0 to MAX_EQUIP - 1 do
+            if Equips[j].Active and EquipActuated(Equips[j].Kind) and
+              not (Equips[j].State in [EQS_FAULT, EQS_DISABLE]) and
+              (Equips[j].X < zx2) and (Equips[j].X + Equips[j].W > zx1) and
+              (Equips[j].Y < zy2) and (Equips[j].Y + Equips[j].H > zy1) then
+              Equips[j].State := EQS_FAULT;
+        end;
+      EQ_IRHEATER:
+        begin
+          { radiant heat: the area below the panel }
+          chance := E^.Level / 100 * 3 * dt;
+          for k := 0 to NPart - 1 do
+          begin
+            p := @Parts[k];
+            if (p^.Life <= 0) or p^.InPipe or (p^.Mat <> mWater) then Continue;
+            if (p^.X >= E^.X) and (p^.X <= E^.X + E^.W) and (p^.Y >= E^.Y + E^.H) and
+              (p^.Y <= E^.Y + E^.H * 6) and (Random < chance) then Steam(p^);
+          end;
+        end;
+      EQ_HEATER:
+        begin
+          { a duct heater: water in the linked pipe cell (or in its own box) boils off }
+          chance := E^.Level / 100 * 4 * dt;
+          for k := 0 to NPart - 1 do
+          begin
+            p := @Parts[k];
+            if (p^.Life <= 0) or (p^.Mat <> mWater) or (Random >= chance) then Continue;
+            if E^.LinkX >= 0 then
+            begin
+              if p^.InPipe and (p^.CX = E^.LinkX) and (p^.CY = E^.LinkY) then Steam(p^);
+            end
+            else if (not p^.InPipe) and (p^.X >= E^.X) and (p^.X <= E^.X + E^.W) and (p^.Y >= E^.Y) and
+              (p^.Y <= E^.Y + E^.H) then Steam(p^);
+          end;
+        end;
+    end;
+  end;
+end;
+
+{ heaters warm up toward 20 + 2.3 x their power % while they run and cool back to 20 C; a fire is as hot as it burns }
+procedure EquipTemps(dt: Single);
+var
+  i: Integer;
+  E: ^TEquipObj;
+  target: Single;
+begin
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    E := @Equips[i];
+    if not E^.Active then Continue;
+    if E^.Temp <= 0 then E^.Temp := 20;
+    case E^.Kind of
+      EQ_HEATER, EQ_IRHEATER:
+        begin
+          if EquipRunning(i) then target := 20 + 2.3 * E^.Level else target := 20;
+          E^.Temp := E^.Temp + (target - E^.Temp) * fmin(1, dt / 8);
+        end;
+      EQ_FIRE:
+        if EquipRunning(i) then E^.Temp := 20 + 8 * E^.Heat else E^.Temp := E^.Temp + (20 - E^.Temp) * fmin(1, dt / 4);
+    end;
+  end;
+end;
+
+{ the temperature that comes to equipment i from its source (Src): a heat exchanger
+  gives its tube outlet, a chiller gives a cooling tower its condenser water, any
+  other piece its own temperature; Default when it has none }
+function SourceTemp(i: Integer; Default: Single): Single;
+var
+  j: Integer;
+begin
+  Result := Default;
+  if Equips[i].Src = '' then Exit;
+  for j := 0 to MAX_EQUIP - 1 do
+    if Equips[j].Active and (j <> i) and SameText(Equips[j].Name, Equips[i].Src) then
+    begin
+      if (Equips[j].Kind = EQ_HEATEX) and (Equips[j].HotOut > 0) then Result := Equips[j].HotOut
+      else if (Equips[j].Kind = EQ_CHILLER) and (Equips[i].Kind = EQ_COOLTOWER) and (Equips[j].HotOut > 0) then
+        Result := Equips[j].HotOut
+      else if Equips[j].Temp > 0 then Result := Equips[j].Temp;
+      Exit;
+    end;
+end;
+
+{ heat exchangers, cooling towers and chillers; the outlets follow in a few seconds.
+  - heat exchanger (shell and tube, counterflow): the process stream through the
+    linked pipe is the shell side (RMin C in, 20 when 0), the tube side flows at its
+    Level % while it runs and comes in at its source's temperature (Src) or at RMax.
+    Effectiveness-NTU: Q = eps * Cmin * (Ttube,in - Tshell,in). Water leaving the
+    shell above 100 C boils off.
+  - cooling tower: water comes in from its source (or at RMax) and leaves toward the
+    wet-bulb temperature (RMin, 21 when 0): out = in - eff * (in - wet bulb), eff 0.15
+    with the fan off, up to 0.75 with the fan (Level %) at full speed; the warm moist
+    air rises as a plume of vapour.
+  - chiller: the return water from its source (or at RMin, 12 when 0) is chilled to its
+    set point (RMax) by at most 20 C at its capacity (Level %) while it runs; its
+    condenser water leaves at 30 + 0.6 x the cooling (for a cooling tower). }
+procedure ThermalEquipment(dt: Single);
+var
+  i, k: Integer;
+  E: ^TEquipObj;
+  c: PCell;
+  p: PParticle;
+  thi, tci, ch, cc, cmin, cmax, cr, ntu, eps, q, tco, tho, ua, a, chance, eff, tin, twb, target: Single;
+begin
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    E := @Equips[i];
+    if not E^.Active then Continue;
+    case E^.Kind of
+      EQ_HEATEX:
+        begin
+          thi := SourceTemp(i, E^.RMax);
+          if E^.RMin > 0 then tci := E^.RMin else tci := 20;
+          if EquipRunning(i) then ch := E^.Level / 100 else ch := 0;
+          c := EquipLinkCell(i);
+          if c <> nil then cc := fmin(2, CellSpeed(E^.LinkX, E^.LinkY) / CELL / 16) else cc := 0;
+          ua := 1.2 * E^.W * E^.H / (168 * 64);
+          cmin := fmin(ch, cc);
+          cmax := fmax(ch, cc);
+          q := 0;
+          if cmin < 0.001 then
+          begin
+            { one side does not flow: no heat moves on; a still side takes the other side's temperature }
+            if (ch > 0.001) and (cc <= 0.001) then begin tco := thi; tho := thi; end
+            else if (cc > 0.001) and (ch <= 0.001) then begin tco := tci; tho := tci; end
+            else begin tco := E^.Temp; tho := E^.HotOut; end;
+          end
+          else
+          begin
+            cr := cmin / cmax;
+            ntu := ua / cmin;
+            if cr > 0.999 then eps := ntu / (1 + ntu)
+            else eps := (1 - Exp(-ntu * (1 - cr))) / (1 - cr * Exp(-ntu * (1 - cr)));
+            q := eps * cmin * (thi - tci);
+            tco := tci + q / cc;
+            tho := thi - q / ch;
+          end;
+          a := fmin(1, dt / 3);
+          if E^.Temp <= 0 then E^.Temp := tci;
+          if E^.HotOut <= 0 then E^.HotOut := thi;
+          E^.Temp := E^.Temp + (tco - E^.Temp) * a;
+          E^.HotOut := E^.HotOut + (tho - E^.HotOut) * a;
+          E^.HotIn := thi;
+          E^.ColdIn := tci;
+          E^.Duty := E^.Duty + (q * 10 - E^.Duty) * a;
+          { the shell outlet above boiling: its water boils off }
+          if (c <> nil) and (E^.Temp > 100) then
+          begin
+            chance := fmin(1, (E^.Temp - 100) / 50) * 4 * dt;
+            for k := 0 to NPart - 1 do
+            begin
+              p := @Parts[k];
+              if (p^.Life > 0) and p^.InPipe and (p^.Mat = mWater) and (p^.CX = E^.LinkX) and (p^.CY = E^.LinkY) and
+                (Random < chance) then Steam(p^);
+            end;
+          end;
+        end;
+      EQ_COOLTOWER:
+        begin
+          tin := SourceTemp(i, E^.RMax);
+          if E^.RMin > 0 then twb := E^.RMin else twb := 21;
+          if EquipRunning(i) then eff := 0.15 + 0.6 * E^.Level / 100 else eff := 0.15;
+          target := tin - eff * (tin - twb);
+          a := fmin(1, dt / 4);
+          if E^.Temp <= 0 then E^.Temp := tin;
+          E^.Temp := E^.Temp + (target - E^.Temp) * a;
+          E^.HotIn := tin;
+          E^.ColdIn := twb;
+          E^.Duty := E^.Duty + (fmax(0, tin - E^.Temp) * 12 - E^.Duty) * a;
+          { the plume: warm, moist air rising from the fan stack }
+          if E^.Duty > 1 then
+          begin
+            E^.Heat := E^.Heat + E^.Duty / 12 * (0.4 + 0.8 * Ord(EquipRunning(i)) * E^.Level / 100) * dt;
+            while E^.Heat >= 1 do
+            begin
+              E^.Heat := E^.Heat - 1;
+              SpawnFree(E^.X + E^.W * (0.25 + 0.5 * Random), E^.Y + 2, mAir, (Random - 0.5) * 20, -30 - Random * 30);
+              if NPart > 0 then
+              begin
+                Parts[NPart - 1].Life := 2.5;
+                Parts[NPart - 1].ExitDir := STEAM_MARK;
+              end;
+            end;
+          end;
+        end;
+      EQ_CHILLER:
+        begin
+          if E^.RMin > 0 then tin := SourceTemp(i, E^.RMin) else tin := SourceTemp(i, 12);
+          if EquipRunning(i) then target := tin - fmin(fmax(0, tin - E^.RMax), 20 * E^.Level / 100)
+          else target := tin;
+          a := fmin(1, dt / 5);
+          if E^.Temp <= 0 then E^.Temp := tin;
+          E^.Temp := E^.Temp + (target - E^.Temp) * a;
+          E^.HotIn := tin;
+          E^.HotOut := 30 + 0.6 * fmax(0, tin - E^.Temp);
+          E^.Duty := E^.Duty + (fmax(0, tin - E^.Temp) * 12 - E^.Duty) * a;
+        end;
+    end;
+  end;
+end;
+
+{ ponds, pools and wells take in free water that reaches them; a well
+  refills from the ground water }
+procedure WaterBodies(dt: Single);
+var
+  i, k: Integer;
+  E: ^TEquipObj;
+  p: PParticle;
+  unitPct: Single;
+begin
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    E := @Equips[i];
+    if not (E^.Active and EquipIsWater(E^.Kind)) then Continue;
+    unitPct := 100 / WaterCap(i);
+    for k := 0 to NPart - 1 do
+    begin
+      if E^.Level >= 100 then Break;   { full: the water stays outside, it overflows }
+      p := @Parts[k];
+      if (p^.Life <= 0) or p^.InPipe or (p^.Mat <> mWater) then Continue;
+      if (p^.X >= E^.X) and (p^.X <= E^.X + E^.W) and (p^.Y >= E^.Y + E^.H * 0.15) and (p^.Y <= E^.Y + E^.H + 4) then
+      begin
+        p^.Life := -1;
+        E^.Level := fmin(100, E^.Level + unitPct);
+      end;
+    end;
+    if (E^.Kind = EQ_WELL) and (E^.Level < 80) then E^.Level := fmin(80, E^.Level + 1.5 * dt);
+  end;
+end;
+
+{ a running pump draws water from the nearest pond / pool / well into the pipe it is linked to }
+procedure Pumps(dt: Single);
+var
+  i, s: Integer;
+  E: ^TEquipObj;
+begin
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    E := @Equips[i];
+    if not (E^.Active and (E^.Kind = EQ_PUMP) and EquipRunning(i)) then Continue;
+    if EquipLinkCell(i) = nil then Continue;
+    s := PumpSource(i);
+    if s < 0 then Continue;
+    E^.Heat := E^.Heat + E^.Level / 100 * 40 * dt;
+    while (E^.Heat >= 1) and (Equips[s].Level > 0) do
+    begin
+      E^.Heat := E^.Heat - 1;
+      Spawn(E^.LinkX, E^.LinkY, mWater, False);
+      Equips[s].Level := fmax(0, Equips[s].Level - 100 / WaterCap(s));
+    end;
+    if Equips[s].Level <= 0 then E^.Heat := 0;   { dry: nothing to pump }
+  end;
+end;
+
+{ a running conveyor carries the free material lying on its deck }
+procedure Conveyors(dt: Single);
+var
+  i, k: Integer;
+  E: ^TEquipObj;
+  p: PParticle;
+  top, v: Single;
+begin
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    E := @Equips[i];
+    if not (E^.Active and (E^.Kind in [EQ_CONVEYOR, EQ_BELT]) and EquipRunning(i)) then Continue;
+    top := E^.Y + E^.H * 0.2;
+    v := 20 + E^.Level * 1.4;
+    if E^.Flip then v := -v;
+    for k := 0 to NPart - 1 do
+    begin
+      p := @Parts[k];
+      if (p^.Life <= 0) or p^.InPipe or (p^.Mat = mAir) then Continue;
+      if (p^.X >= E^.X) and (p^.X <= E^.X + E^.W) and (p^.Y >= top - 10) and (p^.Y <= top + 1) then
+      begin
+        p^.VX := v;
+        p^.X := p^.X + v * dt * 0.5;
+      end;
+    end;
+  end;
+end;
+
+procedure SimFrame(dt: Single; Running: Boolean);var
   n, s, i: Integer;
   c: PCell;
 begin
+  if Assigned(ElecHook) then ElecHook(dt, Running);
+  if Assigned(FluidHook) then FluidHook(dt, Running);
+  ApplyEquipment(dt, Running);
   UpdateTopology;
   SolvePressure(60);
   ComputeFluxes;
@@ -1907,6 +2864,12 @@ begin
   n := EnsureRange(Ceil(dt * 240), 1, 8);
   for s := 1 to n do
     StepParticles(dt / n);
+  EquipEffects(dt);
+  EquipTemps(dt);
+  ThermalEquipment(dt);
+  WaterBodies(dt);
+  Pumps(dt);
+  Conveyors(dt);
   CountBuckets;
   for i := 0 to MAX_BUCKETS - 1 do
     Buckets[i].Flash := fmax(0, Buckets[i].Flash - dt);
@@ -1914,7 +2877,7 @@ begin
   begin
     c := @Grid[ActiveIdx[i] mod GW, ActiveIdx[i] div GW];
     if c^.Kind = ckBlower then
-      c^.Spin := c^.Spin + dt * c^.Strength * 0.25;
+      c^.Spin := c^.Spin + dt * DevStr(c) * 0.25;
   end;
 end;
 

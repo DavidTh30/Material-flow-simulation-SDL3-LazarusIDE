@@ -1,0 +1,308 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+MFLOW 2
+NAME Every page at once
+POPUP 1 2 2 How it works
+POPUPTEXT 1 All four pages run every frame. KM1 on page 1\nruns Pump01 on page 3 over the plant bus; LT1\non page 1 reads Pool01 on page 3; the meters\non page 4 show values from pages 1 and 3.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Hold SB1 and stay on this page: the pool on\npage 3 fills anyway. Go to page 3 or 4 and\ncome back: nothing stopped while away.
+
+PAGE Plant
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 1 0 Electrical
+GRAVITY 1.00
+ON 1
+ON 2
+LABEL 196.00 560.00 CONTROL ROOM (page 1)\nHold SB1: K1 on. LIC1 runs KM1 below 60%\nand stops it above 80% - the pump is on\npage 3, the meters on page 4. Every page\nruns at the same time.
+LINK 196.00 680.00 2 page 3 Pump house
+LINK 330.00 680.00 3 page 4 Monitor
+LINK 24.00 24.00 1 page 2 About
+LINK 24.00 46.00 2 popup 1 How it works
+LINK 24.00 68.00 3 popup 2 Try this
+ON 3
+EQUIP panel 180.00 96.00 492.00 440.00 stop 0 -1 -1 50.00 Panel01 - control room
+EQUIP faceplate 720.00 120.00 196.00 128.00 stop 0 -1 -1 50.00 Pool level
+EQSRC 0.00 100.00 LIC1
+EQUIP digital 720.00 290.00 196.00 56.00 stop 0 -1 -1 50.00 Pool01 %
+EQSRC 0.00 100.00 Pool01
+EQUIP digital 720.00 370.00 196.00 56.00 stop 0 -1 -1 50.00 Well01 %
+EQSRC 0.00 100.00 Well01
+EQUIP gauge 740.00 450.00 150.00 150.00 stop 0 -1 -1 50.00 Pump A
+EQSRC 0.00 15.00 CT1
+ON 4
+ECELL 8 5 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 5 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 18 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 5 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 7 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 7 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 8 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 8 pbnc EW 0 0 0 0 0 0 0.00 0.00 SB0 - - 0.00
+ECELL 12 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 8 wire ESW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 8 pbno EW 0 0 0 0 0 0 0.00 0.00 SB1 - - 0.00
+ECELL 15 8 wire ESW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 8 relay EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 24 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 8 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 8 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 9 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 9 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 9 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 15 9 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 9 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 11 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 11 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 15 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 11 controller EW 0 0 0 0 0 0 70.00 20.00 LIC1 - LT1 10.00
+ECELL 24 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 11 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 13 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 13 no EW 0 0 0 0 0 0 0.00 0.00 LIC1 - - 0.00
+ECELL 15 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 13 contactor EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 24 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 13 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 14 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 14 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 15 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 15 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 12 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 15 ct EW 0 0 0 0 0 0 0.00 0.00 CT1 - - 0.00
+ECELL 16 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 15 motor EW 0 0 0 0 0 0 5.00 0.00 M1 Pump01 - 0.00
+ECELL 24 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 15 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 16 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 16 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 17 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 17 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 15 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 17 lamp EW 0 0 0 0 0 0 0.00 0.00 H1 - - 0.00
+ECELL 24 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 17 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 18 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 18 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 19 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 19 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 15 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 19 lamp EW 0 4 0 0 0 0 0.00 0.00 H2 - - 0.00
+ECELL 24 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 19 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 22 lt EW 0 0 0 0 0 0 0.00 0.00 LT1 Pool01 - 0.00
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 24 - EVERY PAGE AT ONCE\nA control room, a pump house and a monitor\non pages of their own, all running together.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this
+
+PAGE Pump house
+LAYERS 2 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+GRAVITY 1.00
+ON 1
+CELL 8 8 pipe ES 3 E 1 0.00
+CELL 9 8 pipe EW 3 E 1 0.00
+CELL 10 8 pipe EW 3 E 1 0.00
+CELL 11 8 pipe EW 3 E 1 0.00
+CELL 12 8 pipe EW 3 E 1 0.00
+CELL 13 8 pipe EW 3 E 1 0.00
+CELL 14 8 pipe EW 3 E 1 0.00
+CELL 15 8 pipe EW 3 E 1 0.00
+CELL 16 8 pipe SW 3 E 1 0.00
+CELL 8 9 pipe SN 3 E 1 0.00
+CELL 16 9 pipe SN 3 E 1 0.00
+CELL 8 10 pipe SN 3 E 1 0.00
+CELL 16 10 drop N 3 S 1 100.00
+CELL 8 11 pipe SN 3 E 1 0.00
+CELL 8 12 pipe SN 3 E 1 0.00
+CELL 8 13 pipe SN 3 E 1 0.00
+CELL 8 14 pipe SN 3 E 1 0.00
+CELL 8 15 pipe SN 3 E 1 0.00
+CELL 8 16 pipe SN 3 E 1 0.00
+CELL 8 17 pipe SN 3 E 1 0.00
+CELL 8 18 pipe SN 3 E 1 0.00
+CELL 8 19 pipe SN 3 E 1 0.00
+CELL 8 20 pipe SN 3 E 1 0.00
+CELL 8 21 pipe SN 3 E 1 0.00
+CELL 8 22 pipe SN 3 E 1 0.00
+CELL 22 22 pipe ES 3 E 1 0.00
+CELL 23 22 pipe EW 3 E 1 0.00
+CELL 24 22 pipe EW 3 E 1 0.00
+CELL 25 22 pipe EW 3 E 1 0.00
+CELL 26 22 pipe EW 3 E 1 0.00
+CELL 27 22 pipe EW 3 E 1 0.00
+CELL 28 22 pipe EW 3 E 1 0.00
+CELL 29 22 pipe EW 3 E 1 0.00
+CELL 30 22 pipe EW 3 E 1 0.00
+CELL 31 22 pipe EW 3 E 1 0.00
+CELL 32 22 pipe EW 3 E 1 0.00
+CELL 33 22 pipe EW 3 E 1 0.00
+CELL 34 22 pipe SW 3 E 1 0.00
+CELL 8 23 pipe SN 3 E 1 0.00
+CELL 22 23 pipe SN 3 E 1 0.00
+CELL 34 23 pipe SN 3 E 1 0.00
+CELL 8 24 pipe SN 3 E 1 0.00
+CELL 22 24 pipe SN 3 E 1 0.00
+CELL 34 24 drop N 3 S 1 100.00
+CELL 8 25 pipe SN 3 E 1 0.00
+CELL 22 25 pipe SN 3 E 1 0.00
+CELL 8 26 pipe SN 3 E 1 0.00
+CELL 22 26 pipe SN 3 E 1 0.00
+CELL 8 27 pipe SN 3 E 1 0.00
+CELL 22 27 pipe SN 3 E 1 0.00
+CELL 8 28 pipe SN 3 E 1 0.00
+CELL 22 28 pipe SN 3 E 1 0.00
+CELL 8 29 blower SN 3 N 1 95.00
+CELL 22 29 blower SN 3 N 1 95.00
+CELL 8 30 pipe SN 3 E 1 0.00
+CELL 22 30 pipe SN 3 E 1 0.00
+CELL 8 31 pipe N 3 E 1 0.00
+CELL 22 31 pipe N 3 E 1 0.00
+EQUIP well 24.00 600.00 104.00 200.00 stop 0 -1 -1 90.00 Well01
+EQUIP pump 132.00 744.00 104.00 56.00 stop 0 8 29 100.00 Pump01
+EQUIP pool 300.00 716.00 210.00 96.00 stop 0 -1 -1 40.00 Pool01
+EQUIP pump 516.00 744.00 104.00 56.00 run 0 22 29 30.00 Pump02
+EQUIP pond 760.00 720.00 264.00 90.00 stop 0 -1 -1 10.00 Pond01
+ON 2
+LABEL 400.00 120.00 PUMP HOUSE (page 3)\nPump01 has no circuit here: KM1 on page 1\nruns it over the plant bus. Pump02 drains\nthe pool into the pond all the time.
+LINK 400.00 220.00 1 page 1 Control room
+LINK 540.00 220.00 3 page 4 Monitor
+
+PAGE Monitor
+LAYERS 1 1
+LAYER 1 1 0 Meters
+GRAVITY 1.00
+ON 1
+LABEL 80.00 520.00 MONITOR (page 4)\nEvery meter here shows a value from another\npage: the pool and well on page 3, the\ncurrent and the controller on page 1.
+LINK 80.00 620.00 1 page 1 Control room
+LINK 220.00 620.00 2 page 3 Pump house
+EQUIP gauge 80.00 120.00 200.00 200.00 stop 0 -1 -1 50.00 Pool01 level
+EQSRC 0.00 100.00 Pool01
+EQUIP gauge 320.00 120.00 200.00 200.00 stop 0 -1 -1 50.00 Well01 level
+EQSRC 0.00 100.00 Well01
+EQUIP gauge 560.00 120.00 200.00 200.00 stop 0 -1 -1 50.00 Pump current A
+EQSRC 0.00 15.00 CT1
+EQUIP faceplate 800.00 140.00 196.00 128.00 stop 0 -1 -1 50.00 LIC1 faceplate
+EQSRC 0.00 100.00 LIC1
+EQUIP digital 80.00 400.00 200.00 60.00 stop 0 -1 -1 50.00 LT1 %
+EQSRC 0.00 100.00 LT1
+EQUIP digital 320.00 400.00 200.00 60.00 stop 0 -1 -1 50.00 Set point %
+EQSRC 0.00 100.00 LIC1.SP
+EQUIP digital 560.00 400.00 200.00 60.00 stop 0 -1 -1 50.00 Pond01 %
+EQSRC 0.00 100.00 Pond01

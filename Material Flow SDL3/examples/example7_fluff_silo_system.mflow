@@ -1,0 +1,170 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+MFLOW 2
+NAME Fluff silo system
+POPUP 1 2 2 How it works
+POPUPTEXT 1 Screw01 empties the silo into the funnel;\nBlower01 blows the fluff up the riser to the\ncyclone on the silo roof (a loop), and part of\nit goes on to the consumer.\nEach motor drives a real part: stop or fault\nit and that part stops.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Double-click Blower01: it stops (grey) and\nso does the air; Screw01 stops the silo.\nSelect a motor and press Fault: it turns red.\nShow the hidden layer "Silo core" (F6).
+
+PAGE Plant
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 0 0 Silo core
+GRAVITY 1.00
+ON 1
+CELL 16 2 pipe ES 3 E 1 0.00
+CELL 17 2 pipe EW 3 E 1 0.00
+CELL 18 2 pipe EW 3 E 1 0.00
+CELL 19 2 pipe EW 3 E 1 0.00
+CELL 20 2 pipe EW 3 E 1 0.00
+CELL 21 2 pipe EW 3 E 1 0.00
+CELL 22 2 pipe EW 3 E 1 0.00
+CELL 23 2 pipe EW 3 E 1 0.00
+CELL 24 2 pipe EW 3 E 1 0.00
+CELL 25 2 pipe EW 3 E 1 0.00
+CELL 26 2 pipe EW 3 E 1 0.00
+CELL 27 2 pipe EW 3 E 1 0.00
+CELL 28 2 pipe EW 3 E 1 0.00
+CELL 29 2 pipe EW 3 E 1 0.00
+CELL 30 2 pipe EW 3 E 1 0.00
+CELL 31 2 pipe EW 3 E 1 0.00
+CELL 32 2 pipe EW 3 E 1 0.00
+CELL 33 2 pipe EW 3 E 1 0.00
+CELL 34 2 pipe EW 3 E 1 0.00
+CELL 35 2 pipe EW 3 E 1 0.00
+CELL 36 2 pipe EW 3 E 1 0.00
+CELL 37 2 pipe EW 3 E 1 0.00
+CELL 38 2 pipe EW 3 E 1 0.00
+CELL 39 2 pipe EW 3 E 1 0.00
+CELL 40 2 pipe SW 3 E 1 0.00
+CELL 16 3 pipe SN 3 E 1 0.00
+CELL 40 3 pipe SN 3 E 1 0.00
+CELL 16 4 drop N 3 S 1 100.00
+CELL 40 4 pipe SN 3 E 1 0.00
+CELL 40 5 pipe SN 3 E 1 0.00
+CELL 40 6 pipe SN 3 E 1 0.00
+CELL 40 7 pipe SN 3 E 1 0.00
+CELL 40 8 valve3 ESN 3 - 1 0.00
+CELL 41 8 pipe SW 3 E 1 0.00
+CELL 40 9 pipe SN 3 E 1 0.00
+CELL 41 9 pipe SN 3 E 1 0.00
+CELL 40 10 pipe SN 3 E 1 0.00
+CELL 41 10 pipe SN 3 E 1 0.00
+CELL 40 11 pipe SN 3 E 1 0.00
+CELL 41 11 pipe SN 3 E 1 0.00
+CELL 40 12 pipe SN 3 E 1 0.00
+CELL 41 12 pipe SN 3 E 1 0.00
+CELL 40 13 pipe SN 3 E 1 0.00
+CELL 41 13 pipe SN 3 E 1 0.00
+CELL 40 14 pipe SN 3 E 1 0.00
+CELL 41 14 pipe SN 3 E 1 0.00
+CELL 40 15 pipe SN 3 E 1 0.00
+CELL 41 15 pipe SN 3 E 1 0.00
+CELL 40 16 pipe SN 3 E 1 0.00
+CELL 41 16 pipe SN 3 E 1 0.00
+CELL 16 17 pipe EN 3 E 1 0.00
+CELL 17 17 pipe EW 3 E 1 0.00
+CELL 18 17 pipe EW 3 E 1 0.00
+CELL 19 17 pipe EW 3 E 1 0.00
+CELL 20 17 pipe EW 3 E 1 0.00
+CELL 21 17 pipe EW 3 E 1 0.00
+CELL 22 17 pipe EW 3 E 1 0.00
+CELL 23 17 pipe EW 3 E 1 0.00
+CELL 24 17 pipe SW 3 E 1 0.00
+CELL 40 17 pipe SN 3 E 1 0.00
+CELL 41 17 pipe SN 3 E 1 0.00
+CELL 24 18 pipe SN 3 E 1 0.00
+CELL 40 18 pipe SN 3 E 1 0.00
+CELL 41 18 pipe SN 3 E 1 0.00
+CELL 24 19 drop N 3 S 1 100.00
+CELL 40 19 pipe SN 3 E 1 0.00
+CELL 41 19 pipe SN 3 E 1 0.00
+CELL 40 20 pipe SN 3 E 1 0.00
+CELL 41 20 drop N 3 S 1 100.00
+CELL 40 21 pipe SN 3 E 1 0.00
+CELL 40 22 pipe SN 3 E 1 0.00
+CELL 24 23 hopper S 3 E 1 0.00
+STOCK 24 23 0.00 0.00 0.00 0.00 0.00 100.00
+CELL 40 23 pipe SN 3 E 1 0.00
+CELL 24 24 pipe SN 3 E 1 0.00
+CELL 28 24 feeder S 4 E 1 0.00
+STOCK 28 24 0.00 0.00 2500.00 0.00 20.00 25.00
+CELL 40 24 pipe SN 3 E 1 0.00
+CELL 24 25 pipe SN 3 E 1 0.00
+CELL 28 25 pipe SN 3 E 1 0.00
+CELL 40 25 pipe SN 3 E 1 0.00
+CELL 24 26 pipe SN 3 E 1 0.00
+CELL 28 26 pipe SN 3 E 1 0.00
+CELL 40 26 pipe SN 3 E 1 0.00
+CELL 24 27 pipe EN 3 E 1 0.00
+CELL 25 27 pipe EW 3 E 1 0.00
+CELL 26 27 pipe EW 3 E 1 0.00
+CELL 27 27 pipe EW 3 E 1 0.00
+CELL 28 27 pipe EWN 3 E 1 0.00
+CELL 29 27 pipe EW 3 E 1 0.00
+CELL 30 27 pipe EW 3 E 1 0.00
+CELL 31 27 pipe EW 3 E 1 0.00
+CELL 32 27 pipe EW 3 E 1 0.00
+CELL 33 27 blower EW 3 E 1 95.00
+CELL 34 27 pipe EW 3 E 1 0.00
+CELL 35 27 pipe EW 3 E 1 0.00
+CELL 36 27 pipe EW 3 E 1 0.00
+CELL 37 27 pipe EW 3 E 1 0.00
+CELL 38 27 pipe EW 3 E 1 0.00
+CELL 39 27 pipe EW 3 E 1 0.00
+CELL 40 27 pipe WN 3 E 1 0.00
+BUCKET 956.00 726.00 80.00 80.00
+ON 2
+LABEL 600.00 30.00 Fluff feed / return to the silo
+LABEL 860.00 250.00 to consumer
+LABEL 560.00 470.00 Funnel
+LABEL 24.00 470.00 FLUFF SILO SYSTEM\nScrew01 empties the silo,\nBlower01 blows the fluff\nback up to the cyclone.\nDouble-click a motor:\nrun / stop.
+LINK 24.00 660.00 1 page 2 About
+LINK 24.00 682.00 2 popup 1 How it works
+LINK 24.00 704.00 3 popup 2 Try this
+ON 3
+EQUIP stand 252.00 448.00 264.00 112.00 stop 0 -1 -1 50.00 
+EQUIP silo 264.00 144.00 240.00 264.00 stop 0 16 16 50.00 Silo01
+EQUIP cyclone 368.00 40.00 56.00 104.00 stop 0 -1 -1 50.00 Cyclone01
+EQUIP paddle 176.00 196.00 320.00 40.00 disable 0 -1 -1 50.00 Paddle03
+EQUIP paddle 176.00 262.00 320.00 40.00 mstop 0 -1 -1 50.00 Paddle02
+EQUIP paddle 176.00 328.00 320.00 40.00 stop 0 -1 -1 50.00 Paddle01
+EQX 0 3 3.00 -1 -1
+EQUIP screw 160.00 400.00 440.00 44.00 stop 0 16 16 50.00 Screw01
+EQX 0 2 4.00 -1 -1
+EQUIP blower 744.00 560.00 120.00 112.00 stop 0 33 27 50.00 Blower01
+EQX 0 1 2.00 -1 -1
+EQUIP diverter 940.00 156.00 56.00 72.00 stop 0 40 8 50.00 Diverter01
+EQX 0 4 5.00 -1 0
+EQUIP sequence 552.00 80.00 296.00 66.00 run 0 -1 -1 50.00 Sequence
+EQUIP lamp 800.00 232.00 16.00 16.00 stop 0 41 20 50.00 Ext. Request
+EQUIP legend 24.00 24.00 232.00 136.00 stop 0 -1 -1 50.00 Legend
+ON 4
+CELL 16 16 silo S 3 E 1 0.00
+STOCK 16 16 0.00 0.00 1600.00 0.00 0.00 70.00
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 7 - FLUFF SILO SYSTEM\nPlant equipment (Equipment layer) drawn over\na working process: silo bin, cyclone, paddles,\nscrew conveyor, blower, lamp and legend.\nGreen = running, grey = stopped, red = fault.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

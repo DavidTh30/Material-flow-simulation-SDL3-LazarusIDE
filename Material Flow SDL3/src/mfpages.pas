@@ -23,7 +23,7 @@ unit mfpages;
 interface
 
 uses
-  simcore;
+  simcore, elec, fluid, plantbus;
 
 const
   MAX_PAGES = 20;
@@ -50,7 +50,20 @@ type
     Labels: array[0..MAX_LABELS - 1] of TLabelObj;
     Frames: array[0..MAX_FRAMES - 1] of TFrameObj;
     Links: array[0..MAX_LINKS - 1] of TLinkObj;
+    Equips: array[0..MAX_EQUIP - 1] of TEquipObj;
+    EGrid: array[0..GW - 1, 0..GH - 1] of TECell;
+    FGrid: array[0..GW - 1, 0..GH - 1] of TFCell;
     Gravity: Single;
+  end;
+
+  { a Focus Properties window (the app draws it): which item, where, on which page }
+  TPinWin = record
+    Kind: Byte;            { the app's selection kind (TSelKind) }
+    A, B: Integer;         { cell x, y / the index of the item }
+    X, Y, W, H: Single;
+    Page: Integer;
+    Dragging: Boolean;
+    DOX, DOY: Single;
   end;
 
   TPopup = record
@@ -67,6 +80,7 @@ var
   CurPage: Integer = 0;
   Popups: array[0..MAX_POPUPS - 1] of TPopup;
   ShownPopup: Integer = -1;       { the popup shown over the canvas, -1 none }
+  Pins: array of TPinWin;         { the Focus Properties windows of every page }
 
 { one empty page with one layer; popups cleared. The live globals become page 1. }
 procedure PagesReset;
@@ -100,6 +114,9 @@ procedure CloseFramePopup;
 
 { follow a link: go to its page or open its popup }
 procedure FollowLink(i: Integer);
+
+{ one frame of every page at the same time (the page on screen last), sharing the plant bus }
+procedure SimAllPages(dt: Single; Running: Boolean);
 
 implementation
 
@@ -169,6 +186,9 @@ begin
   for i := 0 to MAX_LABELS - 1 do P.Labels[i].Active := False;
   for i := 0 to MAX_FRAMES - 1 do P.Frames[i].Active := False;
   for i := 0 to MAX_LINKS - 1 do P.Links[i].Active := False;
+  for i := 0 to MAX_EQUIP - 1 do P.Equips[i].Active := False;
+  FillChar(P.EGrid, SizeOf(P.EGrid), 0);
+  FillChar(P.FGrid, SizeOf(P.FGrid), 0);
   P.Gravity := 1.0;
 end;
 
@@ -188,6 +208,8 @@ begin
   CurLayer := 0;
   for i := 0 to MAX_POPUPS - 1 do Popups[i].Active := False;
   ShownPopup := -1;
+  SetLength(Pins, 0);
+  BusClear;
 end;
 
 procedure ParkPage(i: Integer);
@@ -204,6 +226,9 @@ begin
   Pages[i].Labels := Labels;
   Pages[i].Frames := Frames;
   Pages[i].Links := Links;
+  Pages[i].Equips := Equips;
+  Pages[i].EGrid := EGrid;
+  Pages[i].FGrid := FGrid;
   Pages[i].Gravity := GravityScale;
   Pages[i].ActiveLayer := CurLayer;
 end;
@@ -225,6 +250,9 @@ begin
   Labels := Pages[i].Labels;
   Frames := Pages[i].Frames;
   Links := Pages[i].Links;
+  Equips := Pages[i].Equips;
+  EGrid := Pages[i].EGrid;
+  FGrid := Pages[i].FGrid;
   GravityScale := Pages[i].Gravity;
   if Pages[i].ActiveLayer >= Pages[i].NLayers then Pages[i].ActiveLayer := 0;
   CurLayer := Pages[i].ActiveLayer;
@@ -277,6 +305,7 @@ begin
     if i > 0 then GoToPage(i - 1) else GoToPage(1);
   end;
   ParkPage(CurPage);
+  BusClear;
   SetLength(Pages[i].Parts, 0);
   for k := i to PageCount - 2 do Pages[k] := Pages[k + 1];
   Dec(PageCount);
@@ -295,6 +324,18 @@ begin
       if Popups[k].GoPage = i then Popups[k].GoPage := -1
       else if Popups[k].GoPage > i then Dec(Popups[k].GoPage);
     end;
+  k := 0;
+  while k <= High(Pins) do
+    if Pins[k].Page = i then
+    begin
+      Pins[k] := Pins[High(Pins)];
+      SetLength(Pins, Length(Pins) - 1);
+    end
+    else
+    begin
+      if Pins[k].Page > i then Dec(Pins[k].Page);
+      Inc(k);
+    end;
 end;
 
 procedure MovePage(i, Delta: Integer);
@@ -304,6 +345,7 @@ begin
   j := i + Delta;
   if (i < 0) or (i >= PageCount) or (j < 0) or (j >= PageCount) then Exit;
   ParkPage(CurPage);
+  BusClear;
   TmpPage := Pages[i];
   Pages[i] := Pages[j];
   Pages[j] := TmpPage;
@@ -318,6 +360,9 @@ begin
   for k := 0 to MAX_POPUPS - 1 do
     if Popups[k].GoPage = i then Popups[k].GoPage := j
     else if Popups[k].GoPage = j then Popups[k].GoPage := i;
+  for k := 0 to High(Pins) do
+    if Pins[k].Page = i then Pins[k].Page := j
+    else if Pins[k].Page = j then Pins[k].Page := i;
 end;
 
 function PageName(i: Integer): string;
@@ -374,6 +419,13 @@ begin
   for i := 0 to MAX_LABELS - 1 do Labels[i].Layer := Shift(Labels[i].Layer);
   for i := 0 to MAX_FRAMES - 1 do Frames[i].Layer := Shift(Frames[i].Layer);
   for i := 0 to MAX_LINKS - 1 do Links[i].Layer := Shift(Links[i].Layer);
+  for i := 0 to MAX_EQUIP - 1 do Equips[i].Layer := Shift(Equips[i].Layer);
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+    begin
+      EGrid[x, y].Layer := Shift(EGrid[x, y].Layer);
+      FGrid[x, y].Layer := Shift(FGrid[x, y].Layer);
+    end;
   for k := L to P^.NLayers - 2 do P^.Layers[k] := P^.Layers[k + 1];
   Dec(P^.NLayers);
   P^.Layers[P^.NLayers].Name := 'Layer ' + IntToStr(P^.NLayers + 1);
@@ -446,6 +498,81 @@ end;
 procedure CloseFramePopup;
 begin
   ShownPopup := -1;
+end;
+
+{ ------------------------------------------------------------------ every page at once }
+
+{ like ParkPage / UnparkPage, but the particle arrays change places instead of being copied }
+procedure ParkFast(i: Integer);
+var
+  tmp: array of TParticle;
+begin
+  Pages[i].Grid := Grid;
+  Pages[i].NPart := NPart;
+  Pages[i].NAir := NAir;
+  Pages[i].Buckets := Buckets;
+  Pages[i].Labels := Labels;
+  Pages[i].Frames := Frames;
+  Pages[i].Links := Links;
+  Pages[i].Equips := Equips;
+  Pages[i].EGrid := EGrid;
+  Pages[i].FGrid := FGrid;
+  Pages[i].Gravity := GravityScale;
+  Pages[i].ActiveLayer := CurLayer;
+  tmp := Pages[i].Parts;
+  Pages[i].Parts := Parts;
+  Parts := tmp;
+  tmp := nil;
+  if Length(Parts) < MAX_PART then SetLength(Parts, MAX_PART);
+end;
+
+procedure UnparkFast(i: Integer);
+var
+  tmp: array of TParticle;
+begin
+  Grid := Pages[i].Grid;
+  Buckets := Pages[i].Buckets;
+  Labels := Pages[i].Labels;
+  Frames := Pages[i].Frames;
+  Links := Pages[i].Links;
+  Equips := Pages[i].Equips;
+  EGrid := Pages[i].EGrid;
+  FGrid := Pages[i].FGrid;
+  GravityScale := Pages[i].Gravity;
+  tmp := Parts;
+  Parts := Pages[i].Parts;
+  Pages[i].Parts := tmp;
+  tmp := nil;
+  if Length(Parts) < MAX_PART then SetLength(Parts, MAX_PART);
+  NPart := Pages[i].NPart;
+  if NPart > Length(Parts) then NPart := Length(Parts);
+  if NPart < 0 then NPart := 0;
+  NAir := Pages[i].NAir;
+  if Pages[i].ActiveLayer >= Pages[i].NLayers then Pages[i].ActiveLayer := 0;
+  CurLayer := Pages[i].ActiveLayer;
+end;
+
+procedure SimAllPages(dt: Single; Running: Boolean);
+var
+  k: Integer;
+begin
+  if PageCount > 1 then
+  begin
+    ParkFast(CurPage);
+    for k := 0 to PageCount - 1 do
+      if k <> CurPage then
+      begin
+        UnparkFast(k);
+        BusPage := k;
+        SimFrame(dt, Running);
+        ElecPublish(k);
+        ParkFast(k);
+      end;
+    UnparkFast(CurPage);
+  end;
+  BusPage := CurPage;
+  SimFrame(dt, Running);
+  ElecPublish(CurPage);
 end;
 
 procedure FollowLink(i: Integer);

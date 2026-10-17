@@ -1,0 +1,208 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+MFLOW 2
+NAME Circuit: well pump
+POPUP 1 2 2 How it works
+POPUPTEXT 1 Q1 feeds the circuit (red L, blue N rails).\nSA1 in AUTO: LS1 closes while Pool01 is below\n30% and opens at 80%; LS2 opens if Well01\nruns dry. KM1 then runs motor M1 = Pump01.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Click SA1 to switch OFF / HAND / AUTO.\nSet Pool01 low (Properties): the pump starts.\nPress ES1, open Q1, or trip OL1 (Properties):\nH2 shows the fault. Reset to run again.
+
+PAGE Plant
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 1 0 Electrical
+GRAVITY 1.00
+ON 1
+CELL 8 8 pipe ES 3 E 1 0.00
+CELL 9 8 pipe EW 3 E 1 0.00
+CELL 10 8 pipe EW 3 E 1 0.00
+CELL 11 8 pipe EW 3 E 1 0.00
+CELL 12 8 pipe EW 3 E 1 0.00
+CELL 13 8 pipe EW 3 E 1 0.00
+CELL 14 8 pipe EW 3 E 1 0.00
+CELL 15 8 pipe EW 3 E 1 0.00
+CELL 16 8 pipe SW 3 E 1 0.00
+CELL 8 9 pipe SN 3 E 1 0.00
+CELL 16 9 pipe SN 3 E 1 0.00
+CELL 8 10 pipe SN 3 E 1 0.00
+CELL 16 10 drop N 3 S 1 100.00
+CELL 8 11 pipe SN 3 E 1 0.00
+CELL 8 12 pipe SN 3 E 1 0.00
+CELL 8 13 pipe SN 3 E 1 0.00
+CELL 8 14 pipe SN 3 E 1 0.00
+CELL 8 15 pipe SN 3 E 1 0.00
+CELL 8 16 pipe SN 3 E 1 0.00
+CELL 8 17 pipe SN 3 E 1 0.00
+CELL 8 18 pipe SN 3 E 1 0.00
+CELL 8 19 pipe SN 3 E 1 0.00
+CELL 8 20 pipe SN 3 E 1 0.00
+CELL 8 21 pipe SN 3 E 1 0.00
+CELL 8 22 pipe SN 3 E 1 0.00
+CELL 8 23 pipe SN 3 E 1 0.00
+CELL 8 24 pipe SN 3 E 1 0.00
+CELL 8 25 pipe SN 3 E 1 0.00
+CELL 8 26 pipe SN 3 E 1 0.00
+CELL 8 27 pipe SN 3 E 1 0.00
+CELL 8 28 pipe SN 3 E 1 0.00
+CELL 8 29 blower SN 3 N 1 95.00
+CELL 8 30 pipe SN 3 E 1 0.00
+CELL 8 31 pipe N 3 E 1 0.00
+ON 2
+LABEL 552.00 486.00 WELL PUMP CIRCUIT\nSA1: 1 OFF / 2 HAND / 3 AUTO (click it).\nAUTO: LS1 starts the pump when the pool\nis low (30%) and stops it when high (80%);\nLS2 stops it when the well runs dry.\nRed wires: L (live), blue: N.
+LINK 920.00 690.00 1 page 2 About
+LINK 920.00 712.00 2 popup 1 How it works
+LINK 920.00 734.00 3 popup 2 Try this
+ON 3
+EQUIP well 32.00 612.00 104.00 200.00 stop 0 -1 -1 80.00 Well01
+EQUIP pump 140.00 728.00 104.00 56.00 stop 0 8 29 80.00 Pump01
+EQUIP pool 300.00 716.00 210.00 96.00 stop 0 -1 -1 20.00 Pool01
+EQUIP panel 540.00 12.00 504.00 456.00 stop 0 -1 -1 50.00 Panel01 - well pump
+EQUIP legend 24.00 24.00 232.00 136.00 stop 0 -1 -1 50.00 Legend
+ON 4
+ECELL 24 3 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 3 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 33 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 3 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 4 breaker SN 1 0 0 0 1 0 0.00 0.00 Q1 - - 0.00
+ECELL 41 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 5 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 5 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 6 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 6 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 29 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 6 overload EW 0 0 0 0 0 0 0.00 0.00 OL1 Pump01 - 0.00
+ECELL 32 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 6 motor EW 0 0 0 0 0 0 5.00 0.00 M1 Pump01 - 0.00
+ECELL 37 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 6 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 7 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 7 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 8 fuse SN 1 0 0 0 0 0 0.00 0.00 F1 - - 0.00
+ECELL 41 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 9 estop SN 1 0 0 0 0 0 0.00 0.00 ES1 - - 0.00
+ECELL 41 9 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 11 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 11 selector EW 0 2 3 2 0 0 0.00 0.00 SA1 - - 0.00
+ECELL 28 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 11 wire ESW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 11 nc EW 0 0 0 0 0 0 0.00 0.00 OL1 - - 0.00
+ECELL 35 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 11 contactor EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 39 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 11 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 13 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 13 selector EW 0 3 3 2 0 0 0.00 0.00 SA1 - - 0.00
+ECELL 28 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 13 float EW 0 0 0 0 0 0 30.00 80.00 LS1 Pool01 - 0.00
+ECELL 30 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 13 float EW 0 1 0 0 0 0 10.00 25.00 LS2 Well01 - 0.00
+ECELL 33 13 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 13 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 14 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 14 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 15 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 15 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 16 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 16 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 31 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 16 lamp EW 0 0 0 0 0 0 0.00 0.00 H1 - - 0.00
+ECELL 39 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 16 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 17 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 17 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 18 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 18 no EW 0 0 0 0 0 0 0.00 0.00 OL1 - - 0.00
+ECELL 31 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 18 lamp EW 0 1 0 0 0 0 0.00 0.00 H2 - - 0.00
+ECELL 39 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 18 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 10 - WELL PUMP CIRCUIT\nAn electrical cabinet runs the well pump:\nbreaker, fuse, E-Stop, a HAND / AUTO selector,\nfloat switches, contactor, overload, lamps.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

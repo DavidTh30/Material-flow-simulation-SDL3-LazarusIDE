@@ -18,7 +18,7 @@ unit edithist;
 interface
 
 uses
-  simcore;
+  simcore, elec, fluid;
 
 type
   TCellLite = record
@@ -62,6 +62,9 @@ type
     Lbls: array[0..MAX_LABELS - 1] of TLabelObj;
     Frms: array[0..MAX_FRAMES - 1] of TFrameObj;
     Lnks: array[0..MAX_LINKS - 1] of TLinkObj;
+    Eqs: array[0..MAX_EQUIP - 1] of TEquipObj;
+    ECells: array[0..GW - 1, 0..GH - 1] of TECell;
+    FCells: array[0..GW - 1, 0..GH - 1] of TFCell;
     Gravity: Single;
   end;
 
@@ -136,12 +139,17 @@ begin
   s^.Lbls := Labels;
   s^.Frms := Frames;
   s^.Lnks := Links;
+  s^.Eqs := Equips;
+  s^.ECells := EGrid;
+  s^.FCells := FGrid;
   s^.Gravity := GravityScale;
 end;
 
 function SameAsCurrent(s: PSnap): Boolean;
 var
   x, y, i: Integer;
+  e1, e2: PECell;
+  f1, f2: PFCell;
   c: PCell;
   L: ^TCellLite;
 begin
@@ -187,6 +195,42 @@ begin
       (Links[i].Target <> s^.Lnks[i].Target) or (Links[i].Color <> s^.Lnks[i].Color) or
       (Links[i].Layer <> s^.Lnks[i].Layer)) then Exit;
   end;
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    if Equips[i].Active <> s^.Eqs[i].Active then Exit;
+    if Equips[i].Active and ((Equips[i].Kind <> s^.Eqs[i].Kind) or (Equips[i].X <> s^.Eqs[i].X) or
+      (Equips[i].Y <> s^.Eqs[i].Y) or (Equips[i].W <> s^.Eqs[i].W) or (Equips[i].H <> s^.Eqs[i].H) or
+      (Equips[i].Name <> s^.Eqs[i].Name) or (Equips[i].State <> s^.Eqs[i].State) or
+      (Equips[i].Flip <> s^.Eqs[i].Flip) or (Equips[i].LinkX <> s^.Eqs[i].LinkX) or
+      (Equips[i].LinkY <> s^.Eqs[i].LinkY) or
+      ((Equips[i].Level <> s^.Eqs[i].Level) and not EquipIsWater(Equips[i].Kind)) or
+      (Equips[i].Layer <> s^.Eqs[i].Layer) or (Equips[i].Mode <> s^.Eqs[i].Mode) or
+      (Equips[i].SeqStep <> s^.Eqs[i].SeqStep) or (Equips[i].Delay <> s^.Eqs[i].Delay) or
+      (Equips[i].DivA <> s^.Eqs[i].DivA) or (Equips[i].DivB <> s^.Eqs[i].DivB) or (Equips[i].Src <> s^.Eqs[i].Src) or
+      (Equips[i].RMin <> s^.Eqs[i].RMin) or (Equips[i].RMax <> s^.Eqs[i].RMax)) then Exit;
+  end;
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+    begin
+      e1 := @EGrid[x, y];
+      e2 := @s^.ECells[x, y];
+      if e1^.Kind <> e2^.Kind then Exit;
+      if e1^.Kind = ekNone then Continue;
+      if (e1^.Conn <> e2^.Conn) or (e1^.Dir <> e2^.Dir) or (e1^.Layer <> e2^.Layer) or (e1^.Tag <> e2^.Tag) or
+        (e1^.Ref <> e2^.Ref) or (e1^.Pos <> e2^.Pos) or (e1^.NPos <> e2^.NPos) or (e1^.P1 <> e2^.P1) or
+        (e1^.P2 <> e2^.P2) or (e1^.P3 <> e2^.P3) or (e1^.Src <> e2^.Src) then Exit;
+    end;
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+    begin
+      f1 := @FGrid[x, y];
+      f2 := @s^.FCells[x, y];
+      if f1^.Kind <> f2^.Kind then Exit;
+      if f1^.Kind = fkNone then Continue;
+      if (f1^.Conn <> f2^.Conn) or (f1^.Dir <> f2^.Dir) or (f1^.Layer <> f2^.Layer) or (f1^.Tag <> f2^.Tag) or
+        (f1^.Ref <> f2^.Ref) or (f1^.SolA <> f2^.SolA) or (f1^.SolB <> f2^.SolB) or (f1^.Act <> f2^.Act) or
+        (f1^.P1 <> f2^.P1) or (f1^.P2 <> f2^.P2) then Exit;
+    end;
   Result := True;
 end;
 
@@ -218,6 +262,49 @@ begin
   Labels := s^.Lbls;
   Frames := s^.Frms;
   Links := s^.Lnks;
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+    begin
+      if (EGrid[x, y].Kind = s^.ECells[x, y].Kind) and (EGrid[x, y].Kind <> ekNone) then
+      begin
+        s^.ECells[x, y].On := EGrid[x, y].On;
+        s^.ECells[x, y].Sel := EGrid[x, y].Sel;
+        s^.ECells[x, y].Tripped := EGrid[x, y].Tripped;
+        s^.ECells[x, y].Acc := EGrid[x, y].Acc;
+        s^.ECells[x, y].Latch := EGrid[x, y].Latch;
+        s^.ECells[x, y].Held := EGrid[x, y].Held;
+        s^.ECells[x, y].Val := EGrid[x, y].Val;
+        s^.ECells[x, y].Out := EGrid[x, y].Out;
+        s^.ECells[x, y].Integ := EGrid[x, y].Integ;
+      end;
+      EGrid[x, y] := s^.ECells[x, y];
+      if (FGrid[x, y].Kind = s^.FCells[x, y].Kind) and (FGrid[x, y].Kind <> fkNone) then
+      begin
+        { what flows and moves stays as it is }
+        s^.FCells[x, y].On := FGrid[x, y].On;
+        s^.FCells[x, y].Sel := FGrid[x, y].Sel;
+        s^.FCells[x, y].Pos := FGrid[x, y].Pos;
+        s^.FCells[x, y].Store := FGrid[x, y].Store;
+        s^.FCells[x, y].Press := FGrid[x, y].Press;
+        s^.FCells[x, y].Latch := FGrid[x, y].Latch;
+      end;
+      FGrid[x, y] := s^.FCells[x, y];
+    end;
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    if Equips[i].Active and s^.Eqs[i].Active and (Equips[i].Kind = s^.Eqs[i].Kind) then
+    begin
+      s^.Eqs[i].RunTime := Equips[i].RunTime;
+      s^.Eqs[i].Phase := Equips[i].Phase;
+      s^.Eqs[i].Heat := Equips[i].Heat;
+      if EquipIsWater(Equips[i].Kind) then s^.Eqs[i].Level := Equips[i].Level;   { the water stays }
+      s^.Eqs[i].SeqPos := Equips[i].SeqPos;
+      s^.Eqs[i].SeqT := Equips[i].SeqT;
+      s^.Eqs[i].ReqT := Equips[i].ReqT;
+      s^.Eqs[i].LastReq := Equips[i].LastReq;
+    end;
+    Equips[i] := s^.Eqs[i];
+  end;
   GravityScale := s^.Gravity;
 end;
 

@@ -1,0 +1,116 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+MFLOW 2
+NAME Pneumatic: cylinders & valves
+POPUP 1 2 2 How it works
+POPUPTEXT 1 C1 fills receiver R1; FRL1 gives 6 bar.\nV1 (5/2) sends air to A (out) or B side (in)\nof cylinder A; FC1 / FC2 throttle the air.\nV2 (3/2, push button) fills single-acting\ncylinder B; its spring brings it back.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Turn FC1 down (wheel): A goes out slower.\nSwitch C1 off (click it): R1 runs down.\nFocus Properties on R1 (right-click).
+
+PAGE Plant
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 1 0 Pneumatic
+GRAVITY 1.00
+ON 1
+ON 2
+FRAME 552.00 168.00 480.00 408.00 0 0 1 1 PNEUMATIC CIRCUIT
+LABEL 24.00 120.00 PNEUMATIC CYLINDERS\nClick V1 (Select tool) to switch it:\ncylinder A goes out / in, slowed by\nFC1 / FC2 (mouse wheel over them).\nHold V2: cylinder B goes out.
+LINK 24.00 24.00 1 page 2 About
+LINK 24.00 46.00 2 popup 1 How it works
+LINK 24.00 68.00 3 popup 2 Try this
+ON 3
+EQUIP compressor 40.00 600.00 200.00 112.00 stop 0 -1 -1 50.00 Comp01
+EQUIP cylinder 40.00 300.00 320.00 56.00 stop 0 -1 -1 50.00 Cyl01
+EQUIP cylinder 420.00 260.00 56.00 220.00 stop 0 -1 -1 50.00 Cyl02
+EQUIP digital 300.00 640.00 156.00 52.00 stop 0 -1 -1 50.00 Supply bar
+EQSRC 0.00 7.00 PG1
+ON 4
+FCELL 31 10 cylda ES 3 0 0 0 2.00 0.00 A Cyl01 - -
+FCELL 32 10 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 33 10 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 34 10 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 10 line SW 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 10 cylsa S 3 0 0 0 2.00 0.00 B Cyl02 - -
+FCELL 31 11 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 11 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 11 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 31 12 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 12 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 12 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 31 13 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 13 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 13 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 31 14 throttle SN 1 0 0 0 50.00 0.00 FC1 - - -
+FCELL 35 14 throttle SN 1 0 0 0 50.00 0.00 FC2 - - -
+FCELL 37 14 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 31 15 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 15 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 15 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 31 16 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 16 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 16 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 31 17 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 33 17 silencer S 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 17 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 17 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 17 silencer S 0 0 0 0 0.00 0.00 - - - -
+FCELL 31 18 line EN 0 0 0 0 0.00 0.00 - - - -
+FCELL 32 18 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 33 18 v52 ESWN 0 0 0 0 0.00 0.00 V1 - - -
+FCELL 34 18 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 18 line WN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 18 line EN 0 0 0 0 0.00 0.00 - - - -
+FCELL 38 18 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 18 v32 SWN 0 1 0 0 0.00 0.00 V2 - - -
+FCELL 33 19 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 19 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 33 20 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 20 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 31 21 gauge S 0 0 0 0 0.00 0.00 PG1 - - -
+FCELL 33 21 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 21 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 24 22 compressor E 0 0 0 1 8.00 0.00 C1 Comp01 - -
+FCELL 25 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 26 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 27 22 receiver EW 0 0 0 0 0.00 0.00 R1 - - -
+FCELL 28 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 29 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 30 22 frl EW 0 0 0 0 6.00 0.00 FRL1 - - -
+FCELL 31 22 line EWN 0 0 0 0 0.00 0.00 - - - -
+FCELL 32 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 33 22 line EWN 0 0 0 0 0.00 0.00 - - - -
+FCELL 34 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 36 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 38 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 22 line EWN 0 0 0 0 0.00 0.00 - - - -
+FCELL 40 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 41 22 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 42 22 line W 0 0 0 0 0.00 0.00 - - - -
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 15 - PNEUMATIC CYLINDERS\nA compressor, receiver and FRL supply a 5/2\nvalve and a 3/2 valve. ISO symbols, lines\ncoloured by pressure (blue: air).
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

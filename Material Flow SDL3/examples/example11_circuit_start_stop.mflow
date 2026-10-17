@@ -1,0 +1,210 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+MFLOW 2
+NAME Circuit: start / stop (DOL)
+POPUP 1 2 2 How it works
+POPUPTEXT 1 SB0 (NC) and SB1 (NO) are push buttons: hold\nSB1 to start. KM1 closes its own NO contact\nbeside SB1 (seal-in), so it keeps running.\nM1 runs Belt01; OL1 trips if it faults.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Hold SB1 to start, hold SB0 to stop.\nClick ES1 (E-Stop) and click it again.\nSelect Belt01 and press Fault: OL1 trips,\nH3 and HA1 come on. Reset OL1.
+
+PAGE Plant
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 1 0 Electrical
+GRAVITY 1.00
+ON 1
+CELL 5 3 feeder S 4 E 1 0.00
+STOCK 5 3 0.00 0.00 0.00 2600.00 0.00 30.00
+CELL 5 4 pipe SN 3 E 1 0.00
+CELL 5 5 pipe SN 3 E 1 0.00
+CELL 5 6 pipe SN 3 E 1 0.00
+CELL 5 7 pipe SN 3 E 1 0.00
+CELL 5 8 pipe SN 3 E 1 0.00
+CELL 5 9 drop N 3 S 1 100.00
+BUCKET 345.00 716.00 150.00 90.00
+ON 2
+LABEL 552.00 534.00 START / STOP (DOL)\nHold SB1 (Select tool) to start: KM1\nseals itself in. SB0 or ES1 stops.\nH1 run, H2 stop, H3 overload.
+LINK 920.00 690.00 1 page 2 About
+LINK 920.00 712.00 2 popup 1 How it works
+LINK 920.00 734.00 3 popup 2 Try this
+ON 3
+EQUIP belt 48.00 300.00 336.00 48.00 stop 0 -1 -1 60.00 Belt01
+EQUIP panel 540.00 12.00 504.00 504.00 stop 0 -1 -1 50.00 Panel01 - start / stop
+EQUIP legend 24.00 440.00 232.00 136.00 stop 0 -1 -1 50.00 Legend
+ON 4
+ECELL 24 3 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 3 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 33 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 3 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 4 breaker SN 1 0 0 0 1 0 0.00 0.00 Q1 - - 0.00
+ECELL 41 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 5 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 5 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 6 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 6 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 29 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 6 overload EW 0 0 0 0 0 0 0.00 0.00 OL1 Belt01 - 0.00
+ECELL 32 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 6 motor EW 0 0 0 0 0 0 5.00 0.00 M1 Belt01 - 0.00
+ECELL 37 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 6 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 6 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 7 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 7 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 8 fuse SN 1 0 0 0 0 0 0.00 0.00 F1 - - 0.00
+ECELL 41 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 9 estop SN 1 0 0 0 0 0 0.00 0.00 ES1 - - 0.00
+ECELL 41 9 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 11 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 11 pbnc EW 0 0 0 0 0 0 0.00 0.00 SB0 - - 0.00
+ECELL 28 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 11 wire ESW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 11 pbno EW 0 0 0 0 0 0 0.00 0.00 SB1 - - 0.00
+ECELL 31 11 wire ESW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 11 nc EW 0 0 0 0 0 0 0.00 0.00 OL1 - - 0.00
+ECELL 35 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 11 contactor EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 39 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 11 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 12 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 12 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 31 12 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 13 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 13 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 14 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 14 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 31 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 14 lamp EW 0 0 0 0 0 0 0.00 0.00 H1 - - 0.00
+ECELL 39 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 14 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 15 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 15 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 16 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 16 nc EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 31 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 16 lamp EW 0 1 0 0 0 0 0.00 0.00 H2 - - 0.00
+ECELL 39 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 16 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 17 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 17 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 18 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 18 no EW 0 0 0 0 0 0 0.00 0.00 OL1 - - 0.00
+ECELL 31 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 18 lamp EW 0 2 0 0 0 0 0.00 0.00 H3 - - 0.00
+ECELL 39 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 18 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 18 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 19 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 19 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 20 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 20 no EW 0 0 0 0 0 0 0.00 0.00 OL1 - - 0.00
+ECELL 31 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 20 buzzer EW 0 0 0 0 0 0 0.00 0.00 HA1 - - 0.00
+ECELL 39 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 20 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 20 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 11 - START / STOP (DOL)\nThe classic motor circuit: stop and start\nbuttons and a seal-in contact run a belt\nconveyor that carries sand to a bucket.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

@@ -1,0 +1,124 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+MFLOW 2
+NAME Well, pool, pond & pumps
+POPUP 1 2 2 How it works
+POPUPTEXT 1 Pump01 draws ground water from the well and\npumps it up and over into the pool. Pump02\npumps the pool on into the pond.\nA pump takes water from the nearest pond,\npool or well; the levels change for real.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Start Pump02 (double-click): the pool drains\ninto the pond. Stop Pump01: the pool stops\nrising. Start Rain01 over the pond.\nRun the pond full: it overflows.
+
+PAGE Plant
+LAYERS 3 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+GRAVITY 1.00
+ON 1
+CELL 9 8 pipe ES 3 E 1 0.00
+CELL 10 8 pipe EW 3 E 1 0.00
+CELL 11 8 pipe EW 3 E 1 0.00
+CELL 12 8 pipe EW 3 E 1 0.00
+CELL 13 8 pipe EW 3 E 1 0.00
+CELL 14 8 pipe EW 3 E 1 0.00
+CELL 15 8 pipe EW 3 E 1 0.00
+CELL 16 8 pipe EW 3 E 1 0.00
+CELL 17 8 pipe EW 3 E 1 0.00
+CELL 18 8 pipe EW 3 E 1 0.00
+CELL 19 8 pipe EW 3 E 1 0.00
+CELL 20 8 pipe SW 3 E 1 0.00
+CELL 9 9 pipe SN 3 E 1 0.00
+CELL 20 9 pipe SN 3 E 1 0.00
+CELL 9 10 pipe SN 3 E 1 0.00
+CELL 20 10 drop N 3 S 1 100.00
+CELL 9 11 pipe SN 3 E 1 0.00
+CELL 9 12 pipe SN 3 E 1 0.00
+CELL 28 12 pipe ES 3 E 1 0.00
+CELL 29 12 pipe EW 3 E 1 0.00
+CELL 30 12 pipe EW 3 E 1 0.00
+CELL 31 12 pipe EW 3 E 1 0.00
+CELL 32 12 pipe EW 3 E 1 0.00
+CELL 33 12 pipe EW 3 E 1 0.00
+CELL 34 12 pipe EW 3 E 1 0.00
+CELL 35 12 pipe EW 3 E 1 0.00
+CELL 36 12 pipe EW 3 E 1 0.00
+CELL 37 12 pipe SW 3 E 1 0.00
+CELL 9 13 pipe SN 3 E 1 0.00
+CELL 28 13 pipe SN 3 E 1 0.00
+CELL 37 13 pipe SN 3 E 1 0.00
+CELL 9 14 pipe SN 3 E 1 0.00
+CELL 28 14 pipe SN 3 E 1 0.00
+CELL 37 14 pipe SN 3 E 1 0.00
+CELL 9 15 pipe SN 3 E 1 0.00
+CELL 28 15 pipe SN 3 E 1 0.00
+CELL 37 15 pipe SN 3 E 1 0.00
+CELL 9 16 pipe SN 3 E 1 0.00
+CELL 28 16 pipe SN 3 E 1 0.00
+CELL 37 16 drop N 3 S 1 100.00
+CELL 9 17 pipe SN 3 E 1 0.00
+CELL 28 17 pipe SN 3 E 1 0.00
+CELL 9 18 pipe SN 3 E 1 0.00
+CELL 28 18 pipe SN 3 E 1 0.00
+CELL 9 19 pipe SN 3 E 1 0.00
+CELL 28 19 pipe SN 3 E 1 0.00
+CELL 9 20 pipe SN 3 E 1 0.00
+CELL 28 20 pipe SN 3 E 1 0.00
+CELL 9 21 pipe SN 3 E 1 0.00
+CELL 28 21 pipe SN 3 E 1 0.00
+CELL 9 22 pipe SN 3 E 1 0.00
+CELL 28 22 pipe SN 3 E 1 0.00
+CELL 9 23 pipe SN 3 E 1 0.00
+CELL 28 23 pipe SN 3 E 1 0.00
+CELL 9 24 pipe SN 3 E 1 0.00
+CELL 28 24 pipe SN 3 E 1 0.00
+CELL 9 25 pipe SN 3 E 1 0.00
+CELL 28 25 pipe SN 3 E 1 0.00
+CELL 9 26 pipe SN 3 E 1 0.00
+CELL 28 26 pipe SN 3 E 1 0.00
+CELL 9 27 pipe SN 3 E 1 0.00
+CELL 28 27 pipe SN 3 E 1 0.00
+CELL 9 28 pipe SN 3 E 1 0.00
+CELL 28 28 pipe SN 3 E 1 0.00
+CELL 9 29 blower SN 3 N 1 95.00
+CELL 28 29 blower SN 3 N 1 95.00
+CELL 9 30 pipe SN 3 E 1 0.00
+CELL 28 30 pipe SN 3 E 1 0.00
+CELL 9 31 pipe N 3 E 1 0.00
+CELL 28 31 pipe N 3 E 1 0.00
+ON 2
+LABEL 160.00 480.00 WELL + PUMP01\nGround water is lifted\nup and over to the pool.
+LABEL 560.00 470.00 POOL -> PUMP02 -> POND\nDouble-click Pump02\nto start it.
+LABEL 820.00 420.00 POND\nRain01 can fill it too.
+LINK 920.00 6.00 1 page 2 About
+LINK 920.00 28.00 2 popup 1 How it works
+LINK 920.00 50.00 3 popup 2 Try this
+ON 3
+EQUIP well 40.00 612.00 104.00 200.00 stop 0 -1 -1 80.00 Well01
+EQUIP pump 160.00 728.00 104.00 56.00 run 0 9 29 70.00 Pump01
+EQUIP pool 392.00 716.00 216.00 96.00 stop 0 -1 -1 15.00 Pool01
+EQUIP pump 616.00 728.00 104.00 56.00 stop 1 28 29 70.00 Pump02
+EQUIP pond 760.00 732.00 272.00 80.00 stop 0 -1 -1 25.00 Pond01
+EQUIP rain 790.00 300.00 220.00 52.00 stop 0 -1 -1 60.00 Rain01
+EQUIP legend 24.00 24.00 232.00 136.00 stop 0 -1 -1 50.00 Legend
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 9 - WELL, POOL, POND & PUMPS\nWater pumps move water between a well (ground\nwater that refills), a pool and a pond. Each\nholds its water as a level that rises with\nthe drops that reach it.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

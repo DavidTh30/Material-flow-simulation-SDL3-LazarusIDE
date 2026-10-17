@@ -1,0 +1,244 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+MFLOW 2
+NAME Sensors & PID control
+POPUP 1 2 2 How it works
+POPUPTEXT 1 LT1 reads Pool01; PID controller LIC1 sets\nthe speed of U1 (Pump01) to hold 60% while\nPump02 drains the pool. TT1 reads Heater01;\nTIC1 switches it on below 145 C and off\nabove 155 C. PT1, FT1, ST1 feed displays.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Change LIC1's set point on its faceplate\n(select it). Switch S2 off: no draining.\nSet TIC1 to PID; try other Band values.
+
+PAGE Plant
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 1 0 Electrical
+GRAVITY 1.00
+ON 1
+CELL 8 8 pipe ES 3 E 1 0.00
+CELL 9 8 pipe EW 3 E 1 0.00
+CELL 10 8 pipe EW 3 E 1 0.00
+CELL 11 8 pipe EW 3 E 1 0.00
+CELL 12 8 pipe EW 3 E 1 0.00
+CELL 13 8 pipe EW 3 E 1 0.00
+CELL 14 8 pipe EW 3 E 1 0.00
+CELL 15 8 pipe EW 3 E 1 0.00
+CELL 16 8 pipe SW 3 E 1 0.00
+CELL 8 9 pipe SN 3 E 1 0.00
+CELL 16 9 pipe SN 3 E 1 0.00
+CELL 8 10 pipe SN 3 E 1 0.00
+CELL 16 10 drop N 3 S 1 100.00
+CELL 8 11 pipe SN 3 E 1 0.00
+CELL 8 12 pipe SN 3 E 1 0.00
+CELL 8 13 pipe SN 3 E 1 0.00
+CELL 8 14 pipe SN 3 E 1 0.00
+CELL 8 15 pipe SN 3 E 1 0.00
+CELL 8 16 pipe SN 3 E 1 0.00
+CELL 8 17 pipe SN 3 E 1 0.00
+CELL 8 18 pipe SN 3 E 1 0.00
+CELL 8 19 pipe SN 3 E 1 0.00
+CELL 8 20 pipe SN 3 E 1 0.00
+CELL 8 21 pipe SN 3 E 1 0.00
+CELL 8 22 pipe SN 3 E 1 0.00
+CELL 22 22 pipe ES 3 E 1 0.00
+CELL 23 22 pipe EW 3 E 1 0.00
+CELL 24 22 pipe EW 3 E 1 0.00
+CELL 25 22 pipe EW 3 E 1 0.00
+CELL 26 22 pipe EW 3 E 1 0.00
+CELL 27 22 pipe EW 3 E 1 0.00
+CELL 28 22 pipe EW 3 E 1 0.00
+CELL 29 22 pipe EW 3 E 1 0.00
+CELL 30 22 pipe EW 3 E 1 0.00
+CELL 31 22 pipe EW 3 E 1 0.00
+CELL 32 22 pipe EW 3 E 1 0.00
+CELL 33 22 pipe EW 3 E 1 0.00
+CELL 34 22 pipe SW 3 E 1 0.00
+CELL 8 23 pipe SN 3 E 1 0.00
+CELL 22 23 pipe SN 3 E 1 0.00
+CELL 34 23 pipe SN 3 E 1 0.00
+CELL 8 24 pipe SN 3 E 1 0.00
+CELL 22 24 pipe SN 3 E 1 0.00
+CELL 34 24 drop N 3 S 1 100.00
+CELL 8 25 pipe SN 3 E 1 0.00
+CELL 22 25 pipe SN 3 E 1 0.00
+CELL 8 26 pipe SN 3 E 1 0.00
+CELL 22 26 pipe SN 3 E 1 0.00
+CELL 8 27 pipe SN 3 E 1 0.00
+CELL 22 27 pipe SN 3 E 1 0.00
+CELL 8 28 pipe SN 3 E 1 0.00
+CELL 22 28 pipe SN 3 E 1 0.00
+CELL 8 29 blower SN 3 N 1 95.00
+CELL 22 29 blower SN 3 N 1 95.00
+CELL 8 30 pipe SN 3 E 1 0.00
+CELL 22 30 pipe SN 3 E 1 0.00
+CELL 8 31 pipe N 3 E 1 0.00
+CELL 22 31 pipe N 3 E 1 0.00
+ON 2
+LABEL 196.00 470.00 SENSORS & CONTROL\nLT1 -> LIC1 (PID) -> U1: Pump01 holds\nPool01 at 60% while Pump02 drains it.\nTT1 -> TIC1 (on/off): Heater01 at 150 C.
+LINK 24.00 24.00 1 page 2 About
+LINK 24.00 46.00 2 popup 1 How it works
+LINK 24.00 68.00 3 popup 2 Try this
+ON 3
+EQUIP well 24.00 600.00 104.00 200.00 stop 0 -1 -1 90.00 Well01
+EQUIP pump 132.00 744.00 104.00 56.00 stop 0 8 29 60.00 Pump01
+EQUIP pool 300.00 716.00 210.00 96.00 stop 0 -1 -1 30.00 Pool01
+EQUIP pump 516.00 744.00 104.00 56.00 stop 0 22 29 35.00 Pump02
+EQUIP pond 760.00 720.00 264.00 90.00 stop 0 -1 -1 10.00 Pond01
+EQUIP heater 250.00 380.00 120.00 56.00 stop 0 -1 -1 100.00 Heater01
+EQUIP faceplate 610.00 312.00 168.00 112.00 stop 0 -1 -1 50.00 Level control
+EQSRC 0.00 100.00 LIC1
+EQUIP faceplate 800.00 312.00 168.00 112.00 stop 0 -1 -1 50.00 Heater control
+EQSRC 0.00 100.00 TIC1
+EQUIP digital 560.00 448.00 150.00 52.00 stop 0 -1 -1 50.00 Pipe kPa
+EQSRC 0.00 100.00 PT1
+EQUIP digital 720.00 448.00 150.00 52.00 stop 0 -1 -1 50.00 Flow m/s
+EQSRC 0.00 100.00 FT1
+EQUIP digital 880.00 448.00 150.00 52.00 stop 0 -1 -1 50.00 Pump rpm
+EQSRC 0.00 1500.00 ST1
+ON 4
+ECELL 26 1 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 1 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 35 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 1 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 3 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 3 switch EW 0 0 0 0 1 0 0.00 0.00 S1 - - 0.00
+ECELL 30 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 3 controller EW 0 2 0 0 0 0 60.00 25.00 LIC1 - LT1 8.00
+ECELL 41 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 3 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 5 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 5 drive EW 0 0 0 0 0 0 60.00 0.00 U1 Pump01 LIC1 0.00
+ECELL 41 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 5 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 7 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 7 switch EW 0 0 0 0 1 0 0.00 0.00 S2 - - 0.00
+ECELL 30 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 7 motor EW 0 0 0 0 0 0 5.00 0.00 M2 Pump02 - 0.00
+ECELL 41 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 7 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 9 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 9 switch EW 0 0 0 0 1 0 0.00 0.00 S3 - - 0.00
+ECELL 30 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 9 controller EW 0 0 0 0 0 0 150.00 10.00 TIC1 - TT1 10.00
+ECELL 41 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 9 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 11 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 11 no EW 0 0 0 0 0 0 0.00 0.00 TIC1 - - 0.00
+ECELL 33 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 11 motor EW 0 0 0 0 0 0 5.00 0.00 M3 Heater01 - 0.00
+ECELL 41 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 11 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 14 ft EW 0 0 0 0 0 0 0.00 0.00 FT1 - - 0.00
+ECELL 16 16 tt EW 0 0 0 0 0 0 0.00 0.00 TT1 Heater01 - 0.00
+ECELL 8 20 pt EW 0 0 0 0 0 0 0.00 0.00 PT1 - - 0.00
+ECELL 4 30 st EW 0 0 0 0 0 0 0.00 0.00 ST1 Pump01 - 0.00
+ECELL 13 30 lt EW 0 0 0 0 0 0 0.00 0.00 LT1 Pool01 - 0.00
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 23 - SENSORS & PID CONTROL\nLevel, temperature, pressure, flow and speed\nsensors; a PID level loop and an on / off\ntemperature loop, each with a faceplate.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this
