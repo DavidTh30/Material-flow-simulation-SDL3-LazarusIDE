@@ -18,7 +18,7 @@ unit edithist;
 interface
 
 uses
-  simcore, elec, fluid;
+  simcore, elec, fluid, flowchart;
 
 type
   TCellLite = record
@@ -65,6 +65,7 @@ type
     Eqs: array[0..MAX_EQUIP - 1] of TEquipObj;
     ECells: array[0..GW - 1, 0..GH - 1] of TECell;
     FCells: array[0..GW - 1, 0..GH - 1] of TFCell;
+    Flows: array[0..MAX_FLOW - 1] of TFlowNode;
     Gravity: Single;
   end;
 
@@ -142,7 +143,25 @@ begin
   s^.Eqs := Equips;
   s^.ECells := EGrid;
   s^.FCells := FGrid;
+  s^.Flows := FlowNodes;
   s^.Gravity := GravityScale;
+end;
+
+function SamePins(const a, b: TEquipObj): Boolean;
+var
+  k, p: Integer;
+begin
+  Result := False;
+  for k := 0 to TL_PINS - 1 do
+  begin
+    if a.Pins[k].Kind <> b.Pins[k].Kind then Exit;
+    if a.Pins[k].Kind = TLP_NONE then Continue;
+    if (a.Pins[k].T <> b.Pins[k].T) or (a.Pins[k].W <> b.Pins[k].W) or (a.Pins[k].Src <> b.Pins[k].Src) then Exit;
+    for p := 0 to 2 do
+      if (a.Pins[k].VMode[p] <> b.Pins[k].VMode[p]) or (a.Pins[k].V[p] <> b.Pins[k].V[p]) or
+        (a.Pins[k].Dest[p] <> b.Pins[k].Dest[p]) then Exit;
+  end;
+  Result := True;
 end;
 
 function SameAsCurrent(s: PSnap): Boolean;
@@ -206,8 +225,9 @@ begin
       ((Equips[i].Level <> s^.Eqs[i].Level) and not EquipIsWater(Equips[i].Kind)) or
       (Equips[i].Layer <> s^.Eqs[i].Layer) or (Equips[i].Mode <> s^.Eqs[i].Mode) or
       (Equips[i].SeqStep <> s^.Eqs[i].SeqStep) or (Equips[i].Delay <> s^.Eqs[i].Delay) or
-      (Equips[i].DivA <> s^.Eqs[i].DivA) or (Equips[i].DivB <> s^.Eqs[i].DivB) or (Equips[i].Src <> s^.Eqs[i].Src) or
-      (Equips[i].RMin <> s^.Eqs[i].RMin) or (Equips[i].RMax <> s^.Eqs[i].RMax)) then Exit;
+      (Equips[i].DivA <> s^.Eqs[i].DivA) or (Equips[i].DivB <> s^.Eqs[i].DivB) or (Equips[i].Src <> s^.Eqs[i].Src) or (Equips[i].Src2 <> s^.Eqs[i].Src2) or
+      (Equips[i].Src3 <> s^.Eqs[i].Src3) or (Equips[i].Src4 <> s^.Eqs[i].Src4) or
+      (Equips[i].RMin <> s^.Eqs[i].RMin) or (Equips[i].RMax <> s^.Eqs[i].RMax) or not SamePins(Equips[i], s^.Eqs[i])) then Exit;
   end;
   for y := 0 to GH - 1 do
     for x := 0 to GW - 1 do
@@ -230,6 +250,18 @@ begin
       if (f1^.Conn <> f2^.Conn) or (f1^.Dir <> f2^.Dir) or (f1^.Layer <> f2^.Layer) or (f1^.Tag <> f2^.Tag) or
         (f1^.Ref <> f2^.Ref) or (f1^.SolA <> f2^.SolA) or (f1^.SolB <> f2^.SolB) or (f1^.Act <> f2^.Act) or
         (f1^.P1 <> f2^.P1) or (f1^.P2 <> f2^.P2) then Exit;
+    end;
+  for i := 0 to MAX_FLOW - 1 do
+    with s^.Flows[i] do
+    begin
+      if Active <> FlowNodes[i].Active then Exit;
+      if not Active then Continue;
+      if (Kind <> FlowNodes[i].Kind) or (X <> FlowNodes[i].X) or (Y <> FlowNodes[i].Y) or (W <> FlowNodes[i].W) or
+        (H <> FlowNodes[i].H) or (Caption <> FlowNodes[i].Caption) or (Src <> FlowNodes[i].Src) or
+        (Op <> FlowNodes[i].Op) or (Value <> FlowNodes[i].Value) or (Target <> FlowNodes[i].Target) or
+        (Act <> FlowNodes[i].Act) or (Next <> FlowNodes[i].Next) or (Next2 <> FlowNodes[i].Next2) or
+        (RType <> FlowNodes[i].RType) or (Value2 <> FlowNodes[i].Value2) or (Period <> FlowNodes[i].Period) or
+        (Layer <> FlowNodes[i].Layer) then Exit;
     end;
   Result := True;
 end;
@@ -304,6 +336,22 @@ begin
       s^.Eqs[i].LastReq := Equips[i].LastReq;
     end;
     Equips[i] := s^.Eqs[i];
+  end;
+  for i := 0 to MAX_FLOW - 1 do
+  begin
+    if FlowNodes[i].Active and s^.Flows[i].Active then
+    begin
+      { what the scan worked out stays }
+      s^.Flows[i].Hit := FlowNodes[i].Hit;
+      s^.Flows[i].Taken := FlowNodes[i].Taken;
+      s^.Flows[i].Known := FlowNodes[i].Known;
+      s^.Flows[i].Val := FlowNodes[i].Val;
+      s^.Flows[i].UnitS := FlowNodes[i].UnitS;
+      s^.Flows[i].BoolV := FlowNodes[i].BoolV;
+      s^.Flows[i].Yes := FlowNodes[i].Yes;
+      s^.Flows[i].Timer := FlowNodes[i].Timer;
+    end;
+    FlowNodes[i] := s^.Flows[i];
   end;
   GravityScale := s^.Gravity;
 end;

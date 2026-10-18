@@ -1,0 +1,225 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)
+# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)
+MFLOW 2
+NAME Timelines
+POPUP 1 2 2 How it works
+POPUPTEXT 1 Timeline01 runs 0..20 s over and over (auto\nstart). Fix Pin 1 sends S1 0 / 1 / 0 (Pump01\nruns 2-10 s), Fix Pin 2 sends RV1 30 / 100 /\n30 (Pump02's speed). Input Pin 1 keeps Pool01\nat 10 s and sends it to POOL10 (a display).
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Press SB1: Timeline02 runs once. Right-click\na timeline: add a pin there. Drag a pin along\nit. Double-click a timeline: start / stop.
+
+PAGE Plant
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 1 0 Electrical
+GRAVITY 1.00
+ON 1
+CELL 8 8 pipe ES 3 E 1 0.00
+CELL 9 8 pipe EW 3 E 1 0.00
+CELL 10 8 pipe EW 3 E 1 0.00
+CELL 11 8 pipe EW 3 E 1 0.00
+CELL 12 8 pipe EW 3 E 1 0.00
+CELL 13 8 pipe EW 3 E 1 0.00
+CELL 14 8 pipe EW 3 E 1 0.00
+CELL 15 8 pipe EW 3 E 1 0.00
+CELL 16 8 pipe SW 3 E 1 0.00
+CELL 8 9 pipe SN 3 E 1 0.00
+CELL 16 9 pipe SN 3 E 1 0.00
+CELL 8 10 pipe SN 3 E 1 0.00
+CELL 16 10 drop N 3 S 1 100.00
+CELL 8 11 pipe SN 3 E 1 0.00
+CELL 8 12 pipe SN 3 E 1 0.00
+CELL 8 13 pipe SN 3 E 1 0.00
+CELL 8 14 pipe SN 3 E 1 0.00
+CELL 8 15 pipe SN 3 E 1 0.00
+CELL 8 16 pipe SN 3 E 1 0.00
+CELL 8 17 pipe SN 3 E 1 0.00
+CELL 8 18 pipe SN 3 E 1 0.00
+CELL 8 19 pipe SN 3 E 1 0.00
+CELL 8 20 pipe SN 3 E 1 0.00
+CELL 8 21 pipe SN 3 E 1 0.00
+CELL 8 22 pipe SN 3 E 1 0.00
+CELL 22 22 pipe ES 3 E 1 0.00
+CELL 23 22 pipe EW 3 E 1 0.00
+CELL 24 22 pipe EW 3 E 1 0.00
+CELL 25 22 pipe EW 3 E 1 0.00
+CELL 26 22 pipe EW 3 E 1 0.00
+CELL 27 22 pipe EW 3 E 1 0.00
+CELL 28 22 pipe EW 3 E 1 0.00
+CELL 29 22 pipe EW 3 E 1 0.00
+CELL 30 22 pipe EW 3 E 1 0.00
+CELL 31 22 pipe EW 3 E 1 0.00
+CELL 32 22 pipe EW 3 E 1 0.00
+CELL 33 22 pipe EW 3 E 1 0.00
+CELL 34 22 pipe SW 3 E 1 0.00
+CELL 8 23 pipe SN 3 E 1 0.00
+CELL 22 23 pipe SN 3 E 1 0.00
+CELL 34 23 pipe SN 3 E 1 0.00
+CELL 8 24 pipe SN 3 E 1 0.00
+CELL 22 24 pipe SN 3 E 1 0.00
+CELL 34 24 drop N 3 S 1 100.00
+CELL 8 25 pipe SN 3 E 1 0.00
+CELL 22 25 pipe SN 3 E 1 0.00
+CELL 8 26 pipe SN 3 E 1 0.00
+CELL 22 26 pipe SN 3 E 1 0.00
+CELL 8 27 pipe SN 3 E 1 0.00
+CELL 22 27 pipe SN 3 E 1 0.00
+CELL 8 28 pipe SN 3 E 1 0.00
+CELL 22 28 pipe SN 3 E 1 0.00
+CELL 8 29 blower SN 3 N 1 95.00
+CELL 22 29 blower SN 3 N 1 95.00
+CELL 8 30 pipe SN 3 E 1 0.00
+CELL 22 30 pipe SN 3 E 1 0.00
+CELL 8 31 pipe N 3 E 1 0.00
+CELL 22 31 pipe N 3 E 1 0.00
+ON 2
+LABEL 220.00 24.00 TIMELINES\nTimeline01: loop, auto start, 20 s.\nFix Pin 1 switches S1 (Pump01) 2-10 s,\nFix Pin 2 sets RV1 (Pump02) 12-16 s,\nInput Pin 1 keeps Pool01 at 10 s.\nPress SB1: Timeline02 sounds BUZZ.
+LINK 24.00 24.00 1 page 2 About
+LINK 24.00 46.00 2 popup 1 How it works
+LINK 24.00 68.00 3 popup 2 Try this
+ON 3
+EQUIP well 24.00 600.00 104.00 200.00 stop 0 -1 -1 90.00 Well01
+EQUIP pump 132.00 744.00 104.00 56.00 stop 0 8 29 60.00 Pump01
+EQUIP pool 300.00 716.00 210.00 96.00 stop 0 -1 -1 30.00 Pool01
+EQUIP pump 516.00 744.00 104.00 56.00 stop 0 22 29 60.00 Pump02
+EQUIP pond 760.00 720.00 264.00 90.00 stop 0 -1 -1 10.00 Pond01
+EQUIP timeline 420.00 272.00 600.00 130.00 stop 0 -1 -1 50.00 Timeline01
+EQX 3 0 20.00 -1 -1
+EQSRC 0.00 100.00 
+EQPENS - - -
+TLPIN 1 fix 2.00 8.00 - 1 0.00 S1 1 1.00 S1 1 0.00 S1
+TLPIN 2 fix 12.00 4.00 - 1 30.00 RV1 1 100.00 RV1 1 30.00 RV1
+TLPIN 3 in 10.00 1.00 Pool01 0 0.00 - 2 0.00 - 3 0.00 POOL10
+EQUIP timeline 420.00 428.00 380.00 96.00 stop 0 -1 -1 50.00 Timeline02
+EQX 0 0 6.00 -1 -1
+EQSRC 0.00 100.00 SB1
+EQPENS - - -
+TLPIN 1 fix 1.00 3.00 - 1 0.00 BUZZ 1 1.00 BUZZ 1 0.00 BUZZ
+EQUIP digital 820.00 440.00 200.00 52.00 stop 0 -1 -1 50.00 Pool at 10 s
+EQSRC 0.00 100.00 POOL10
+ON 4
+ECELL 26 1 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 1 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 35 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 1 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 3 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 3 switch EW 0 0 0 0 0 0 0.00 0.00 S1 - - 0.00
+ECELL 30 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 3 motor EW 0 0 0 0 0 0 5.00 0.00 M1 Pump01 - 0.00
+ECELL 41 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 3 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 5 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 5 switch EW 0 0 0 0 1 0 0.00 0.00 S2 - - 0.00
+ECELL 30 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 5 drive EW 0 0 0 0 0 0 60.00 0.00 U1 Pump02 RV1 0.00
+ECELL 41 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 5 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 7 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 7 no EW 0 0 0 0 0 0 0.00 0.00 BUZZ - - 0.00
+ECELL 33 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 7 lamp EW 0 1 0 0 0 0 0.00 0.00 H2 - - 0.00
+ECELL 41 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 7 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 9 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 9 pbno EW 0 0 0 0 0 0 0.00 0.00 SB1 - - 0.00
+ECELL 30 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 9 lamp EW 0 2 0 0 0 0 0.00 0.00 H3 - - 0.00
+ECELL 41 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 9 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 10 pot EW 0 0 0 0 0 0 30.00 0.00 RV1 - - 0.00
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 30 - TIMELINES\nTimelines run in a loop or one cycle and send\nfixed or kept input values to switches, pots\nand names before, at and after each pin.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

@@ -11,7 +11,7 @@ procedure RunApp;
 implementation
 
 uses
-  SysUtils, Math, sdl3min, simcore, layoutio, mfexamples, mftheme, edithist, mfpages, elec, fluid, physics, shapes, plantbus;
+  SysUtils, Math, sdl3min, simcore, layoutio, mfexamples, mftheme, edithist, mfpages, elec, fluid, physics, shapes, plantbus, flowchart, trends, piecesim, ipcnet;
 
 const
   PANEL_X = CANVAS_W;        { the right panel column starts here (when it is open) }
@@ -25,17 +25,19 @@ type
     tDrop, tCheck, tValve2, tValve3, tValve4, tBucket, tLabel, tLabelDate, tLabelTime, tFrame, tLink,
     tEqMotor, tEqBlower, tEqPaddle, tEqScrew, tEqCyclone, tEqSilo, tEqStand, tEqLamp, tEqLegend,
     tEqSequence, tEqDiverter, tEqShutter, tEqSlide, tEqHeater, tEqIRHeater, tEqRain, tEqFire,
-    tEqPond, tEqPool, tEqWell, tEqPump, tEqPanel, tEqConveyor, tEqBelt, tEqGauge, tEqDigital, tEqCylinder, tEqCompressor, tEqHPU, tEqReceiver, tEqController, tEqHeatEx, tEqCoolTower, tEqChiller,
+    tEqPond, tEqPool, tEqWell, tEqPump, tEqPanel, tEqConveyor, tEqBelt, tEqGauge, tEqDigital, tEqCylinder, tEqCompressor, tEqHPU, tEqReceiver, tEqController, tEqHeatEx, tEqCoolTower, tEqChiller, tEqTrend, tEqTimeline, tEqDryer, tEqItemFeeder, tEqWorker, tEqVan, tEqRack,
     tElWire, tElCross, tElTerminal, tElAC, tElDC, tElFuse, tElBreaker, tElSwitch, tElSw2, tElSw3, tElPBNO, tElPBNC,
     tElPBLatch, tElSelector, tElEStop, tElNO, tElNC, tElRelay, tElContactor, tElTimer, tElOL, tElLamp, tElBuzzer,
     tElMotor, tElDrive, tElFloat, tElCT, tElPot, tElSolenoid,
     tFlLine, tFlCross, tFlCompressor, tFlHPump, tFlReceiver, tFlAccum, tFlFRL, tFlRegulator, tFlFilter, tFlCheck,
     tFlThrottle, tFlShuttle, tFlAnd, tFlRelief, tFlV32, tFlV52, tFlV53, tFlV42, tFlV43, tFlCylSA, tFlCylDA,
     tFlAirMotor, tFlHydMotor, tFlSilencer, tFlTank, tFlGauge, tFlPSwitch,
-    tCtCounter, tCtLevel, tCtPress, tCtFlow, tCtTemp, tCtSpeed, tCtWeight, tCtPhoto, tCtController, tCtHumid, tCtPH);
-  TSelKind = (selNone, selCell, selBucket, selMulti, selLabel, selFrame, selLink, selEquip, selECell, selFCell);
+    tCtCounter, tCtLevel, tCtPress, tCtFlow, tCtTemp, tCtSpeed, tCtWeight, tCtPhoto, tCtController, tCtHumid, tCtPH,
+    tFwStart, tFwInput, tFwDecision, tFwAction, tFwDisplay, tFwDelay, tFwEnd, tFwArrow, tFwRandom);
+  TSelKind = (selNone, selCell, selBucket, selMulti, selLabel, selFrame, selLink, selEquip, selECell, selFCell, selFlow);
   TDrag = (dragNone, dragPipe, dragResize, dragErase, dragBucket, dragBox, dragMove, dragLabel,
-    dragFrameNew, dragFrameMove, dragFrameSize, dragLink, dragEqMove, dragEqSize, dragEWire, dragEPress, dragFLine, dragFPress);
+    dragFrameNew, dragFrameMove, dragFrameSize, dragLink, dragEqMove, dragEqSize, dragTLPin, dragEWire, dragEPress, dragFLine, dragFPress,
+    dragFlowMove, dragFlowArrow);
   TClipBucket = record
     DX, DY, W, H: Single;   { relative to the block's top-left corner }
     Layer: Byte;
@@ -79,14 +81,15 @@ const
     'Motor', 'Blower', 'Paddle', 'Screw conv.', 'Cyclone', 'Silo bin', 'Silo stand', 'Lamp', 'Legend',
     'Sequence', 'Diverter', 'Shutter', 'Slide valve', 'Heater', 'IR heater', 'Rain', 'Fire', 'Pond', 'Pool', 'Well', 'Water pump',
     'Cabinet', 'Roller conveyor', 'Belt conveyor', 'Needle gauge', 'Digital display',
-    'Cylinder', 'Compressor', 'Hydraulic unit', 'Air receiver', 'Faceplate', 'Heat exch.', 'Cool. tower', 'Chiller',
+    'Cylinder', 'Compressor', 'Hydraulic unit', 'Air receiver', 'Faceplate', 'Heat exch.', 'Cool. tower', 'Chiller', 'Trend chart', 'Timeline', 'Rotary dryer', 'Item feeder', 'Worker', 'Box van', 'Standard rack',
     'Wire', 'Cross', 'Terminal', 'AC supply', 'DC supply', 'Fuse', 'Breaker', 'Switch', '2-way sw.', '3-way sw.',
     'Push NO', 'Push NC', 'Push on/off', 'Selector', 'E-Stop', 'NO contact', 'NC contact', 'Relay', 'Contactor',
     'Timer', 'Overload', 'Lamp', 'Buzzer', 'Motor M', 'Drive VFD', 'Float sw.', 'Current tr.', 'Potentiometer', 'Solenoid Y',
     'Line', 'Cross', 'Compressor', 'Hydr. pump', 'Receiver', 'Accumul.', 'FRL', 'Regulator', 'Filter', 'Check',
     'Throttle', 'Shuttle', 'AND valve', 'Relief', '3/2 valve', '5/2 valve', '5/3 valve', '4/2 valve', '4/3 valve',
     'Cyl. single', 'Cyl. double', 'Air motor', 'Hydr. motor', 'Silencer', 'Tank', 'Gauge', 'P-switch',
-    'Counter', 'Level LT', 'Pressure PT', 'Flow FT', 'Temp. TT', 'Speed ST', 'Weight WT', 'Photo eye', 'Controller', 'Humidity MT', 'pH sensor');
+    'Counter', 'Level LT', 'Pressure PT', 'Flow FT', 'Temp. TT', 'Speed ST', 'Weight WT', 'Photo eye', 'Controller', 'Humidity MT', 'pH sensor',
+    'Start', 'Input', 'Decision', 'Action', 'Display', 'Delay', 'End', 'Arrow', 'Random');
   ToolKinds: array[TTool] of TCellKind = (ckEmpty, ckPipe, ckEmpty, ckEmpty,
     ckSource, ckVFeeder, ckHopper, ckSilo, ckBlower, ckSuction, ckNozzle, ckDrop, ckCheck, ckValve2, ckValve3, ckValve4,
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
@@ -100,7 +103,8 @@ const
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
-    ckEmpty);
+    ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
+    ckEmpty, ckEmpty, ckEmpty);
   ToolHints: array[TTool] of string = (
     'Click to edit; drag box to select',
     'Drag to route; start on pipe=branch',
@@ -158,6 +162,13 @@ const
     'Click a pipe: heat exchanger',
     'Click: cooling tower (water from)',
     'Click: water chiller (return from)',
+    'Click: trend chart (pens: Properties)',
+    'Click: timeline (right-click it: pins)',
+    'Click on a device: rotary dryer drum',
+    'Click: item feeder (bottles, boxes ...)',
+    'Click: worker (loads / picks pieces)',
+    'Click: box van (its load: a bucket)',
+    'Click: standard rack (shelves)',
     'Drag: wire (joins where it meets)',
     'Click: wires crossing, not joined',
     'Click: terminal (a joint)',
@@ -224,7 +235,16 @@ const
     'Click: photo sensor (sees material)',
     'Click: controller (PID / on-off)',
     'Click: humidity / moisture sensor',
-    'Click: pH sensor (bucket / pipe)');
+    'Click: pH sensor (bucket / pipe)',
+    'Click: Start - every scan begins here',
+    'Click: Input - reads a value',
+    'Click: Decision - Yes down, No right',
+    'Click: Action - run / stop / set / tag',
+    'Click: Display - shows a value',
+    'Click: Delay - waits, then goes on',
+    'Click: End of a path',
+    'Drag from a node to the next one',
+    'Click: Random bool / byte / int / float');
   KindNames: array[TCellKind] of string = ('Empty', 'Pipe', 'Feeder', 'Blower',
     'Suction head', 'Push-out nozzle', 'Drop outlet', '1-way pipe', '2-way valve', '3-way valve', '4-way valve',
     'Hopper', 'Silo', 'Virtual feeder');
@@ -273,8 +293,8 @@ var
   MovePressBucket: Integer = -1;
   { properties window (floating; starts docked in the side panel) }
   { dockable panels: Tool, Simulation, Properties }
-  Wins: array[0..8] of TWin;
-  WinOrder: array[0..8] of Integer = (0, 1, 2, 3, 4, 5, 6, 7, 8);   { drawing order, last = on top }
+  Wins: array[0..10] of TWin;
+  WinOrder: array[0..10] of Integer = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);   { drawing order, last = on top }
   { left panel column: when a panel is embedded on the left the whole scene
     shifts right by LeftW. Everything works in canvas coordinates; OX is added
     only when drawing and subtracted from mouse positions }
@@ -303,6 +323,7 @@ var
   SelL: Integer = -1;
   SelLk: Integer = -1;           { the selected link }
   SelEq: Integer = -1;           { the selected equipment }
+  SelFl: Integer = -1;           { the selected flow chart node }
   EqPick: Integer = -1;          { equipment waiting for a click on the part to link it to }
   ToolTab: Integer = 0;          { Tool panel: 0 pipes & parts, 1 equipment, 2 electrical }
   SelEX, SelEY: Integer;         { the selected electrical cell }
@@ -682,10 +703,16 @@ begin
   if CanvasXf then Result := len * Zoom else Result := len;
 end;
 
+var
+  { while a panel draws: how far down its content reaches (its scroll range) }
+  TrackDraw: Boolean = False;
+  MaxDrawY: Single = -1e9;
+
 procedure FillR(x, y, w, h: Single);
 var
   rc: TSDL_FRect;
 begin
+  if TrackDraw and (y + h > MaxDrawY) then MaxDrawY := y + h;
   rc.x := SXf(x); rc.y := SYf(y); rc.w := SSf(w); rc.h := SSf(h);
   SDL_RenderFillRect(Ren, @rc);
 end;
@@ -694,6 +721,7 @@ procedure RectR(x, y, w, h: Single);
 var
   rc: TSDL_FRect;
 begin
+  if TrackDraw and (y + h > MaxDrawY) then MaxDrawY := y + h;
   rc.x := SXf(x); rc.y := SYf(y); rc.w := SSf(w); rc.h := SSf(h);
   SDL_RenderRect(Ren, @rc);
 end;
@@ -705,6 +733,7 @@ end;
 
 procedure TextR(x, y: Single; const s: string);
 begin
+  if TrackDraw and (s <> '') and (y + 9 > MaxDrawY) then MaxDrawY := y + 9;
   { text keeps its size when zoomed; only its position follows the view }
   if s <> '' then SDL_RenderDebugText(Ren, SXf(x), SYf(y), PAnsiChar(s));
 end;
@@ -728,6 +757,105 @@ begin
   SetVtx(2, x3, y3, r, g, b, a);
   SetVtx(3, x4, y4, r, g, b, a);
   SDL_RenderGeometry(Ren, nil, @GV[0], 4, @GIdx[0], 6);
+end;
+
+{ a rectangle with a colour at each corner: top-left, top-right, bottom-right, bottom-left }
+procedure QuadG(x, y, w, h: Single; const c1, c2, c3, c4: TRGB; a: Byte = 255);
+begin
+  SetVtx(0, x, y, c1.R, c1.G, c1.B, a);
+  SetVtx(1, x + w, y, c2.R, c2.G, c2.B, a);
+  SetVtx(2, x + w, y + h, c3.R, c3.G, c3.B, a);
+  SetVtx(3, x, y + h, c4.R, c4.G, c4.B, a);
+  SDL_RenderGeometry(Ren, nil, @GV[0], 4, @GIdx[0], 6);
+end;
+
+function Lighter(const c: TRGB; k: Single): TRGB;
+begin
+  Result.R := Min(255, Round(c.R + (255 - c.R) * k));
+  Result.G := Min(255, Round(c.G + (255 - c.G) * k));
+  Result.B := Min(255, Round(c.B + (255 - c.B) * k));
+end;
+
+function Darker(const c: TRGB; k: Single): TRGB;
+begin
+  Result.R := Round(c.R * (1 - k));
+  Result.G := Round(c.G * (1 - k));
+  Result.B := Round(c.B * (1 - k));
+end;
+
+{ background n over the rectangle x, y, w, h }
+procedure DrawBackgroundAt(n: Integer; x, y, w, h: Single);
+var
+  B: TBackground;
+  k: Integer;
+  t, e: Single;
+begin
+  B := Backgrounds[EnsureRange(n, 0, BG_COUNT - 1)];
+  case B.Kind of
+    BG_SOFT:
+      QuadG(x, y, w, h, Lighter(Th.CanvasBg, 0.1), Lighter(Th.CanvasBg, 0.06), Darker(Th.CanvasBg, 0.2),
+        Darker(Th.CanvasBg, 0.15));
+    BG_VIGNETTE:
+      begin
+        SetC(Th.CanvasBg);
+        FillR(x, y, w, h);
+        e := fmin(w, h) * 0.22;
+        { each edge darkens toward the rim }
+        SetVtx(0, x, y, 0, 0, 0, 120);
+        SetVtx(1, x + w, y, 0, 0, 0, 120);
+        SetVtx(2, x + w, y + e, 0, 0, 0, 0);
+        SetVtx(3, x, y + e, 0, 0, 0, 0);
+        SDL_RenderGeometry(Ren, nil, @GV[0], 4, @GIdx[0], 6);
+        SetVtx(0, x, y + h - e, 0, 0, 0, 0);
+        SetVtx(1, x + w, y + h - e, 0, 0, 0, 0);
+        SetVtx(2, x + w, y + h, 0, 0, 0, 120);
+        SetVtx(3, x, y + h, 0, 0, 0, 120);
+        SDL_RenderGeometry(Ren, nil, @GV[0], 4, @GIdx[0], 6);
+        SetVtx(0, x, y, 0, 0, 0, 120);
+        SetVtx(1, x + e, y, 0, 0, 0, 0);
+        SetVtx(2, x + e, y + h, 0, 0, 0, 0);
+        SetVtx(3, x, y + h, 0, 0, 0, 120);
+        SDL_RenderGeometry(Ren, nil, @GV[0], 4, @GIdx[0], 6);
+        SetVtx(0, x + w - e, y, 0, 0, 0, 0);
+        SetVtx(1, x + w, y, 0, 0, 0, 120);
+        SetVtx(2, x + w, y + h, 0, 0, 0, 120);
+        SetVtx(3, x + w - e, y + h, 0, 0, 0, 0);
+        SDL_RenderGeometry(Ren, nil, @GV[0], 4, @GIdx[0], 6);
+      end;
+    BG_CORNERS, BG_STRIPES, BG_BRUSHED:
+      begin
+        QuadG(x, y, w, h, B.TL, B.TR, B.BR, B.BL);
+        if B.Kind = BG_STRIPES then
+        begin
+          { fine diagonal weave }
+          SetCol(255, 255, 255, 10);
+          t := -h;
+          while t < w do
+          begin
+            LineR(x + fmax(0, t), y + fmax(0, -t), x + fmin(w, t + h), y + fmin(h, w - t));
+            t := t + 6;
+          end;
+        end
+        else if B.Kind = BG_BRUSHED then
+        begin
+          { brushed: fine light and dark lines }
+          k := 0;
+          t := 1;
+          while t < h do
+          begin
+            if k mod 3 = 0 then SetCol(255, 255, 255, 22) else SetCol(0, 0, 0, 12);
+            LineR(x, y + t, x + w, y + t);
+            t := t + 2 + (k * 7) mod 3;
+            Inc(k);
+          end;
+        end;
+      end;
+  else
+    begin
+      SetC(Th.CanvasBg);
+      FillR(x, y, w, h);
+    end;
+  end;
 end;
 
 procedure TriC(x1, y1, x2, y2, x3, y3: Single; r, g, b: Byte; a: Byte = 255);
@@ -866,6 +994,118 @@ begin
       end;
       DrawPipeShape(x, y, 0, r, g, b);
     end;
+end;
+
+{ ---------------------------------------------------------------- pieces (bottles, glasses, boxes, dolls) }
+
+function Lite(c: Byte; k: Integer): Byte;
+begin
+  Result := Min(255, c + k);
+end;
+
+{ a piece of kind Kind standing with its bottom middle at x, yb, s times its size }
+procedure DrawPiece(Kind, Tint: Integer; x, yb, s: Single);
+var
+  w, h, hw: Single;
+  r, g, b: Byte;
+begin
+  w := PieceW[EnsureRange(Kind, 0, PK_KINDS - 1)] * s;
+  h := PieceH[EnsureRange(Kind, 0, PK_KINDS - 1)] * s;
+  case Kind of
+    PK_BOTTLE:
+      begin
+        case Tint of
+          0: begin r := 40; g := 140; b := 70; end;
+          1: begin r := 140; g := 86; b := 36; end;
+        else
+          begin r := 160; g := 205; b := 222; end;
+        end;
+        SetCol(r, g, b, 235);
+        FillR(x - w / 2, yb - h * 0.62, w, h * 0.62);
+        QuadC(x - w / 2, yb - h * 0.62, x + w / 2, yb - h * 0.62, x + w * 0.18, yb - h * 0.8, x - w * 0.18, yb - h * 0.8,
+          r, g, b, 235);
+        SetCol(r, g, b, 235);
+        FillR(x - w * 0.18, yb - h * 0.93, w * 0.36, h * 0.14);
+        { cap, label, shine }
+        SetCol(200, 45, 40);
+        FillR(x - w * 0.22, yb - h, w * 0.44, h * 0.09);
+        SetCol(242, 236, 218);
+        FillR(x - w / 2, yb - h * 0.46, w, h * 0.17);
+        SetCol(255, 255, 255, 90);
+        FillR(x - w * 0.33, yb - h * 0.6, w * 0.12, h * 0.5);
+        SetCol(r div 2, g div 2, b div 2);
+        RectR(x - w / 2, yb - h * 0.62, w, h * 0.62);
+      end;
+    PK_GLASS:
+      begin
+        { a tumbler with a drink in it }
+        case Tint of
+          0: begin r := 90; g := 160; b := 230; end;
+          1: begin r := 240; g := 150; b := 40; end;
+        else
+          begin r := 100; g := 45; b := 25; end;
+        end;
+        QuadC(x - w / 2, yb - h, x + w / 2, yb - h, x + w * 0.38, yb, x - w * 0.38, yb, 205, 232, 246, 80);
+        hw := w * (0.38 + 0.12 * 0.55);
+        QuadC(x - hw, yb - h * 0.55, x + hw, yb - h * 0.55, x + w * 0.38, yb - 2, x - w * 0.38, yb - 2, r, g, b, 210);
+        SetCol(225, 242, 252);
+        LineR(x - w / 2, yb - h, x - w * 0.38, yb);
+        LineR(x + w / 2, yb - h, x + w * 0.38, yb);
+        LineR(x - w / 2, yb - h, x + w / 2, yb - h);
+        FillR(x - w * 0.38, yb - 2, w * 0.76, 2);
+      end;
+    PK_BOX:
+      begin
+        { a cardboard box with its tape and a label }
+        SetCol(196, 146, 86);
+        FillR(x - w / 2, yb - h, w, h);
+        SetCol(176, 128, 72);
+        FillR(x - w / 2, yb - h, w, h * 0.22);
+        SetCol(226, 204, 158);
+        FillR(x - w * 0.09, yb - h, w * 0.18, h * 0.5);
+        case Tint of
+          0: SetCol(245, 245, 240);
+          1: SetCol(250, 220, 90);
+        else
+          SetCol(150, 200, 240);
+        end;
+        FillR(x + w * 0.12, yb - h * 0.42, w * 0.28, h * 0.26);
+        SetCol(118, 82, 42);
+        RectR(x - w / 2, yb - h, w, h);
+      end;
+  else
+    begin
+      { a teddy bear }
+      case Tint of
+        0: begin r := 160; g := 106; b := 60; end;
+        1: begin r := 235; g := 150; b := 175; end;
+      else
+        begin r := 110; g := 160; b := 220; end;
+      end;
+      DiscC(x - w * 0.25, yb - h * 0.08, w * 0.16, r, g, b);
+      DiscC(x + w * 0.25, yb - h * 0.08, w * 0.16, r, g, b);
+      DiscC(x, yb - h * 0.32, w * 0.38, r, g, b);
+      DiscC(x, yb - h * 0.3, w * 0.22, Lite(r, 60), Lite(g, 60), Lite(b, 60));
+      DiscC(x - w * 0.42, yb - h * 0.42, w * 0.14, r, g, b);
+      DiscC(x + w * 0.42, yb - h * 0.42, w * 0.14, r, g, b);
+      DiscC(x - w * 0.27, yb - h * 0.92, w * 0.13, r, g, b);
+      DiscC(x + w * 0.27, yb - h * 0.92, w * 0.13, r, g, b);
+      DiscC(x, yb - h * 0.72, w * 0.32, r, g, b);
+      DiscC(x, yb - h * 0.66, w * 0.13, Lite(r, 70), Lite(g, 70), Lite(b, 70));
+      SetCol(25, 22, 20);
+      FillR(x - w * 0.14, yb - h * 0.8, Max(1.5, 2 * s), Max(1.5, 2 * s));
+      FillR(x + w * 0.1, yb - h * 0.8, Max(1.5, 2 * s), Max(1.5, 2 * s));
+      FillR(x - w * 0.04, yb - h * 0.7, w * 0.08, h * 0.04);
+    end;
+  end;
+end;
+
+procedure DrawPieces;
+var
+  i: Integer;
+begin
+  for i := 0 to MAX_PIECES - 1 do
+    if Pieces[i].Active then DrawPiece(Pieces[i].Kind, Pieces[i].Tint, Pieces[i].X, Pieces[i].Y, 1);
 end;
 
 procedure DrawParticles;
@@ -1216,7 +1456,7 @@ end;
 
 procedure DrawBucketFront(i: Integer);
 var
-  fill, ly: Single;
+  fill, ly, pm: Single;
   s: string;
 begin
   with Buckets[i] do
@@ -1237,6 +1477,7 @@ begin
     else
       SetC(Th.BucketText);
     s := Format('Bucket %d  %3.0f%%', [i + 1, fmin(100, fill * 100)]);
+    if PiecesInBucket(i, pm) > 0 then s := s + Format(' +%d items', [PiecesInBucket(i, pm)]);
     TextR(X + W / 2 - Length(s) * 4, Y - 24, s);
     if (Flash > 0) and (Frac(Flash * 3) < 0.6) then
     begin
@@ -1638,6 +1879,13 @@ end;
 
 const
   FP_W = 400;
+  FP_MINW = 220;      { the smallest it can be sized to }
+  FP_MINH = 100;
+  FP_GRIP = 14;       { the sizing corner }
+
+var
+  FPDrag: Integer = 0;   { 1 moving it by its title, 2 sizing it by its corner }
+  FPDragX, FPDragY: Single;
 
 { the open frame popup's box in canvas-area screen coordinates }
 procedure FramePopupBox(out x, y, w, h: Single);
@@ -1650,6 +1898,30 @@ begin
   h := 26 + n * 12 + 16 + 30;
   x := Round((CANVAS_W - w) / 2);
   y := Round(fmax(30, (CANVAS_H - h) / 2 - 60));
+  { moved or sized by hand }
+  if (ShownPopup >= 0) and (Popups[ShownPopup].BW > 0) then
+    with Popups[ShownPopup] do
+    begin
+      { as moved / sized (the smallest size is kept while sizing it) }
+      w := fclamp(BW, 120, CANVAS_W);
+      h := fclamp(BH, 60, CANVAS_H);
+      x := fclamp(BX, 0, CANVAS_W - 60);
+      y := fclamp(BY, 0, CANVAS_H - 22);
+    end;
+end;
+
+{ how much larger than its own size the open popup is drawn: its text, title and buttons grow with it }
+function FramePopupScale(w, h: Single): Single;
+var
+  n, wd: Integer;
+  ah: Single;
+begin
+  Result := 1;
+  if (ShownPopup < 0) or (Popups[ShownPopup].BW <= 0) then Exit;
+  n := 1;
+  LabelLines(Popups[ShownPopup].Text, n, wd);
+  ah := 26 + n * 12 + 16 + 30;
+  Result := fclamp(fmin(w / FP_W, h / ah), 0.6, 4);
 end;
 
 function InFramePopup: Boolean;
@@ -1662,15 +1934,52 @@ begin
   Result := (MX >= x) and (MX < x + w) and (MY >= y) and (MY < y + h);
 end;
 
+{ a press on the open frame popup: its title moves it, its corner sizes it (a double-click on the
+  title puts it back in the middle at its own size); anything else is a click for its buttons }
+procedure FramePopupPress;
+var
+  x, y, w, h, s: Single;
+begin
+  FramePopupBox(x, y, w, h);
+  s := FramePopupScale(w, h);
+  if (MX >= x + w - FP_GRIP) and (MY >= y + h - FP_GRIP) then
+  begin
+    FPDrag := 2;
+    FPDragX := x + w - MX;
+    FPDragY := y + h - MY;
+  end
+  else if (MY < y + 22 * s) and (MX < x + w - 24 * s) then
+  begin
+    if LastClicks >= 2 then
+    begin
+      Popups[ShownPopup].BW := 0;
+      FPDrag := 0;
+      Exit;
+    end;
+    FPDrag := 1;
+    FPDragX := MX - x;
+    FPDragY := MY - y;
+  end
+  else
+  begin
+    FPClick := True;
+    Exit;
+  end;
+  Popups[ShownPopup].BX := x;
+  Popups[ShownPopup].BY := y;
+  Popups[ShownPopup].BW := w;
+  Popups[ShownPopup].BH := h;
+end;
+
 { a frame popup: a small window with a title, text, a "go to page" button and a close button.
   Clicks reach it through FPClick (set by MouseDown). }
 procedure DrawFramePopup;
 var
-  x, y, w, h, bx, by, bw: Single;
+  x, y, w, h, bx, by, bw, sc, kOX, kOY, kMX, kMY: Single;
   r, g, b: Byte;
   P: ^TPopup;
   clicked, hot: Boolean;
-  k, n: Integer;
+  k, n, mc, cut: Integer;
   line, s: string;
 
   function Btn(px, py, pw: Single; const lbl: string; Strong: Boolean): Boolean;
@@ -1696,6 +2005,21 @@ begin
   clicked := FPClick;
   FPClick := False;
   P := @Popups[ShownPopup];
+  { being moved or sized }
+  if FPDrag > 0 then
+  begin
+    if not MDown then FPDrag := 0
+    else if FPDrag = 1 then
+    begin
+      P^.BX := fclamp(MX - FPDragX, 0, CANVAS_W - 60);
+      P^.BY := fclamp(MY - FPDragY, 0, CANVAS_H - 22);
+    end
+    else
+    begin
+      P^.BW := fclamp(MX + FPDragX - P^.BX, FP_MINW, CANVAS_W - P^.BX);
+      P^.BH := fclamp(MY + FPDragY - P^.BY, FP_MINH, CANVAS_H - P^.BY);
+    end;
+  end;
   FramePopupBox(x, y, w, h);
   if P^.Color = 0 then
   begin
@@ -1711,6 +2035,25 @@ begin
   { dim the canvas behind it }
   SetCol(0, 0, 0, 90);
   FillR(0, 0, CANVAS_W, CANVAS_H);
+  { sized by hand: everything in it drawn larger (or smaller) with it }
+  sc := FramePopupScale(w, h);
+  kOX := OX;
+  kOY := OY;
+  kMX := MX;
+  kMY := MY;
+  if sc <> 1 then
+  begin
+    OX := OX / sc;
+    OY := OY / sc;
+    MX := MX / sc;
+    MY := MY / sc;
+    x := x / sc;
+    y := y / sc;
+    w := w / sc;
+    h := h / sc;
+    SDL_SetRenderScale(Ren, sc, sc);
+  end;
+  try
   SetCol(0, 0, 0, 100);
   FillR(x + 6, y + 6, w, h);
   SetC(Th.PanelBg);
@@ -1720,7 +2063,7 @@ begin
   RectR(x + 1, y + 1, w - 2, h - 2);
   FillR(x, y, w, 22);
   SetCol(250, 250, 252);
-  TextR(x + 10, y + 7, Copy(P^.Title, 1, 44));
+  TextR(x + 10, y + 7, Copy(P^.Title, 1, Max(1, Trunc((w - 40) / 8))));
   { close box }
   bx := x + w - 22;
   hot := (MX >= bx) and (MX < bx + 18) and (MY >= y + 2) and (MY < y + 20);
@@ -1737,24 +2080,41 @@ begin
     Exit;
   end;
   { text }
+  { the text, wrapped to its width; what does not fit its height is cut }
   SetC(Th.Text);
   line := '';
   n := 0;
   s := P^.Text;
+  mc := Max(8, Trunc((w - 24) / 8));
   for k := 1 to Length(s) + 1 do
     if (k > Length(s)) or (s[k] = #10) then
     begin
-      TextR(x + 12, y + 32 + n * 12, Copy(line, 1, 46));
-      line := '';
-      Inc(n);
+      repeat
+        { break at the last space that fits }
+        cut := mc;
+        if Length(line) > mc then
+        begin
+          cut := mc;
+          while (cut > mc div 2) and (line[cut + 1] <> ' ') do Dec(cut);
+          if cut <= mc div 2 then cut := mc;
+        end;
+        if y + 32 + n * 12 + 9 <= y + h - 34 then TextR(x + 12, y + 32 + n * 12, Copy(line, 1, cut));
+        Delete(line, 1, cut);
+        if (line <> '') and (line[1] = ' ') then Delete(line, 1, 1);
+        Inc(n);
+      until line = '';
     end
     else
       line := line + s[k];
+  { the sizing corner }
+  SetCol(r, g, b);
+  for k := 0 to 2 do
+    LineR(x + w - 3 - k * 4, y + h - 3, x + w - 3, y + h - 3 - k * 4);
   { buttons }
   by := y + h - 28;
   if (P^.GoPage >= 0) and (P^.GoPage < PageCount) then
   begin
-    s := 'Go to: ' + Copy(PageName(P^.GoPage), 1, 26);
+    s := 'Go to: ' + Copy(PageName(P^.GoPage), 1, Max(4, Min(26, Trunc((w - 130) / 8) - 7)));
     bw := Length(s) * 8 + 20;
     if Btn(x + 12, by, bw, s, True) then
     begin
@@ -1768,6 +2128,16 @@ begin
     CloseFramePopup;
     Exit;
   end;
+  finally
+    if sc <> 1 then
+    begin
+      SDL_SetRenderScale(Ren, 1, 1);
+      OX := kOX;
+      OY := kOY;
+      MX := kMX;
+      MY := kMY;
+    end;
+  end;
 end;
 
 { ---------------------------------------------------------------- equipment }
@@ -1779,7 +2149,7 @@ const
   silo bin, stand and cyclone behind them }
 function EquipFront(Kind: Integer): Boolean;
 begin
-  Result := not (Kind in [EQ_CYCLONE, EQ_SILO, EQ_STAND, EQ_POND, EQ_POOL, EQ_WELL, EQ_PANEL]);
+  Result := not (Kind in [EQ_CYCLONE, EQ_SILO, EQ_STAND, EQ_POND, EQ_POOL, EQ_WELL, EQ_PANEL, EQ_WORKER, EQ_VAN, EQ_RACK]);
 end;
 
 var
@@ -1940,6 +2310,411 @@ begin
       if SameText(Equips[i].Name, Cur) then seen := True;
     end;
 end;
+{ ---------------------------------------------------------------- trend charts }
+
+const
+  PenRGB: array[0..TREND_PENS - 1, 0..2] of Byte = ((70, 170, 255), (255, 170, 60), (90, 220, 120), (230, 100, 210));
+
+function TrendFmt(v: Single): string;
+begin
+  if Abs(v) >= 1000 then Result := Format('%.0f', [v])
+  else if Abs(v) >= 100 then Result := Format('%.1f', [v])
+  else Result := Format('%.2f', [v]);
+end;
+
+{ pen k's line over the plot px, py, pw, ph for values lo..hi; Steps: an ON / OFF pen as steps }
+procedure DrawPenLine(const P: TPenHist; k: Integer; px, py, pw, ph, lo, hi: Single; Steps: Boolean);
+var
+  j: Integer;
+  st, x1, x2, y1, y2: Single;
+
+  function YOf(v: Single): Single;
+  begin
+    Result := fclamp(py + ph - (v - lo) / fmax(1e-9, hi - lo) * ph, py, py + ph);
+  end;
+
+  { a solid segment about 2 pixels wide whatever its slope, with a square at its end so the joints have no gaps }
+  procedure Seg(ax, ay, bx, by: Single);
+  var
+    dx, dy, l, t: Single;
+  begin
+    t := 2 / fmax(0.05, Zoom);
+    dx := bx - ax;
+    dy := by - ay;
+    l := Sqrt(dx * dx + dy * dy);
+    if l >= 0.01 then
+    begin
+      dx := -dy / l * t / 2;
+      dy := (bx - ax) / l * t / 2;
+      QuadC(ax + dx, ay + dy, bx + dx, by + dy, bx - dx, by - dy, ax - dx, ay - dy, PenRGB[k, 0], PenRGB[k, 1],
+        PenRGB[k, 2]);
+    end;
+    SetCol(PenRGB[k, 0], PenRGB[k, 1], PenRGB[k, 2]);
+    FillR(bx - t / 2, by - t / 2, t, t);
+  end;
+
+begin
+  if P.Count < 2 then Exit;
+  st := pw / (TREND_N - 1);
+  for j := 0 to P.Count - 2 do
+  begin
+    x1 := px + pw - j * st;
+    x2 := x1 - st;
+    y1 := YOf(PenSample(P, j));
+    y2 := YOf(PenSample(P, j + 1));
+    if Steps then
+    begin
+      Seg(x1, y1, x2, y1);
+      if y1 <> y2 then Seg(x2, y1, x2, y2);
+    end
+    else
+      Seg(x1, y1, x2, y2);
+  end;
+end;
+
+{ an ON / OFF pen as bars along a strip at sy, sh high }
+procedure DrawPenStrip(const P: TPenHist; k: Integer; px, sy, pw, sh: Single);
+var
+  j: Integer;
+  st, x1: Single;
+begin
+  SetCol(40, 44, 52);
+  FillR(px, sy, pw, sh);
+  if P.Count < 1 then Exit;
+  st := pw / (TREND_N - 1);
+  SetCol(PenRGB[k, 0], PenRGB[k, 1], PenRGB[k, 2]);
+  for j := 0 to P.Count - 1 do
+    if PenSample(P, j) > 0.5 then
+    begin
+      x1 := px + pw - j * st;
+      FillR(x1 - st, sy, st + 0.5, sh);
+    end;
+end;
+
+procedure DrawTrend(i: Integer; x, y, w, h: Single);
+var
+  E: ^TEquipObj;
+  Hs: PTrendHist;
+  k, j, nb, m: Integer;
+  px, py, pw, ph, lo, hi, v, sy, t: Single;
+  s: string;
+  ev: TTrendEvent;
+begin
+  E := @Equips[i];
+  if (CurPage < 0) or (CurPage >= BUS_PAGES) then Exit;
+  Hs := @TrendHist[CurPage, i];
+  { the value range: fixed (Min < Max), or from the values shown }
+  if E^.RMax > E^.RMin then
+  begin
+    lo := E^.RMin;
+    hi := E^.RMax;
+  end
+  else
+  begin
+    lo := 1e30;
+    hi := -1e30;
+    for k := 0 to TREND_PENS - 1 do
+      if Hs^.Pens[k].Known and not Hs^.Pens[k].IsBool then
+        begin
+          lo := fmin(lo, Hs^.Pens[k].Now);
+          hi := fmax(hi, Hs^.Pens[k].Now);
+          for j := 0 to Hs^.Pens[k].Count - 1 do
+          begin
+            v := PenSample(Hs^.Pens[k], j);
+            lo := fmin(lo, v);
+            hi := fmax(hi, v);
+          end;
+        end;
+    if lo > hi then
+    begin
+      lo := 0;
+      hi := 1;
+    end;
+    if hi - lo < 1e-6 then
+    begin
+      lo := lo - 1;
+      hi := hi + 1;
+    end
+    else
+    begin
+      t := (hi - lo) * 0.08;
+      lo := lo - t;
+      hi := hi + t;
+    end;
+  end;
+  nb := 0;
+  for k := 0 to TREND_PENS - 1 do
+    if Hs^.Pens[k].Known and Hs^.Pens[k].IsBool then Inc(nb);
+  case E^.Mode of
+    TS_MINI:
+      begin
+        SetCol(18, 21, 26);
+        FillR(x, y, w, h);
+        SetCol(90, 94, 102);
+        RectR(x, y, w, h);
+        { the first pen's value, large }
+        for k := 0 to TREND_PENS - 1 do
+          if Hs^.Pens[k].Known then
+          begin
+            SetCol(PenRGB[k, 0], PenRGB[k, 1], PenRGB[k, 2]);
+            if Hs^.Pens[k].IsBool then
+            begin
+              if Hs^.Pens[k].Now > 0.5 then s := 'ON' else s := 'OFF';
+            end
+            else
+              s := Trim(TrendFmt(Hs^.Pens[k].Now) + ' ' + Hs^.Pens[k].UnitS);
+            TextR(x + 5, y + 5, s);
+            SetCol(140, 144, 152);
+            s := Copy(TrendPen(E^, k), 1, Max(0, Trunc((w - 16) / 8) - Length(s) - 1));
+            TextR(x + w - 5 - Length(s) * 8 / Zoom, y + 5, s);
+            Break;
+          end;
+        px := x + 4;
+        pw := w - 8;
+        py := y + 17;
+        ph := h - 21 - nb * 5;
+        for k := 0 to TREND_PENS - 1 do
+          if Hs^.Pens[k].Known and not Hs^.Pens[k].IsBool then DrawPenLine(Hs^.Pens[k], k, px, py, pw, ph, lo, hi, False);
+        m := 0;
+        for k := 0 to TREND_PENS - 1 do
+          if Hs^.Pens[k].Known and Hs^.Pens[k].IsBool then
+          begin
+            DrawPenStrip(Hs^.Pens[k], k, px, y + h - 4 - (nb - m) * 5 + 1, pw, 4);
+            Inc(m);
+          end;
+      end;
+    TS_CURVE:
+      for k := 0 to TREND_PENS - 1 do
+        if Hs^.Pens[k].Known then
+        begin
+          if Hs^.Pens[k].IsBool then DrawPenLine(Hs^.Pens[k], k, x, y, w, h, -0.1, 1.1, True)
+          else DrawPenLine(Hs^.Pens[k], k, x, y, w, h, lo, hi, False);
+        end;
+  else
+    begin
+      { the full chart: legend, the last event, value and time axes, grid, curves, event strip }
+      SetCol(18, 21, 26);
+      FillR(x, y, w, h);
+      SetCol(90, 94, 102);
+      RectR(x, y, w, h);
+      for k := 0 to TREND_PENS - 1 do
+        if TrendPen(E^, k) <> '' then
+        begin
+          if not Hs^.Pens[k].Known then s := '----'
+          else if Hs^.Pens[k].IsBool then
+          begin
+            if Hs^.Pens[k].Now > 0.5 then s := 'ON' else s := 'OFF';
+          end
+          else
+            s := Trim(TrendFmt(Hs^.Pens[k].Now) + ' ' + Hs^.Pens[k].UnitS);
+          s := TrendPen(E^, k) + ' ' + s;
+          SetCol(PenRGB[k, 0], PenRGB[k, 1], PenRGB[k, 2]);
+          TextR(x + 6 + k * (w - 8) / 4, y + 5, Copy(s, 1, Max(1, Trunc(((w - 8) / 4 - 6) * Zoom / 8))));
+        end;
+      if TrendEvent(Hs^, 0, ev) then
+      begin
+        if ev.IsOn then s := 'ON' else s := 'OFF';
+        SetCol(245, 205, 40);
+        TextR(x + 6, y + 17, Copy(Format('Last event: %s %s at %.1f s', [TrendPen(E^, ev.Pen), s, ev.T]), 1,
+          Max(1, Trunc((w - 12) * Zoom / 8))));
+      end;
+      px := x + 46;
+      pw := w - 54;
+      py := y + 30;
+      ph := h - 30 - 16 - nb * 10 - Ord(nb > 0) * 4;
+      if ph < 10 then ph := 10;
+      SetCol(48, 52, 60);
+      for k := 0 to 4 do
+        LineR(px, py + ph * k / 4, px + pw, py + ph * k / 4);
+      for k := 0 to 6 do
+        LineR(px + pw * k / 6, py, px + pw * k / 6, py + ph);
+      SetCol(150, 154, 162);
+      for k := 0 to 4 do
+        TextR(x + 3, py + ph * k / 4 - 4, Copy(TrendFmt(hi - (hi - lo) * k / 4), 1, 5));
+      for k := 0 to 6 do
+      begin
+        s := Format('%ds', [-Round(fmax(1, E^.Delay) * (6 - k) / 6)]);
+        TextR(px + pw * k / 6 - Length(s) * 4 / Zoom, y + h - 12, s);
+      end;
+      for k := 0 to TREND_PENS - 1 do
+        if Hs^.Pens[k].Known and not Hs^.Pens[k].IsBool then DrawPenLine(Hs^.Pens[k], k, px, py, pw, ph, lo, hi, False);
+      sy := py + ph + 4;
+      m := 0;
+      for k := 0 to TREND_PENS - 1 do
+        if Hs^.Pens[k].Known and Hs^.Pens[k].IsBool then
+        begin
+          DrawPenStrip(Hs^.Pens[k], k, px, sy + m * 10, pw, 8);
+          SetCol(PenRGB[k, 0], PenRGB[k, 1], PenRGB[k, 2]);
+          TextR(x + 3, sy + m * 10, Copy(TrendPen(E^, k), 1, 5));
+          Inc(m);
+        end;
+    end;
+  end;
+end;
+
+{ ---------------------------------------------------------------- timelines }
+
+var
+  { the pin picked in a timeline's Properties }
+  TLSel: Integer = -1;
+  { a number being typed }
+  TxtNum: string = '';
+  { a pin being dragged: its time before rounding }
+  DragTLT: Single = 0;
+
+function NumText(v: Single): string;
+var
+  fs: TFormatSettings;
+begin
+  fs := DefaultFormatSettings;
+  fs.DecimalSeparator := '.';
+  Result := FloatToStrF(v, ffGeneral, 7, 3, fs);
+end;
+
+function NumParse(const s: string; Def: Single): Single;
+var
+  fs: TFormatSettings;
+begin
+  fs := DefaultFormatSettings;
+  fs.DecimalSeparator := '.';
+  Result := StrToFloatDef(Trim(s), Def, fs);
+end;
+
+{ 'IN1', 'FIX2' }
+function TLPinShort(const E: TEquipObj; k: Integer): string;
+var
+  s: string;
+  p: Integer;
+begin
+  s := TLPinName(E, k);
+  p := LastDelimiter('.', s);
+  Result := Copy(s, p + 1, 8);
+end;
+
+function TLRunning(i: Integer): Boolean;
+begin
+  Result := Equips[i].State in [EQS_RUN, EQS_MSTART];
+end;
+
+function TLStateText(i: Integer): string;
+var
+  R: PTLRun;
+begin
+  R := TLState(i);
+  if TLRunning(i) then Result := 'RUN'
+  else if R^.Done then Result := 'DONE'
+  else if R^.Started then Result := 'PAUSED'
+  else Result := 'STOP';
+end;
+
+procedure DrawTimeline(i: Integer; x, y, w, h: Single);
+var
+  E: ^TEquipObj;
+  R: PTLRun;
+  k, j, nt: Integer;
+  L, x0, x1, ty, px, bw, t: Single;
+  s: string;
+  cr, cg, cb: Byte;
+begin
+  E := @Equips[i];
+  R := TLState(i);
+  L := fmax(0.1, E^.Delay);
+  SetCol(24, 27, 33);
+  FillR(x, y, w, h);
+  if TLRunning(i) then SetCol(70, 200, 100)
+  else if R^.Done then SetCol(80, 150, 240)
+  else SetCol(100, 104, 112);
+  RectR(x, y, w, h);
+  RectR(x + 1, y + 1, w - 2, h - 2);
+  { title: name, state, the clock }
+  SetCol(235, 235, 240);
+  TextR(x + 6, y + 5, Copy(E^.Name, 1, 18));
+  s := TLStateText(i);
+  if TLRunning(i) then SetCol(90, 230, 120) else if R^.Done then SetCol(110, 170, 255) else SetCol(170, 174, 182);
+  TextR(x + 6 + (Length(Copy(E^.Name, 1, 18)) + 1) * 8 / Zoom, y + 5, s);
+  s := Format('%.1f / %s s', [R^.Pos, NumText(L)]);
+  SetCol(235, 235, 240);
+  TextR(x + w - 6 - Length(s) * 8 / Zoom, y + 5, s);
+  if (E^.Mode and TL_LOOP) <> 0 then s := Format('Loop cycle %d', [R^.Cycles + 1]) else s := 'One cycle';
+  if (E^.Mode and TL_AUTO) <> 0 then s := s + ', auto start';
+  if E^.Src <> '' then s := s + ', start: ' + E^.Src;
+  if E^.Src2 <> '' then s := s + ', stop: ' + E^.Src2;
+  SetCol(150, 154, 162);
+  TextR(x + 6, y + 17, Copy(s, 1, Max(4, Trunc((w - 12) * Zoom / 8))));
+  { the track, what has run, the ticks }
+  TLTrack(E^, x0, x1, ty);
+  SetCol(56, 60, 68);
+  FillR(x0, ty - 3, x1 - x0, 6);
+  if R^.Started then
+  begin
+    SetCol(60, 120, 200);
+    FillR(x0, ty - 3, (x1 - x0) * fclamp(R^.Pos / L, 0, 1), 6);
+  end;
+  nt := 10;
+  SetCol(130, 134, 142);
+  for j := 0 to nt do
+  begin
+    px := x0 + (x1 - x0) * j / nt;
+    LineR(px, ty + 3, px, ty + 7);
+    if ((x1 - x0) / nt >= 40) or (j mod 2 = 0) then
+    begin
+      s := NumText(Round(L * j / nt * 10) / 10);
+      TextR(px - Length(s) * 4 / Zoom, y + h - 12, s);
+    end;
+  end;
+  { the pins: Input pins above the track, Fix pins below; colour by where the clock is }
+  for k := 0 to TL_PINS - 1 do
+    with E^.Pins[k] do
+    begin
+      if Kind = TLP_NONE then Continue;
+      px := x0 + (x1 - x0) * fclamp(T / L, 0, 1);
+      bw := (x1 - x0) * fclamp(fmin(fmax(0.05, W), L - T) / L, 0, 1);
+      if not R^.Started then
+      begin
+        if Kind = TLP_INPUT then begin cr := 90; cg := 170; cb := 255; end
+        else begin cr := 255; cg := 150; cb := 60; end;
+      end
+      else
+        case R^.P[k].Phase of
+          0: begin cr := 150; cg := 154; cb := 162; end;
+          1: begin cr := 250; cg := 215; cb := 60; end;
+        else
+          begin cr := 90; cg := 215; cb := 120; end;
+        end;
+      SetCol(cr, cg, cb, 150);
+      FillR(px, ty - 3, fmax(2 / Zoom, bw), 6);
+      SetCol(cr, cg, cb);
+      if R^.P[k].OutOK then s := ' ' + TrendFmt(R^.P[k].Out) else s := '';
+      if (Kind = TLP_INPUT) and R^.P[k].HeldOK and (R^.P[k].Phase >= 1) then s := ': ' + TrendFmt(R^.P[k].Held);
+      s := TLPinShort(E^, k) + s;
+      if Kind = TLP_INPUT then
+      begin
+        FillR(px - 1 / Zoom, ty - 28, 2 / Zoom, 25);
+        FillR(px - 4, ty - 36, 8, 8);
+        TextR(px + 6, ty - 36, s);
+      end
+      else
+      begin
+        FillR(px - 1 / Zoom, ty + 3, 2 / Zoom, 25);
+        FillR(px - 4, ty + 26, 8, 8);
+        TextR(px + 6, ty + 26, s);
+      end;
+      if (SelKind = selEquip) and (SelEq = i) and (TLSel = k) then
+      begin
+        SetCol(255, 255, 255);
+        if Kind = TLP_INPUT then RectR(px - 6, ty - 38, 12, 12) else RectR(px - 6, ty + 24, 12, 12);
+      end;
+    end;
+  { the clock }
+  if R^.Started then
+  begin
+    t := fclamp(R^.Pos / L, 0, 1);
+    px := x0 + (x1 - x0) * t;
+    SetCol(255, 255, 255);
+    FillR(px - 1 / Zoom, ty - 11, 2 / Zoom, 22);
+  end;
+end;
+
 { a text on 7-segment digits (digits, '-', ' ' and '.'), right-aligned at xr, mh high }
 procedure DrawSegStr(xr, y, mh: Single; const s: string; r, g, b: Byte);
 var
@@ -2173,6 +2948,71 @@ var
     if E^.Flip then RectR(x + w - tt - ww, yy, ww, hh) else RectR(x + tt, yy, ww, hh);
   end;
 
+  { an inclined belt / roller conveyor: steel frame on legs, return belt, troughing idlers,
+    the belt with marks moving along it, tail and head pulleys, the gear motor at the head }
+  procedure DrawTiltedBelt;
+  var
+    x1, y1, x2, y2, len, ux, uy, nx, ny, s, px, py, rr, off, hx, hy: Single;
+    j, m: Integer;
+  begin
+    ConveyorDeck(i, x1, y1, x2, y2);
+    len := Sqrt(Sqr(x2 - x1) + Sqr(y2 - y1));
+    ux := (x2 - x1) / len;
+    uy := (y2 - y1) / len;
+    nx := -uy;
+    ny := ux;
+    rr := 9;
+    { the support legs }
+    m := Max(2, Round(w / 200) + 1);
+    for j := 0 to m - 1 do
+    begin
+      px := x1 + 24 + (w - 48) * j / (m - 1);
+      py := y1 + (px - x1) * (y2 - y1) / (x2 - x1) + 20;
+      SetCol(38, 88, 168);
+      FillR(px - 3, py, 6, fmax(2, y + h - py));
+      FillR(px - 9, y + h - 4, 18, 4);
+    end;
+    { the frame, the return belt under it }
+    ThickLineC(x1 + nx * 15, y1 + ny * 15, x2 + nx * 15, y2 + ny * 15, 9, 38, 88, 168);
+    ThickLineC(x1 + nx * (2 * rr), y1 + ny * (2 * rr), x2 + nx * (2 * rr), y2 + ny * (2 * rr), 3, 46, 46, 52);
+    { troughing idlers }
+    s := 22;
+    while s < len - 18 do
+    begin
+      DiscC(x1 + ux * s + nx * 6, y1 + uy * s + ny * 6, 3.5, 176, 180, 188);
+      s := s + 32;
+    end;
+    { the belt and its moving marks }
+    ThickLineC(x1 + nx * 2, y1 + ny * 2, x2 + nx * 2, y2 + ny * 2, 4, 36, 36, 40);
+    off := Frac(E^.Phase * 0.5) * 24;
+    if E^.Flip then off := 24 - off;
+    SetCol(150, 154, 160);
+    s := rr + off;
+    while s < len - rr do
+    begin
+      FillR(x1 + ux * s + nx * 2 - 1.5, y1 + uy * s + ny * 2 - 1.5, 3, 3);
+      s := s + 24;
+    end;
+    { tail and head pulleys }
+    DiscC(x1 + nx * rr, y1 + ny * rr, rr, 150, 156, 166);
+    DiscC(x2 + nx * rr, y2 + ny * rr, rr, 150, 156, 166);
+    SetCol(70, 76, 86);
+    RingC(x1 + nx * rr, y1 + ny * rr, rr, False);
+    RingC(x2 + nx * rr, y2 + ny * rr, rr, False);
+    { the gear motor beside the head pulley (the end the belt runs to) }
+    if E^.Flip then
+    begin
+      hx := x1 + nx * rr;
+      hy := y1 + ny * rr;
+      DrawMotorBody(hx + 6, hy + rr + 4, 50, 26, False, r, g, b);
+    end
+    else
+    begin
+      hx := x2 + nx * rr;
+      hy := y2 + ny * rr;
+      DrawMotorBody(hx - 56, hy + rr + 4, 50, 26, True, r, g, b);
+    end;
+  end;
 begin
   E := @Equips[i];
   x := E^.X;
@@ -2291,6 +3131,205 @@ begin
         Shade(r, g, b, 0.5);
         ORect(mw, y + h * 0.14, gw, h * 0.72);
         DrawMotorBody(FX(0) - Ord(E^.Flip) * mw, y + (h - mh) / 2, mw, mh, not E^.Flip, r, g, b);
+      end;
+
+    EQ_DRYER:
+      begin
+        { a rotary drum: feed housing, shell on two tyres and rollers, girth gear and drive, discharge hood }
+        cy := y + h * 0.42;
+        rad := h * 0.3;
+        mw := w * 0.07;
+        gw := w * 0.09;
+        { base frame and the trunnion rollers }
+        SetCol(62, 64, 70);
+        FRect(mw, y + h - 10, w - mw - gw, 10);
+        for k := 0 to 1 do
+        begin
+          t := mw + (w - mw - gw) * (0.18 + 0.64 * k);
+          SetCol(62, 64, 70);
+          FRect(t - 3, cy + rad + 7, 6, fmax(1, y + h - 10 - (cy + rad + 7)));
+          DiscC(FX(t), cy + rad + 7, 7, 120, 124, 132);
+        end;
+        { the shell: its top and bottom walls; the cut-away middle shows what tumbles inside }
+        Shade(r, g, b, 0.95);
+        FRect(mw, cy - rad, w - mw - gw, rad * 0.38);
+        Shade(r, g, b, 0.7);
+        FRect(mw, cy + rad * 0.62, w - mw - gw, rad * 0.38);
+        Shade(r, g, b, 0.45);
+        ORect(mw, cy - rad, w - mw - gw, 2 * rad);
+        { lifting flights going round with the drum }
+        SetCol(225, 228, 234, 170);
+        a := Frac(E^.Phase * 0.12) * 18;
+        t := mw + 8 + a;
+        while t < w - gw - 8 do
+        begin
+          LineR(FX(t), cy - rad * 0.62, FX(t + 6), cy - rad * 0.36);
+          LineR(FX(t - 9), cy + rad * 0.62, FX(t - 15), cy + rad * 0.36);
+          t := t + 18;
+        end;
+        { two tyres }
+        for k := 0 to 1 do
+        begin
+          t := mw + (w - mw - gw) * (0.18 + 0.64 * k);
+          SetCol(150, 154, 162);
+          FRect(t - 5, cy - rad - 4, 10, 2 * rad + 8);
+          SetCol(80, 84, 92);
+          ORect(t - 5, cy - rad - 4, 10, 2 * rad + 8);
+        end;
+        { the girth gear, its teeth moving while it turns }
+        t := mw + (w - mw - gw) * 0.55;
+        SetCol(128, 116, 92);
+        FRect(t - 7, cy - rad - 6, 14, 2 * rad + 12);
+        SetCol(78, 70, 56);
+        a := Frac(E^.Phase * 0.12) * 5;
+        lx := cy - rad - 6 + a;
+        while lx < cy + rad + 4 do
+        begin
+          FRect(t - 9, lx, 18, 2);
+          lx := lx + 5;
+        end;
+        { its drive: motor and gearbox beside the gear, under the drum }
+        mh := fmax(8, y + h - 12 - (cy + rad + 3));
+        if E^.Flip then DrawMotorBody(FX(t + 14) - 46, cy + rad + 3, 46, mh, True, r, g, b)
+        else DrawMotorBody(FX(t + 14), cy + rad + 3, 46, mh, False, r, g, b);
+        { the feed housing and the discharge hood }
+        SetCol(150, 156, 166);
+        FRect(0, cy - rad - 8, mw, 2 * rad + 16);
+        FRect(w - gw, y, gw, h - 10);
+        SetCol(90, 96, 106);
+        ORect(0, cy - rad - 8, mw, 2 * rad + 16);
+        ORect(w - gw, y, gw, h - 10);
+        SetCol(60, 64, 72);
+        FRect(w - gw + gw * 0.3, y + h - 10, gw * 0.4, 10);
+      end;
+
+    EQ_WORKER:
+      begin
+        { an order picker: hard hat, hi-vis vest, arms that reach while working; what it carries in its hands }
+        if E^.Flip then k := -1 else k := 1;
+        cx := x + w / 2;
+        a := 0;
+        if EquipRunning(i) then a := Sin(E^.Phase * 0.9) * 0.5;
+        if E^.Heat > 0 then a := 0.9;
+        { legs and shoes }
+        SetCol(40, 48, 70);
+        FillR(cx - w * 0.22, y + h * 0.62, w * 0.18, h * 0.34);
+        FillR(cx + w * 0.04, y + h * 0.62, w * 0.18, h * 0.34);
+        SetCol(30, 30, 30);
+        FillR(cx - w * 0.26 + k * 2, y + h * 0.95, w * 0.24, h * 0.05);
+        FillR(cx + w * 0.02 + k * 2, y + h * 0.95, w * 0.24, h * 0.05);
+        { body: shirt, vest with its stripes }
+        SetCol(60, 90, 150);
+        FillR(cx - w * 0.28, y + h * 0.26, w * 0.56, h * 0.38);
+        SetCol(255, 120, 20);
+        FillR(cx - w * 0.26, y + h * 0.27, w * 0.52, h * 0.34);
+        SetCol(235, 240, 240);
+        FillR(cx - w * 0.26, y + h * 0.42, w * 0.52, h * 0.035);
+        FillR(cx - w * 0.26, y + h * 0.53, w * 0.52, h * 0.035);
+        { the arm in front: down, swinging, or reaching out with what it carries }
+        lx := cx + k * w * 0.22;
+        ly := y + h * 0.3;
+        mw := lx + k * w * (0.18 + 0.32 * a);
+        mh := ly + h * (0.28 - 0.16 * a);
+        ThickLineC(lx, ly, mw, mh, w * 0.14, 60, 90, 150);
+        DiscC(mw, mh, w * 0.08, 235, 190, 150);
+        if E^.Heat > 0 then DrawPiece(Round(E^.Heat) - 1, 0, mw + k * w * 0.15, mh + h * 0.06, 0.8);
+        { head and hard hat }
+        DiscC(cx, y + h * 0.16, w * 0.17, 235, 190, 150);
+        if EquipRunning(i) then SetCol(250, 200, 20) else SetCol(170, 170, 160);
+        FillR(cx - w * 0.2, y + h * 0.06, w * 0.4, h * 0.06);
+        if EquipRunning(i) then DiscC(cx, y + h * 0.08, w * 0.17, 250, 200, 20)
+        else DiscC(cx, y + h * 0.08, w * 0.17, 170, 170, 160);
+        SetCol(20, 20, 20);
+        FillR(cx + k * w * 0.08, y + h * 0.15, 2, 2);
+      end;
+
+    EQ_VAN:
+      begin
+        { a box van, its cab at the front (left; right when flipped) and its open cargo box }
+        if E^.Flip then k := -1 else k := 1;
+        mw := w * 0.3;
+        if E^.Flip then lx := x + w - mw else lx := x;
+        { the cab }
+        SetCol(220, 222, 226);
+        FillR(lx, y + h * 0.35, mw, h * 0.47);
+        SetCol(120, 170, 210);
+        if E^.Flip then FillR(lx + mw * 0.35, y + h * 0.4, mw * 0.55, h * 0.16)
+        else FillR(lx + mw * 0.1, y + h * 0.4, mw * 0.55, h * 0.16);
+        SetCol(90, 94, 102);
+        RectR(lx, y + h * 0.35, mw, h * 0.47);
+        { the cargo box: walls and roof; open so its load shows }
+        if E^.Flip then t := x else t := x + mw;
+        SetCol(238, 238, 240, 90);
+        FillR(t, y, w - mw, h * 0.82);
+        SetCol(200, 200, 205);
+        FillR(t, y, w - mw, 8);
+        FillR(t, y + h * 0.82 - 6, w - mw, 6);
+        SetCol(210, 40, 40);
+        FillR(t, y + 10, w - mw, 5);
+        SetCol(110, 114, 122);
+        RectR(t, y, w - mw, h * 0.82);
+        { the chassis and wheels }
+        SetCol(50, 52, 58);
+        FillR(x + 4, y + h * 0.82, w - 8, h * 0.05);
+        for n := 0 to 2 do
+        begin
+          case n of
+            0: t := 0.16;
+            1: t := 0.72;
+          else
+            t := 0.86;
+          end;
+          if E^.Flip then t := 1 - t;
+          DiscC(x + w * t, y + h * 0.89, h * 0.1, 30, 30, 34);
+          DiscC(x + w * t, y + h * 0.89, h * 0.04, 150, 154, 160);
+        end;
+      end;
+
+    EQ_RACK:
+      begin
+        { a standard rack: uprights, beams, the boxes on its shelves }
+        SetCol(38, 88, 168);
+        FillR(x, y, 6, h);
+        FillR(x + w - 6, y, 6, h);
+        n := Max(2, Round(h / 80));
+        for k := 0 to n do
+        begin
+          ty := y + h - 6 - (h - 12) * k / n;
+          SetCol(255, 140, 20);
+          FillR(x, ty, w, 5);
+          if k < n then
+          begin
+            t := x + 10;
+            while t + 30 < x + w - 8 do
+            begin
+              DrawPiece(PK_BOX, (k + Round(t)) mod 3, t + 15, ty, fmin(1, (h / n - 10) / PieceH[PK_BOX]));
+              t := t + 36;
+            end;
+          end;
+        end;
+      end;
+
+    EQ_ITEMFEEDER:
+      begin
+        { a magazine: a steel box with a window showing what it holds, its chute below }
+        SetCol(150, 156, 166);
+        FillR(x, y, w, h * 0.78);
+        SetCol(90, 96, 106);
+        RectR(x, y, w, h * 0.78);
+        SetCol(30, 34, 40);
+        FillR(x + w * 0.12, y + h * 0.06, w * 0.76, h * 0.6);
+        k := EnsureRange(E^.Mode, 0, PK_MIXED);
+        for n := 0 to 1 do
+        begin
+          if k = PK_MIXED then rad := Min(w * 0.6 / PieceW[(n * 2 + 1) mod PK_KINDS], h * 0.28 / PieceH[(n * 2 + 1) mod PK_KINDS])
+          else rad := Min(w * 0.6 / PieceW[k], h * 0.28 / PieceH[k]);
+          if k = PK_MIXED then DrawPiece((n * 2 + 1) mod PK_KINDS, n, x + w / 2, y + h * 0.36 + n * h * 0.3, fmin(1, rad))
+          else DrawPiece(k, n, x + w / 2, y + h * 0.36 + n * h * 0.3, fmin(1, rad));
+        end;
+        QuadC(x + w * 0.08, y + h * 0.78, x + w * 0.92, y + h * 0.78, x + w * 0.74, y + h, x + w * 0.26, y + h, 120, 126, 136);
+        SetCol(r, g, b);
+        FillR(x, y + h * 0.7, w, 4);
       end;
 
     EQ_CYCLONE:
@@ -2936,6 +3975,11 @@ begin
         FillR(x + w * 0.74 + 12, y + h * 0.5, 6, 6);
       end;
 
+    EQ_TREND:
+      DrawTrend(i, x, y, w, h);
+    EQ_TIMELINE:
+      DrawTimeline(i, x, y, w, h);
+
     EQ_PANEL:
       begin
         { an electrical cabinet: steel frame, mounting plate, door seam and handle }
@@ -2959,6 +4003,7 @@ begin
       end;
 
     EQ_CONVEYOR, EQ_BELT:
+      if ConveyorTilt(i) <> 0 then DrawTiltedBelt else
       begin
         ty := y + h * 0.2;       { the deck top }
         mh := h * 0.3;           { deck height }
@@ -3454,6 +4499,303 @@ begin
   for i := 0 to MAX_EQUIP - 1 do
     if Equips[i].Active and LayerShown(Equips[i].Layer) and (EquipFront(Equips[i].Kind) = Front) then
       DrawEquipShape(i);
+end;
+
+{ ---------------------------------------------------------------- flow charts }
+
+var
+  FlowFrom: Integer = -1;        { the Arrow tool: the node an arrow starts from }
+  FlowFromNo: Boolean = False;   { ... from its No exit (the right side of a decision) }
+  JumpBackPage: Integer = -1;    { after a jump from a flow chart: the page to come back to, -1 none }
+  JumpBackNode: Integer = -1;
+  JumpFlash: Single = 0;         { seconds the item jumped to still blinks }
+
+{ the Back button over the canvas while a jump can be undone (canvas coordinates, not zoomed) }
+function JumpBackRect(out x, y, w, h: Single): Boolean;
+begin
+  w := 300;
+  h := 22;
+  x := (CANVAS_W - w) / 2;
+  y := 6;
+  Result := JumpBackPage >= 0;
+end;
+
+function FlowVisible(i: Integer): Boolean;
+begin
+  Result := FlowNodes[i].Active and LayerShown(FlowNodes[i].Layer);
+end;
+
+{ the topmost node at wx, wy that can be picked (shown and not locked), -1 if none }
+function FlowPick(wx, wy: Single): Integer;
+var
+  i: Integer;
+begin
+  for i := MAX_FLOW - 1 downto 0 do
+    if FlowNodes[i].Active and LayerEditable(FlowNodes[i].Layer) and (wx >= FlowNodes[i].X) and
+      (wx < FlowNodes[i].X + FlowNodes[i].W) and (wy >= FlowNodes[i].Y) and (wy < FlowNodes[i].Y + FlowNodes[i].H) then
+      Exit(i);
+  Result := -1;
+end;
+
+{ where an arrow leaves node i: the bottom, or (No) the right side }
+procedure FlowExit(i: Integer; No: Boolean; out ex, ey: Single);
+var
+  N: ^TFlowNode;
+begin
+  N := @FlowNodes[i];
+  if No then
+  begin
+    ex := N^.X + N^.W;
+    ey := N^.Y + N^.H / 2;
+  end
+  else
+  begin
+    ex := N^.X + N^.W / 2;
+    ey := N^.Y + N^.H;
+  end;
+end;
+
+{ an arrow from node a (its bottom, or its right side for No) to the top of node b, in right angles;
+  yellow while the scan takes it }
+procedure DrawFlowArrow(a, b: Integer; No, Hot: Boolean);
+var
+  ax, ay, bx, by, my, lx, t: Single;
+  r, g, bb: Byte;
+
+  procedure Seg(x1, y1, x2, y2: Single);
+  begin
+    ThickLineC(x1, y1, x2, y2, t, r, g, bb);
+  end;
+
+begin
+  FlowExit(a, No, ax, ay);
+  bx := FlowNodes[b].X + FlowNodes[b].W / 2;
+  by := FlowNodes[b].Y;
+  if Hot then
+  begin
+    r := 245; g := 205; bb := 40; t := 3;
+  end
+  else
+  begin
+    r := 140; g := 146; bb := 156; t := 2;
+  end;
+  if No and (ay >= FlowNodes[b].Y) and (ay <= FlowNodes[b].Y + FlowNodes[b].H) and (FlowNodes[b].X > ax + 10) then
+  begin
+    { beside it on the same row: across into its left side }
+    my := FlowNodes[b].Y + FlowNodes[b].H / 2;
+    lx := (ax + FlowNodes[b].X) / 2;
+    Seg(ax, ay, lx, ay);
+    Seg(lx, ay, lx, my);
+    Seg(lx, my, FlowNodes[b].X, my);
+    TriC(FlowNodes[b].X - 9, my - 6, FlowNodes[b].X - 9, my + 6, FlowNodes[b].X, my, r, g, bb);
+    Exit;
+  end;
+  if No then
+  begin
+    Seg(ax, ay, ax + 14, ay);
+    ax := ax + 14;
+    if (by > ay + 6) and (bx > ax) then
+    begin
+      Seg(ax, ay, bx, ay);
+      Seg(bx, ay, bx, by);
+    end
+    else if by > ay + 6 then
+    begin
+      Seg(ax, ay, ax, by - 12);
+      Seg(ax, by - 12, bx, by - 12);
+      Seg(bx, by - 12, bx, by);
+    end
+    else
+    begin
+      { back up: round the right of both }
+      lx := fmax(ax, FlowNodes[b].X + FlowNodes[b].W + 14);
+      Seg(ax, ay, lx, ay);
+      Seg(lx, ay, lx, by - 12);
+      Seg(lx, by - 12, bx, by - 12);
+      Seg(bx, by - 12, bx, by);
+    end;
+  end
+  else if by > ay + 6 then
+  begin
+    my := (ay + by) / 2;
+    Seg(ax, ay, ax, my);
+    Seg(ax, my, bx, my);
+    Seg(bx, my, bx, by);
+  end
+  else
+  begin
+    { back up: round the left of both }
+    lx := fmin(FlowNodes[a].X, FlowNodes[b].X) - 18;
+    Seg(ax, ay, ax, ay + 12);
+    Seg(ax, ay + 12, lx, ay + 12);
+    Seg(lx, ay + 12, lx, by - 12);
+    Seg(lx, by - 12, bx, by - 12);
+    Seg(bx, by - 12, bx, by);
+  end;
+  TriC(bx - 6, by - 9, bx + 6, by - 9, bx, by, r, g, bb);
+end;
+
+{ a line of text centred at cx (canvas pixels); it keeps its size when zoomed, so it is cut to fit MaxW }
+procedure FlowText(cx, y: Single; const s: string; MaxW: Single);
+var
+  t: string;
+begin
+  t := Copy(s, 1, Max(1, Trunc(MaxW * Zoom / 8)));
+  TextR(cx - Length(t) * 4 / Zoom, y, t);
+end;
+
+procedure DrawFlowNode(i: Integer);
+var
+  N: ^TFlowNode;
+  x, y, w, h, cx, cy, f, avail: Single;
+  r, g, b: Byte;
+  s: string;
+
+  { the node's shape, grown by gr (an outline is the shape drawn larger first) }
+  procedure Shape(gr: Single; sr, sg, sb: Byte);
+  begin
+    case N^.Kind of
+      FN_START, FN_END:
+        begin
+          SetCol(sr, sg, sb);
+          FillR(x + h / 2, y - gr, w - h, h + 2 * gr);
+          DiscC(x + h / 2, cy, h / 2 + gr, sr, sg, sb);
+          DiscC(x + w - h / 2, cy, h / 2 + gr, sr, sg, sb);
+        end;
+      FN_INPUT:
+        QuadC(x + 14 - gr * 0.5, y - gr, x + w + gr, y - gr, x + w - 14 + gr * 0.5, y + h + gr, x - gr, y + h + gr, sr, sg, sb);
+      FN_DECISION:
+        QuadC(cx, y - gr * 1.4, x + w + gr * 1.4, cy, cx, y + h + gr * 1.4, x - gr * 1.4, cy, sr, sg, sb);
+      FN_DELAY:
+        begin
+          SetCol(sr, sg, sb);
+          FillR(x - gr, y - gr, w - h / 2 + gr, h + 2 * gr);
+          DiscC(x + w - h / 2, cy, h / 2 + gr, sr, sg, sb);
+        end;
+    else
+      begin
+        SetCol(sr, sg, sb);
+        FillR(x - gr, y - gr, w + 2 * gr, h + 2 * gr);
+      end;
+    end;
+  end;
+
+begin
+  N := @FlowNodes[i];
+  x := N^.X;
+  y := N^.Y;
+  w := N^.W;
+  h := N^.H;
+  cx := x + w / 2;
+  cy := y + h / 2;
+  case N^.Kind of
+    FN_START, FN_END: begin r := 60; g := 110; b := 170; end;
+    FN_INPUT: begin r := 64; g := 86; b := 120; end;
+    FN_DECISION, FN_DISPLAY:
+      if not N^.Known then begin r := 96; g := 100; b := 108; end
+      else if N^.Yes then begin r := 40; g := 150; b := 75; end
+      else begin r := 185; g := 55; b := 55; end;
+    FN_ACTION:
+      if N^.Hit then begin r := 215; g := 145; b := 35; end
+      else begin r := 96; g := 100; b := 110; end;
+    FN_RANDOM:
+      if N^.RType <> FR_BOOL then begin r := 36; g := 128; b := 140; end
+      else if N^.BoolV then begin r := 40; g := 150; b := 75; end
+      else begin r := 185; g := 55; b := 55; end;
+  else
+    begin r := 100; g := 84; b := 150; end;
+  end;
+  if N^.Hit then Shape(3, 245, 205, 40) else Shape(1.5, 28, 32, 38);
+  Shape(0, r, g, b);
+  case N^.Kind of
+    FN_ACTION:
+      begin
+        SetCol(255, 255, 255, 90);
+        LineR(x + 8, y, x + 8, y + h);
+        LineR(x + w - 8, y, x + w - 8, y + h);
+      end;
+    FN_DISPLAY:
+      begin
+        SetCol(18, 21, 26);
+        FillR(x + 8, y + h * 0.46, w - 16, h * 0.42);
+      end;
+    FN_RANDOM:
+      begin
+        { a die in its corner }
+        SetCol(245, 245, 248);
+        FillR(x + 4, y + 4, 14, 14);
+        DiscC(x + 7.5, y + 7.5, 1.6, 30, 34, 40);
+        DiscC(x + 11, y + 11, 1.6, 30, 34, 40);
+        DiscC(x + 14.5, y + 14.5, 1.6, 30, 34, 40);
+      end;
+    FN_DELAY:
+      if N^.Value > 0 then
+      begin
+        f := fclamp(N^.Timer / N^.Value, 0, 1);
+        SetCol(255, 255, 255, 80);
+        FillR(x, y + h - 6, (w - h / 2) * f, 6);
+      end;
+  end;
+  if (SelKind = selFlow) and (SelFl = i) then
+  begin
+    SetC(Th.Select);
+    RectR(x - 6, y - 6, w + 12, h + 12);
+    RectR(x - 7, y - 7, w + 14, h + 14);
+  end;
+  { the text: its caption, and what it reads / does }
+  if N^.Kind = FN_DECISION then avail := w * 0.62 else avail := w * 0.9;
+  s := FlowLine2(N^);
+  SetCol(255, 255, 255);
+  if N^.Kind = FN_DISPLAY then
+  begin
+    FlowText(cx, y + h * 0.22 - 4 / Zoom, N^.Caption, avail);
+    if not N^.Known then SetCol(150, 152, 158)
+    else if N^.Yes then SetCol(90, 240, 130)
+    else SetCol(255, 110, 100);
+    FlowText(cx, y + h * 0.67 - 4 / Zoom, s, avail);
+  end
+  else if s = '' then
+    FlowText(cx, cy - 4 / Zoom, N^.Caption, avail)
+  else
+  begin
+    FlowText(cx, cy - 10 / Zoom, N^.Caption, avail);
+    SetCol(228, 232, 240);
+    FlowText(cx, cy + 2 / Zoom, s, avail);
+  end;
+end;
+
+procedure DrawFlow;
+var
+  i: Integer;
+  ex, ey: Single;
+begin
+  for i := 0 to MAX_FLOW - 1 do
+    if FlowVisible(i) then
+    begin
+      if (FlowNodes[i].Next >= 0) and FlowVisible(FlowNodes[i].Next) then
+        DrawFlowArrow(i, FlowNodes[i].Next, False, FlowNodes[i].Hit and (FlowNodes[i].Taken = 1));
+      if FlowTwoWays(i) and (FlowNodes[i].Next2 >= 0) and FlowVisible(FlowNodes[i].Next2) then
+        DrawFlowArrow(i, FlowNodes[i].Next2, True, FlowNodes[i].Hit and (FlowNodes[i].Taken = 2));
+    end;
+  for i := 0 to MAX_FLOW - 1 do
+    if FlowVisible(i) then DrawFlowNode(i);
+  { Yes / No at a decision's exits }
+  for i := 0 to MAX_FLOW - 1 do
+    if FlowVisible(i) and FlowTwoWays(i) then
+    begin
+      FlowExit(i, False, ex, ey);
+      SetCol(70, 220, 110);
+      TextR(ex + 5 / Zoom, ey + 3 / Zoom, 'Yes');
+      FlowExit(i, True, ex, ey);
+      SetCol(240, 90, 80);
+      TextR(ex + 3 / Zoom, ey - 12 / Zoom, 'No');
+    end;
+  { an arrow being drawn }
+  if (Drag = dragFlowArrow) and (FlowFrom >= 0) and FlowNodes[FlowFrom].Active then
+  begin
+    FlowExit(FlowFrom, FlowFromNo, ex, ey);
+    ThickLineC(ex, ey, MWX, MWY, 2, 245, 205, 40);
+  end;
 end;
 
 procedure DrawEquipTexts;
@@ -4634,6 +5976,8 @@ end;
 
 procedure DrawCanvas;
 var
+  jx, jy, jw, jh: Single;
+  jt: string;
   x, y, i, gx, gy: Integer;
   c: PCell;
   cr: TSDL_Rect;
@@ -4649,8 +5993,8 @@ begin
   cr.h := CANVAS_H;
   SDL_SetRenderClipRect(Ren, @cr);
   CanvasXf := True;
-  SetC(Th.CanvasBg);
-  FillR(0, 0, CANVAS_W, CANVAS_H);
+  if LayoutBg >= 0 then DrawBackgroundAt(LayoutBg, 0, 0, CANVAS_W, CANVAS_H)
+  else DrawBackgroundAt(BgIndex, 0, 0, CANVAS_W, CANVAS_H);
   DrawGrid;
   DrawFrames;
   SetC(Th.Floor);
@@ -4675,6 +6019,7 @@ begin
 
   DrawPipes;
   DrawParticles;
+  DrawPieces;
   for y := 0 to GH - 1 do
     for x := 0 to GW - 1 do
       if (Grid[x, y].Kind > ckPipe) and LayerShown(Grid[x, y].Layer) then DrawDevice(x, y);
@@ -4685,6 +6030,7 @@ begin
   DrawFluid;
   DrawEquipTexts;
   DrawLabels;
+  DrawFlow;
   DrawLinks;
   if Drag = dragFrameNew then
   begin
@@ -4712,7 +6058,31 @@ begin
     RectR(SelFX * CELL - 1, SelFY * CELL - 1, CELL + 2, CELL + 2);
     RectR(SelFX * CELL - 2, SelFY * CELL - 2, CELL + 4, CELL + 4);
   end;
-  if SelKind = selCell then
+  { after a jump from a flow chart: the item blinks, a button leads back }
+  JumpFlash := fmax(0, JumpFlash - FrameDt);
+  if (JumpFlash > 0) and (Frac(JumpFlash * 2) < 0.6) then
+  begin
+    SetCol(245, 205, 40);
+    case SelKind of
+      selEquip:
+        if (SelEq >= 0) and Equips[SelEq].Active then
+          with Equips[SelEq] do
+          begin
+            RectR(X - 6, Y - 6, W + 12, H + 12);
+            RectR(X - 8, Y - 8, W + 16, H + 16);
+          end;
+      selECell:
+        begin
+          RectR(SelEX * CELL - 6, SelEY * CELL - 6, CELL + 12, CELL + 12);
+          RectR(SelEX * CELL - 8, SelEY * CELL - 8, CELL + 16, CELL + 16);
+        end;
+      selFCell:
+        begin
+          RectR(SelFX * CELL - 6, SelFY * CELL - 6, CELL + 12, CELL + 12);
+          RectR(SelFX * CELL - 8, SelFY * CELL - 8, CELL + 16, CELL + 16);
+        end;
+    end;
+  end;  if SelKind = selCell then
   begin
     SetC(Th.Select);
     RectR(SelX * CELL - 1, SelY * CELL - 1, CELL + 2, CELL + 2);
@@ -4758,7 +6128,16 @@ begin
   { overlays below are fixed to the canvas area, not to the zoomed layout }
   CanvasXf := False;
   if GridShow and GridNumbers then DrawGridNumbers;
-  SDL_SetRenderClipRect(Ren, nil);
+  if JumpBackRect(jx, jy, jw, jh) then
+  begin
+    if (MX >= jx) and (MX < jx + jw) and (MY >= jy) and (MY < jy + jh) then SetC(Th.BtnHot) else SetC(Th.BtnBg);
+    FillR(jx, jy, jw, jh);
+    SetCol(245, 205, 40);
+    RectR(jx, jy, jw, jh);
+    SetC(Th.Text);
+    jt := Format('< Back to flow chart (page %d)', [JumpBackPage + 1]);
+    TextR(jx + (jw - Length(jt) * 8) / 2, jy + 7, jt);
+  end;  SDL_SetRenderClipRect(Ren, nil);
   if Zoom <> 1 then
   begin
     SetC(Th.OverlayBg, 210);
@@ -5314,6 +6693,7 @@ begin
   PagesReset;
   ClearAll;
   GravityScale := 1;
+  LayoutBg := -1;
   CurrentFile := '';
   LayoutName := '';
   AfterLayoutChange;
@@ -5480,6 +6860,7 @@ begin
     selEquip: Result := Equips[SelEq].Name;
     selECell: Result := EKindNames[EGrid[SelEX, SelEY].Kind] + ' ' + EGrid[SelEX, SelEY].Tag;
     selFCell: Result := FKindNames[FGrid[SelFX, SelFY].Kind] + ' ' + FGrid[SelFX, SelFY].Tag;
+    selFlow: Result := FlowKindNames[FlowNodes[SelFl].Kind] + ' ' + FlowNodes[SelFl].Caption;
     selMulti:
       begin
         CountSelection(np, nb);
@@ -5497,7 +6878,7 @@ var
   x1, y1, x2, y2, x, y, i, n: Integer;
 begin
   Result := False;
-  if SelKind in [selNone, selFrame, selLink] then Exit;
+  if SelKind in [selNone, selFrame, selLink, selFlow] then Exit;
   SelRect(x1, y1, x2, y2);
   B.W := x2 - x1 + 1;
   B.H := y2 - y1 + 1;
@@ -5822,8 +7203,12 @@ procedure StopEditFrame; forward;
 function TxtMax: Integer;
 begin
   case TxtEdit of
-    1, 5: Result := 40;
-    2, 6: Result := 24;
+    1, 5, 9: Result := 40;
+    2, 6, 10..20, 27, 28, 30, 31, 36: Result := 24;
+    34, 35: Result := 32;
+    32: Result := 60;
+    29, 33: Result := 6;
+    21..26: Result := 14;
     7, 8: Result := 12;
     3: Result := 60;
     4: Result := 255;
@@ -5844,6 +7229,26 @@ begin
     6: Result := Equips[TxtIdx].Name;
     7: Result := EGrid[TxtIdx mod GW, TxtIdx div GW].Tag;
     8: Result := FGrid[TxtIdx mod GW, TxtIdx div GW].Tag;
+    9: Result := FlowNodes[TxtIdx].Caption;
+    10: Result := FlowNodes[TxtIdx].Src;
+    11: Result := FlowNodes[TxtIdx].Target;
+    12: Result := Equips[TxtIdx].Src;
+    13: Result := Equips[TxtIdx].Src2;
+    14: Result := Equips[TxtIdx].Src3;
+    15: Result := Equips[TxtIdx].Src4;
+    16: Result := Equips[TxtIdx].Src;
+    17: Result := Equips[TxtIdx].Pins[EnsureRange(TLSel, 0, TL_PINS - 1)].Src;
+    18..20: Result := Equips[TxtIdx].Pins[EnsureRange(TLSel, 0, TL_PINS - 1)].Dest[TxtEdit - 18];
+    21..26: Result := TxtNum;
+    27: Result := Equips[TxtIdx].Src2;
+    28: Result := IPCServerName;
+    29, 33: Result := TxtNum;
+    30: Result := IPCClientName;
+    31: Result := IPCTargets[EnsureRange(TxtIdx, 0, IPC_MAX_TARGETS - 1)].Name;
+    32: Result := IPCTargets[EnsureRange(TxtIdx, 0, IPC_MAX_TARGETS - 1)].Host;
+    34: Result := IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Name;
+    35: Result := IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Link;
+    36: Result := IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Peer;
   end;
 end;
 
@@ -5858,12 +7263,75 @@ begin
     6: Equips[TxtIdx].Name := s;
     7: EGrid[TxtIdx mod GW, TxtIdx div GW].Tag := s;
     8: FGrid[TxtIdx mod GW, TxtIdx div GW].Tag := s;
+    9: FlowNodes[TxtIdx].Caption := s;
+    10: FlowNodes[TxtIdx].Src := s;
+    11: FlowNodes[TxtIdx].Target := s;
+    12: Equips[TxtIdx].Src := s;
+    13: Equips[TxtIdx].Src2 := s;
+    14: Equips[TxtIdx].Src3 := s;
+    15: Equips[TxtIdx].Src4 := s;
+    16: Equips[TxtIdx].Src := s;
+    17: Equips[TxtIdx].Pins[EnsureRange(TLSel, 0, TL_PINS - 1)].Src := s;
+    18..20: Equips[TxtIdx].Pins[EnsureRange(TLSel, 0, TL_PINS - 1)].Dest[TxtEdit - 18] := s;
+    21..26:
+      begin
+        TxtNum := s;
+        with Equips[TxtIdx].Pins[EnsureRange(TLSel, 0, TL_PINS - 1)] do
+          case TxtEdit of
+            21..23: V[TxtEdit - 21] := NumParse(s, V[TxtEdit - 21]);
+            24: T := fclamp(NumParse(s, T), 0, fmax(0.1, Equips[TxtIdx].Delay));
+            26: W := fclamp(NumParse(s, W), 0.05, 3600);
+          else
+            Equips[TxtIdx].Delay := fclamp(NumParse(s, Equips[TxtIdx].Delay), 1, 3600);
+          end;
+      end;
+    27: Equips[TxtIdx].Src2 := s;
+    28: IPCServerName := s;
+    29, 33: TxtNum := s;
+    30: IPCClientName := s;
+    31: IPCTargets[EnsureRange(TxtIdx, 0, IPC_MAX_TARGETS - 1)].Name := s;
+    32: IPCTargets[EnsureRange(TxtIdx, 0, IPC_MAX_TARGETS - 1)].Host := s;
+    34: IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Name := s;
+    35: IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Link := s;
+    36: IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Peer := s;
   end;
+end;
+
+var
+  { the IPC files (next to the program; none in test runs) and an edit not saved yet }
+  IPCNetPath: string = '';
+  IPCIOPath: string = '';
+  IPCChanged: Boolean = False;
+
+procedure IPCSaveFiles;
+var
+  err: string;
+begin
+  IPCChanged := False;
+  if IPCNetPath <> '' then
+    if not IPCSaveNet(IPCNetPath, err) then SetStatus('IPC network: ' + err, True);
+  if IPCIOPath <> '' then
+    if not IPCSaveIO(IPCIOPath, err) then SetStatus('IPC inputs / outputs: ' + err, True);
+end;
+
+procedure IPCReloadFiles;
+var
+  err: string;
+begin
+  if (IPCNetPath <> '') and FileExists(IPCNetPath) then
+    if not IPCLoadNet(IPCNetPath, err) then SetStatus('IPC network: ' + err, True);
+  if (IPCIOPath <> '') and FileExists(IPCIOPath) then
+    if not IPCLoadIO(IPCIOPath, err) then SetStatus('IPC inputs / outputs: ' + err, True);
 end;
 
 procedure StopTxt;
 begin
   if TxtEdit = 0 then Exit;
+  { a port typed in: it is used now }
+  if TxtEdit = 29 then IPCServerPort := EnsureRange(Round(NumParse(TxtNum, IPCServerPort)), 1, 65535);
+  if (TxtEdit = 33) and (TxtIdx >= 0) and (TxtIdx < IPC_MAX_TARGETS) then
+    IPCTargets[TxtIdx].Port := EnsureRange(Round(NumParse(TxtNum, IPCTargets[TxtIdx].Port)), 1, 65535);
+  if TxtEdit in [28..36] then IPCChanged := True;
   TxtEdit := 0;
   TxtIdx := -1;
   if Win <> nil then SDL_StopTextInput(Win);
@@ -5872,14 +7340,27 @@ end;
 { Kind: 1 page name, 2 layer name, 3 popup title, 4 popup text, 5 link caption }
 procedure StartTxt(Kind, Idx: Integer);
 const
-  What: array[1..8] of string = ('the page name', 'the layer name', 'the popup title', 'the popup text',
-    'the link caption', 'the equipment name', 'the tag', 'the tag');
+  What: array[1..36] of string = ('the page name', 'the layer name', 'the popup title', 'the popup text',
+    'the link caption', 'the equipment name', 'the tag', 'the tag', 'the node''s text', 'what it reads',
+    'what it works', 'pen 1', 'pen 2', 'pen 3', 'pen 4', 'what starts it', 'what the pin reads',
+    'where it sends before its time', 'where it sends at its time', 'where it sends after its time',
+    'the value before', 'the value at its time', 'the value after', 'the pin''s time', 'the length', 'how long at it', 'what stops it',
+    'the server''s name', 'the server''s port', 'the client''s name', 'the server''s name', 'the server''s address',
+    'the server''s port', 'the point''s name', 'the part it is linked to', 'the peer');
 begin
   StopEditLabel;
   StopEditFrame;
   StopTxt;
   TxtEdit := Kind;
   TxtIdx := Idx;
+  case Kind of
+    21..23: TxtNum := NumText(Equips[Idx].Pins[EnsureRange(TLSel, 0, TL_PINS - 1)].V[Kind - 21]);
+    24: TxtNum := NumText(Equips[Idx].Pins[EnsureRange(TLSel, 0, TL_PINS - 1)].T);
+    25: TxtNum := NumText(Equips[Idx].Delay);
+    26: TxtNum := NumText(Equips[Idx].Pins[EnsureRange(TLSel, 0, TL_PINS - 1)].W);
+    29: TxtNum := IntToStr(IPCServerPort);
+    33: TxtNum := IntToStr(IPCTargets[EnsureRange(Idx, 0, IPC_MAX_TARGETS - 1)].Port);
+  end;
   OpenMenu := -1;
   PopupOpen := False;
   if Win <> nil then SDL_StartTextInput(Win);
@@ -6542,6 +8023,7 @@ begin
     selEquip: if not LayerEditable(Equips[SelEq].Layer) then SelKind := selNone;
     selECell: if not LayerEditable(EGrid[SelEX, SelEY].Layer) then SelKind := selNone;
     selFCell: if not LayerEditable(FGrid[SelFX, SelFY].Layer) then SelKind := selNone;
+    selFlow: if not LayerEditable(FlowNodes[SelFl].Layer) then SelKind := selNone;
   end;
   if (EditLabel >= 0) and not LayerEditable(Labels[EditLabel].Layer) then StopEditLabel;
   if (EditFrame >= 0) and not LayerEditable(Frames[EditFrame].Layer) then StopEditFrame;
@@ -6597,6 +8079,7 @@ begin
     selEquip: begin Equips[SelEq].Layer := CurLayer; n := 1; end;
     selECell: begin EGrid[SelEX, SelEY].Layer := CurLayer; n := 1; end;
     selFCell: begin FGrid[SelFX, SelFY].Layer := CurLayer; n := 1; end;
+    selFlow: begin FlowNodes[SelFl].Layer := CurLayer; n := 1; end;
     selMulti:
       begin
         for i := 0 to MAX_BUCKETS - 1 do
@@ -7099,6 +8582,9 @@ begin
   if rg <= 20 then Result := 2 else if rg <= 300 then Result := 1 else Result := 0;
 end;
 
+procedure DrawTrendProps(i: Integer; var y: Single); forward;
+procedure DrawTimelineProps(i: Integer; var y: Single); forward;
+
 procedure DrawEquipProps(y: Single);
 var
   l1, l2, l3: string;
@@ -7131,6 +8617,11 @@ begin
   if E^.Kind = EQ_SEQUENCE then
   begin
     DrawSequenceProps(i, y);
+    Exit;
+  end;
+  if E^.Kind = EQ_TIMELINE then
+  begin
+    DrawTimelineProps(i, y);
     Exit;
   end;
   if EquipActuated(E^.Kind) or (E^.Kind = EQ_LAMP) then
@@ -7179,7 +8670,7 @@ begin
     y := y + 42;
   end;
   case E^.Kind of
-    EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW: EquipLinkRow(i, y, 'stop halts it');
+    EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW, EQ_DRYER: EquipLinkRow(i, y, 'stop halts it');
     EQ_SHUTTER, EQ_SLIDE: EquipLinkRow(i, y, 'opens / shuts it');
     EQ_DIVERTER:
       begin
@@ -7207,6 +8698,64 @@ begin
     EQ_SILO: EquipLinkRow(i, y, 'shows its level');
     EQ_LAMP: EquipLinkRow(i, y, 'lit while it flows');
   end;
+  if E^.Kind = EQ_WORKER then
+  begin
+    { a loader puts pieces down in front, a picker lifts them off and puts them down behind }
+    if Button(1230, QX, y, 136, 18, 'Loader', E^.Mode = 0) then E^.Mode := 0;
+    if Button(1231, QX + 142, y, 138, 18, 'Picker', E^.Mode = 1) then E^.Mode := 1;
+    y := y + 22;
+    if E^.Mode = 0 then Info(y, 'Takes pieces from its rack, puts them in front')
+    else Info(y, 'Lifts pieces in front, puts them down behind');
+    y := y + 12;
+    if E^.Mode = 0 then Info(y, 'What it loads:') else Info(y, 'What it picks:');
+    y := y + 12;
+    for s := 0 to PK_KINDS do
+    begin
+      if (s = PK_KINDS) and (E^.Mode = 1) then s0 := 'Any' else s0 := PieceNames[s];
+      if Button(1232 + s, QX + (s mod 3) * 94, y + (s div 3) * 22, 90, 18, s0, Round(E^.Level) = s) then E^.Level := s;
+    end;
+    y := y + 46;
+    v := E^.RMin;
+    if E^.Mode = 0 then ParamRowD(1238, y, 'Every s', v, 0.5, 30, 0.5, 1)
+    else ParamRowD(1238, y, 'Carry s', v, 0.4, 10, 0.1, 1);
+    E^.RMin := v;
+    y := y + 20;
+    if E^.Mode = 0 then
+    begin
+      v := E^.RMax;
+      ParamRow(1241, y, 'Stock', v, 0, 500, 5);
+      E^.RMax := Round(v);
+      y := y + 20;
+    end;
+    Info(y, Format('Handled %.0f; Flip: the way it faces', [E^.HotIn]));
+    y := y + 14;
+    if Button(1244, QX, y, 136, 18, 'Start again') then E^.HotIn := 0;
+    y := y + 22;
+  end;
+  if E^.Kind = EQ_ITEMFEEDER then
+  begin
+    { what it feeds, how often, how many }
+    Info(y, 'What it feeds:');
+    y := y + 12;
+    for s := 0 to PK_KINDS do
+      if Button(1210 + s, QX + (s mod 3) * 94, y + (s div 3) * 22, 90, 18, PieceNames[s], E^.Mode = s) then E^.Mode := s;
+    y := y + 46;
+    v := E^.RMin;
+    if v <= 0 then v := 2;
+    ParamRowD(1216, y, 'Every s', v, 0.3, 20, 0.1, 1);
+    E^.RMin := v;
+    y := y + 20;
+    v := E^.RMax;
+    ParamRow(1219, y, 'Stock', v, 0, 500, 5);
+    E^.RMax := Round(v);
+    y := y + 20;
+    if E^.RMax > 0 then Info(y, Format('Fed %.0f of %.0f', [E^.HotIn, E^.RMax]))
+    else Info(y, Format('Fed %.0f (Stock 0: no end)', [E^.HotIn]));
+    y := y + 14;
+    if Button(1222, QX, y, 136, 18, 'Refill') then E^.HotIn := 0;
+    if Button(1223, QX + 142, y, 138, 18, Format('Clear %d items', [PieceCount])) then PiecesClear;
+    y := y + 22;
+  end;
   if (E^.Kind in [EQ_SILO, EQ_HEATER, EQ_IRHEATER, EQ_PUMP, EQ_POND, EQ_POOL, EQ_WELL, EQ_CONVEYOR, EQ_BELT, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER]) and
     not ((E^.Kind = EQ_SILO) and (EquipLinkCell(i) <> nil)) then
   begin
@@ -7224,6 +8773,14 @@ begin
     end;
     E^.Level := v;
     y := y + 20;
+    if E^.Kind in [EQ_CONVEYOR, EQ_BELT] then
+    begin
+      { its incline: + the right end higher }
+      v := E^.RMin;
+      ParamRow(1200, y, 'Incline', v, -35, 35, 1);
+      E^.RMin := Round(v);
+      y := y + 20;
+    end;
   end;
   if E^.Kind in [EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER] then
   begin
@@ -7267,6 +8824,7 @@ begin
     end;
     y := y + 26;
   end;
+  if E^.Kind = EQ_TREND then DrawTrendProps(i, y);
   if E^.Kind = EQ_CONTROLLER then
   begin
     Info(y + 4, 'Shows');
@@ -8429,6 +9987,7 @@ type
     Lbl, Key: string;
     Enabled, Checked, Sep: Boolean;
     HasSub: Boolean;       { opens a sub-menu to the side instead of running }
+    Swatch: Integer;       { >= 0: a theme, shown by its colours }
   end;
 
 const
@@ -8440,6 +9999,7 @@ const
   MENU_EXAMPLES = 4;
   MENU_THEME = 5;
   VIEW_GRID_ITEM = 5;      { View > Grid > }
+  THEME_BG_ITEM = THEME_COUNT;   { Theme > Background > }
   DEMO_FILE = 'demo_original.mflow';
   SUB_W = 220;
 
@@ -8461,6 +10021,7 @@ begin
   MItems[MCount].Checked := Chk;
   MItems[MCount].Sep := Sep;
   MItems[MCount].HasSub := Sub;
+  MItems[MCount].Swatch := -1;
   Inc(MCount);
 end;
 
@@ -8472,6 +10033,7 @@ begin
   SItems[SCount].Checked := Chk;
   SItems[SCount].Sep := Sep;
   SItems[SCount].HasSub := False;
+  SItems[SCount].Swatch := -1;
   Inc(SCount);
 end;
 
@@ -9007,10 +10569,12 @@ const
   WIN_POPUPS = 6;
   WIN_LAB = 7;
   WIN_SHAPE = 8;
-  WIN_CORE = 7;      { the panels 'Dock all' handles; the lab and the shape editor float }
-  WIN_COUNT = 9;
+  WIN_IPCNET = 9;    { IPC network: server and client }
+  WIN_IPCIO = 10;    { IPC inputs and outputs }
+  WIN_CORE = 7;      { the panels 'Dock all' handles; the lab, the shape editor and the IPC panels float }
+  WIN_COUNT = 11;
   WIN_TITLE_H = 18;
-  WinKeys: array[0..WIN_COUNT - 1] of string = ('F2', 'F3', 'F4', 'F5', 'F1', 'F6', 'F7', 'F8', 'F9');
+  WinKeys: array[0..WIN_COUNT - 1] of string = ('F2', 'F3', 'F4', 'F5', 'F1', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11');
 
 procedure InitWins;
   procedure Setup(i: Integer; const T: string; DY, H: Single);
@@ -9058,12 +10622,23 @@ begin
   Wins[WIN_SHAPE].Visible := False;
   Wins[WIN_SHAPE].X := 560;
   Wins[WIN_SHAPE].Y := 40;
+  { the IPC panels: hidden, floating windows of their own }
+  Setup(WIN_IPCNET, 'IPC NETWORK', 4, 560);
+  Wins[WIN_IPCNET].Side := 1;
+  Wins[WIN_IPCNET].Visible := False;
+  Wins[WIN_IPCNET].X := 250;
+  Wins[WIN_IPCNET].Y := 30;
+  Setup(WIN_IPCIO, 'IPC INPUTS / OUTPUTS', 4, 560);
+  Wins[WIN_IPCIO].Side := 1;
+  Wins[WIN_IPCIO].Visible := False;
+  Wins[WIN_IPCIO].X := 560;
+  Wins[WIN_IPCIO].Y := 30;
 end;
 
 { the Physics lab and the Shape editor can be made larger: their content scales }
 function WinResizable(i: Integer): Boolean;
 begin
-  Result := i in [WIN_LAB, WIN_SHAPE];
+  Result := (i >= 0) and (i < WIN_COUNT);
 end;
 
 procedure SetWinScale(i: Integer; s: Single);
@@ -9228,6 +10803,7 @@ begin
     Rewrite(f);
     try
       WriteLn(f, 'theme=', ThemeIndex);
+      WriteLn(f, 'background=', BgIndex);
       WriteLn(f, Format('grid=%d,%d,%d,%d,%d,%d', [Ord(GridShow), GridStyle, GridMajor, GridStrength,
         GridColor, Ord(GridNumbers)]));
       for i := 0 to WIN_COUNT - 1 do
@@ -9265,6 +10841,8 @@ begin
         s := Trim(s);
         if Pos('theme=', s) = 1 then
           SelectTheme(StrToIntDef(Copy(s, 7, 10), 0))
+        else if Pos('background=', s) = 1 then
+          SelectBackground(StrToIntDef(Copy(s, 12, 10), 0))
         else if Pos('grid=', s) = 1 then
         begin
           rest := Copy(s, 6, MaxInt) + ',';
@@ -9414,6 +10992,8 @@ begin
         AddItem('Frame popup', WinKeys[WIN_POPUPS], True, Wins[WIN_POPUPS].Visible);
         AddItem('Physics lab', WinKeys[WIN_LAB], True, Wins[WIN_LAB].Visible, True);
         AddItem('Shape editor', WinKeys[WIN_SHAPE], True, Wins[WIN_SHAPE].Visible);
+        AddItem('IPC network', WinKeys[WIN_IPCNET], True, Wins[WIN_IPCNET].Visible, True);
+        AddItem('IPC inputs / outputs', WinKeys[WIN_IPCIO], True, Wins[WIN_IPCIO].Visible);
         AddItem('Dock all panels', '', not AllDocked, False, True);
       end;
     MENU_EXAMPLES:
@@ -9430,8 +11010,15 @@ begin
           end;
       end;
     MENU_THEME:
-      for i := 0 to THEME_COUNT - 1 do
-        AddItem(Themes[i].Name, '', True, i = ThemeIndex);
+      begin
+        for i := 0 to THEME_COUNT - 1 do
+        begin
+          AddItem(Themes[i].Name, '', True, i = ThemeIndex, (i = THEME_DARK2) or (i = THEME_LIGHT2));
+          MItems[MCount - 1].Swatch := i;
+        end;
+        if LayoutBg >= 0 then AddItem('Background: ' + Backgrounds[LayoutBg].Name + ' (layout)', '>', True, False, True, True)
+        else AddItem('Background: ' + Backgrounds[BgIndex].Name, '>', True, False, True, True);   { THEME_BG_ITEM }
+      end;
   end;
 end;
 
@@ -9503,6 +11090,12 @@ begin
     for n := CatFirst[c] to Min(CatLast[c], EXAMPLE_COUNT) do
       AddSubItem(Format('%d: %s', [n, ExampleTitles[n]]));
   end
+  else if m = MENU_THEME then
+    for n := 0 to BG_COUNT - 1 do
+    begin
+      AddSubItem(Backgrounds[n].Name, '', ((LayoutBg < 0) and (n = BgIndex)) or (n = LayoutBg));
+      SItems[SCount - 1].Swatch := 1000 + n;
+    end
   else
     BuildGridMenu;
 end;
@@ -9514,6 +11107,15 @@ begin
     OpenMenu := -1;
     if (SubOpen >= 1) and (SubOpen <= NMenuCats) then DoExample(CatFirst[MenuCat[SubOpen]] + i);
     SubOpen := -1;
+  end
+  else if m = MENU_THEME then
+  begin
+    OpenMenu := -1;
+    SubOpen := -1;
+    SelectBackground(i);
+    LayoutBg := -1;   { the choice shows, also over a layout's own background }
+    SaveSettings;
+    SetStatus('Background: ' + Backgrounds[BgIndex].Name);
   end
   else
     RunGridItem(i);
@@ -9554,14 +11156,14 @@ begin
       end;
     MENU_PANELS:
       case i of
-        0..8: ToggleWin(i);
-        9:
+        0..10: ToggleWin(i);
+        11:
           for k := 0 to WIN_CORE - 1 do DockWin(k);
       end;
     MENU_EXAMPLES:
       if i = 0 then DoLoadDemo else DoExample(i);
     MENU_THEME:
-      DoTheme(i);
+      if i < THEME_COUNT then DoTheme(i);
   end;
 end;
 
@@ -9577,7 +11179,8 @@ var
 begin
   Result := 150;
   for i := 0 to Count - 1 do
-    Result := fmax(Result, 20 + Length(Items[i].Lbl) * 8 + 24 + Length(Items[i].Key) * 8 + 10);
+    if Items[i].Swatch >= 0 then Result := fmax(Result, 20 + Length(Items[i].Lbl) * 8 + 24 + 66)
+    else Result := fmax(Result, 20 + Length(Items[i].Lbl) * 8 + 24 + Length(Items[i].Key) * 8 + 10);
 end;
 
 function MenuW(m: Integer): Single;
@@ -9676,6 +11279,30 @@ begin
     TextR(x + 20, y + 6, Items[i].Lbl);
     if hot then SetC(Th.BtnSelText) else SetC(Th.MenuKey);
     TextR(x + w - 8 - Length(Items[i].Key) * 8, y + 6, Items[i].Key);
+    if Items[i].Swatch >= 1000 then
+    begin
+      { a background: a small view of it }
+      SetCol(Th.MenuBorder.R, Th.MenuBorder.G, Th.MenuBorder.B);
+      FillR(x + w - 70, y + 4, 62, 12);
+      DrawBackgroundAt(Items[i].Swatch - 1000, x + w - 69, y + 5, 60, 10);
+    end
+    else if (Items[i].Swatch >= 0) and (Items[i].Swatch < THEME_COUNT) then
+      with Themes[Items[i].Swatch] do
+      begin
+        { the theme's colours: canvas, panel, accent, text, pipes }
+        SetCol(MenuBorder.R, MenuBorder.G, MenuBorder.B);
+        FillR(x + w - 70, y + 4, 62, 12);
+        SetCol(CanvasBg.R, CanvasBg.G, CanvasBg.B);
+        FillR(x + w - 69, y + 5, 12, 10);
+        SetCol(PanelBg.R, PanelBg.G, PanelBg.B);
+        FillR(x + w - 57, y + 5, 12, 10);
+        SetCol(Title.R, Title.G, Title.B);
+        FillR(x + w - 45, y + 5, 12, 10);
+        SetCol(Text.R, Text.G, Text.B);
+        FillR(x + w - 33, y + 5, 12, 10);
+        SetCol(PipeWall.R, PipeWall.G, PipeWall.B);
+        FillR(x + w - 21, y + 5, 12, 10);
+      end;
     if hot and Pressed then Result := i;
   end;
 end;
@@ -9855,6 +11482,13 @@ begin
     tEqController: Result := 'Facepl.';
     tEqHeatEx: Result := 'Heat ex.';
     tEqCoolTower: Result := 'C.tower';
+    tEqTrend: Result := 'Trend';
+    tEqTimeline: Result := 'T-line';
+    tEqDryer: Result := 'Dryer';
+    tEqItemFeeder: Result := 'Items';
+    tEqWorker: Result := 'Worker';
+    tEqVan: Result := 'Van';
+    tEqRack: Result := 'Rack';
     tFlCompressor: Result := 'Compress';
     tFlHPump: Result := 'Hyd.pump';
     tFlRegulator: Result := 'Regulat.';
@@ -9888,13 +11522,13 @@ end;
 function ElecToolKind(t: TTool): TEKind;
 begin
   if (t > tElWire) and (t <= tElSolenoid) then Result := TEKind(Ord(t) - Ord(tElWire) + 1)
-  else if t >= tCtCounter then Result := TEKind(Ord(ekCounter) + Ord(t) - Ord(tCtCounter))
+  else if (t >= tCtCounter) and (t <= tCtPH) then Result := TEKind(Ord(ekCounter) + Ord(t) - Ord(tCtCounter))
   else Result := ekNone;
 end;
 
 function IsElecTool(t: TTool): Boolean;
 begin
-  Result := ((t >= tElWire) and (t <= tElSolenoid)) or (t >= tCtCounter);
+  Result := ((t >= tElWire) and (t <= tElSolenoid)) or ((t >= tCtCounter) and (t <= tCtPH));
 end;
 
 function IsFluidTool(t: TTool): Boolean;
@@ -9904,7 +11538,8 @@ end;
 
 function ToolTabOf(t: TTool): Integer;
 begin
-  if t >= tCtCounter then Result := 4
+  if t >= tFwStart then Result := 5
+  else if t >= tCtCounter then Result := 4
   else if t >= tFlLine then Result := 3
   else if t >= tElWire then Result := 2
   else if t >= tEqMotor then Result := 1
@@ -9913,21 +11548,21 @@ end;
 
 procedure DrawToolsContent(y0: Single);
 const
-  TabNames: array[0..4] of string = ('Pipes', 'Equip', 'Elec.', 'Fluid', 'Ctrl');
+  TabNames: array[0..5] of string = ('Pipes', 'Equip', 'Elec.', 'Fluid', 'Ctrl', 'Flow');
 var
   t: TTool;
   i, k, cols: Integer;
   hw, y, bw: Single;
 begin
   if Tool <> tSelect then ToolTab := ToolTabOf(Tool);
-  for i := 0 to 4 do
-    if Button(22 + i, QX + i * 56, y0, 52, 16, TabNames[i], ToolTab = i) then
+  for i := 0 to 5 do
+    if Button(22 + i, QX + i * 47, y0, 44, 16, TabNames[i], ToolTab = i) then
     begin
       ToolTab := i;
       if ToolTabOf(Tool) <> i then Tool := tSelect;
     end;
   y0 := y0 + 20;
-  if ToolTab in [0, 4] then cols := 3 else cols := 4;
+  if ToolTab in [0, 4, 5] then cols := 3 else cols := 4;
   bw := 280 / cols - 4;
   k := 0;
   for t := Low(TTool) to High(TTool) do
@@ -9987,6 +11622,749 @@ begin
   if Button(51, QX + 188, y0 + 70, 90, 20, 'Fill feeders') then RefillAllTanks;
 end;
 
+{ ---------------------------------------------------------------- flow charts: jumps and properties }
+
+type
+  TNameList = array of string;
+
+procedure SelectFlow(i: Integer);
+begin
+  SelKind := selFlow;
+  SelFl := i;
+end;
+
+{ where the item called Name is - a piece of equipment (What 0), an electrical part (1) or a fluid
+  power part (2) - on this page first, then on the others. NAME.PV, HX01.HOT ... find NAME;
+  a cylinder's limit switch A0 / A1 finds the cylinder A }
+function FindItem(const Name: string; out Page, What, A, B: Integer): Boolean;
+var
+  p, pg, x, y, i, k: Integer;
+  n0: string;
+  ok: Boolean;
+  ft: string;
+begin
+  Result := False;
+  Page := -1;
+  What := -1;
+  A := -1;
+  B := -1;
+  if Name = '' then Exit;
+  n0 := Name;
+  k := Pos('.', Name);
+  if k > 1 then n0 := Copy(Name, 1, k - 1);
+  for p := -1 to PageCount - 1 do
+  begin
+    if p = CurPage then Continue;
+    if p < 0 then pg := CurPage else pg := p;
+    for i := 0 to MAX_EQUIP - 1 do
+    begin
+      if pg = CurPage then ok := Equips[i].Active and (SameText(Equips[i].Name, Name) or SameText(Equips[i].Name, n0))
+      else ok := Pages[pg].Equips[i].Active and (SameText(Pages[pg].Equips[i].Name, Name) or
+        SameText(Pages[pg].Equips[i].Name, n0));
+      if ok then
+      begin
+        Page := pg;
+        What := 0;
+        A := i;
+        Exit(True);
+      end;
+    end;
+    for y := 0 to GH - 1 do
+      for x := 0 to GW - 1 do
+      begin
+        if pg = CurPage then ok := (EGrid[x, y].Kind <> ekNone) and SameText(EGrid[x, y].Tag, n0)
+        else ok := (Pages[pg].EGrid[x, y].Kind <> ekNone) and SameText(Pages[pg].EGrid[x, y].Tag, n0);
+        if ok then
+        begin
+          Page := pg;
+          What := 1;
+          A := x;
+          B := y;
+          Exit(True);
+        end;
+      end;
+    for y := 0 to GH - 1 do
+      for x := 0 to GW - 1 do
+      begin
+        if pg = CurPage then
+        begin
+          ok := FGrid[x, y].Kind <> fkNone;
+          ft := FGrid[x, y].Tag;
+        end
+        else
+        begin
+          ok := Pages[pg].FGrid[x, y].Kind <> fkNone;
+          ft := Pages[pg].FGrid[x, y].Tag;
+        end;
+        if ok and (ft <> '') and (SameText(ft, n0) or SameText(ft + '0', n0) or SameText(ft + '1', n0)) then
+        begin
+          Page := pg;
+          What := 2;
+          A := x;
+          B := y;
+          Exit(True);
+        end;
+      end;
+  end;
+end;
+
+{ go to the item called Name (on its page, selected, blinking); from a flow chart the way back is kept }
+procedure JumpTo(const Name: string);
+var
+  pg, what, a, b: Integer;
+begin
+  if not FindItem(Name, pg, what, a, b) then
+  begin
+    SetStatus('Nothing called ' + Name + ' on any page', True);
+    Exit;
+  end;
+  if SelKind = selFlow then
+  begin
+    JumpBackPage := CurPage;
+    JumpBackNode := SelFl;
+  end;
+  if pg <> CurPage then AppGoToPage(pg);
+  case what of
+    0:
+      begin
+        SelKind := selEquip;
+        SelEq := a;
+      end;
+    1: SelectECell(a, b);
+  else
+    SelectFCell(a, b);
+  end;
+  JumpFlash := 3;
+  if JumpBackPage >= 0 then
+    SetStatus(Format('%s on page %d: %s - right-click > Back to flow chart', [Name, pg + 1, PageName(pg)]))
+  else
+    SetStatus(Format('%s on page %d: %s', [Name, pg + 1, PageName(pg)]));
+end;
+
+{ back to the flow chart node a jump started from }
+procedure JumpBack;
+begin
+  if JumpBackPage < 0 then Exit;
+  if (JumpBackPage < PageCount) and (JumpBackPage <> CurPage) then AppGoToPage(JumpBackPage);
+  if (JumpBackNode >= 0) and (JumpBackNode < MAX_FLOW) and FlowNodes[JumpBackNode].Active then SelectFlow(JumpBackNode);
+  SetStatus(Format('Back to the flow chart on page %d: %s', [CurPage + 1, PageName(CurPage)]));
+  JumpBackPage := -1;
+  JumpBackNode := -1;
+end;
+
+procedure AddName(var L: TNameList; const s: string);
+var
+  i: Integer;
+begin
+  if s = '' then Exit;
+  for i := 0 to High(L) do
+    if SameText(L[i], s) then Exit;
+  SetLength(L, Length(L) + 1);
+  L[High(L)] := s;
+end;
+
+{ the names a flow node can read, or (Targets) the things an action can work }
+function FlowNames(Targets: Boolean): TNameList;
+var
+  i, x, y, n: Integer;
+  s, first: string;
+  be: TBusEq;
+begin
+  SetLength(Result, 0);
+  for i := 0 to MAX_EQUIP - 1 do
+    if Equips[i].Active and not (Equips[i].Kind in [EQ_LEGEND, EQ_SEQUENCE, EQ_STAND, EQ_PANEL, EQ_GAUGE, EQ_DIGITAL,
+      EQ_CONTROLLER, EQ_TREND]) then AddName(Result, Equips[i].Name);
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+      if Targets then
+      begin
+        if EGrid[x, y].Kind in [ekController, ekCounter, ekPot, ekDrive, ekOL, ekBreaker, ekFuse, ekSwitch, ekPBLatch,
+          ekPBNO, ekPBNC, ekSelector, ekSw2, ekSw3, ekEStop, ekAC, ekDC] then
+          AddName(Result, EGrid[x, y].Tag);
+        if (FGrid[x, y].Kind <> fkNone) and (FGrid[x, y].Tag <> '') then AddName(Result, FGrid[x, y].Tag);
+      end
+      else if not (EGrid[x, y].Kind in [ekNone, ekWire, ekCross, ekTerminal]) then
+        AddName(Result, EGrid[x, y].Tag);
+  if not Targets then
+  begin
+    { every value by name (it includes the other pages') }
+    first := NextAnalogSource('', 1);
+    s := first;
+    n := 0;
+    while (s <> '') and (n < 400) do
+    begin
+      AddName(Result, s);
+      s := NextAnalogSource(s, 1);
+      Inc(n);
+      if SameText(s, first) then Break;
+    end;
+    for i := 0 to MAX_FLOW - 1 do
+      if FlowNodes[i].Active and (FlowNodes[i].Kind = FN_ACTION) and (FlowNodes[i].Act = FA_TAG) then
+        AddName(Result, FlowNodes[i].Target);
+  end;
+  i := 0;
+  while BusEqIndex(i, be) do
+  begin
+    AddName(Result, be.Name);
+    Inc(i);
+  end;
+end;
+
+function NextFlowName(const Cur: string; Dir: Integer; Targets: Boolean): string;
+var
+  L: TNameList;
+  i, k: Integer;
+begin
+  L := FlowNames(Targets);
+  Result := Cur;
+  if Length(L) = 0 then Exit;
+  k := -1;
+  for i := 0 to High(L) do
+    if SameText(L[i], Cur) then k := i;
+  if k < 0 then
+  begin
+    if Dir > 0 then k := 0 else k := High(L);
+  end
+  else
+    k := (k + Dir + Length(L)) mod Length(L);
+  Result := L[k];
+end;
+
+{ a row to pick (< >) or type a name; returns the name }
+function FlowNameRow(id: Integer; y: Single; const Lbl, Cur: string; Targets: Boolean; TxtKind: Integer): string;
+var
+  editing: Boolean;
+begin
+  Result := Cur;
+  editing := (TxtEdit = TxtKind) and (TxtIdx = SelFl);
+  Info(y + 4, Lbl);
+  if Button(id, QX + 48, y, 22, 18, '<') then Result := NextFlowName(Cur, -1, Targets);
+  if Button(id + 1, QX + 216, y, 22, 18, '>') then Result := NextFlowName(Cur, 1, Targets);
+  SetC(Th.OverlayBg);
+  FillR(QX + 72, y, 142, 18);
+  SetC(Th.Text);
+  if editing then TextR(QX + 76, y + 5, Copy(Cur, 1, 16) + TxtCaret(TxtKind, SelFl))
+  else if Cur = '' then TextR(QX + 76, y + 5, '(pick / type)')
+  else TextR(QX + 76, y + 5, Copy(Cur, 1, 17));
+  if editing then
+  begin
+    if Button(id + 2, QX + 240, y, 40, 18, 'Done', True) then StopTxt;
+  end
+  else if Button(id + 2, QX + 240, y, 40, 18, 'Type') then StartTxt(TxtKind, SelFl);
+end;
+
+function FlowNodeName(i: Integer): string;
+begin
+  if (i < 0) or (i >= MAX_FLOW) or not FlowNodes[i].Active then Result := '(none)'
+  else Result := Format('%d %s', [i + 1, FlowNodes[i].Caption]);
+end;
+
+{ the range of a value with this unit (a test's value, a set point) }
+function UnitRange(const u: string; v: Single): Single;
+begin
+  if u = 'C' then Result := 300
+  else if u = 'bar' then
+  begin
+    if Abs(v) > 15 then Result := 250 else Result := 10;
+  end
+  else if u = 'kPa' then Result := 150
+  else if u = 'm/s' then Result := 20
+  else if u = 'rpm' then Result := 1500
+  else if u = 'kg' then Result := 100
+  else if u = 'A' then Result := 50
+  else if u = 'V' then Result := 250
+  else if u = 'pcs' then Result := 999
+  else if u = 'pH' then Result := 14
+  else if u = 'kW' then Result := 2000
+  else if u = 's' then Result := 120
+  else Result := 100;
+end;
+
+procedure DrawFlowProps(y: Single);
+const
+  OpShort: array[0..FLOW_OPS - 1] of string = ('>', '<', '>=', '<=', '=', '<>', 'ON', 'OFF');
+  ActShort: array[0..FLOW_ACTS - 1] of string = ('Run', 'Stop', 'Set%', 'SP', 'Tag', 'Reset', 'ON', 'OFF', 'Pos');
+var
+  N: ^TFlowNode;
+  k, pg, what, a, b: Integer;
+  v, rg: Single;
+  s, u: string;
+begin
+  N := @FlowNodes[SelFl];
+  SetC(Th.Title);
+  TextR(QX, y, Format('Flow chart: %s  (node %d)', [FlowKindNames[N^.Kind], SelFl + 1]));
+  y := y + 14;
+  SetC(Th.OverlayBg);
+  FillR(QX, y, 196, 18);
+  SetC(Th.MenuBorder);
+  RectR(QX, y, 196, 18);
+  SetC(Th.Text);
+  TextR(QX + 4, y + 5, Copy(N^.Caption, 1, 22) + TxtCaret(9, SelFl));
+  if (TxtEdit = 9) and (TxtIdx = SelFl) then
+  begin
+    if Button(960, QX + 200, y, 80, 18, 'Done', True) then StopTxt;
+  end
+  else if Button(960, QX + 200, y, 80, 18, 'Text') then StartTxt(9, SelFl);
+  y := y + 24;
+  if N^.Kind in [FN_INPUT, FN_DECISION, FN_DISPLAY] then
+  begin
+    N^.Src := FlowNameRow(961, y, 'Reads', N^.Src, False, 10);
+    y := y + 22;
+    if not N^.Known then s := 'nothing by that name (yet)'
+    else
+    begin
+      if N^.BoolV then s := 'ON' else s := 'OFF';
+      s := Format('%.2f %s, %s', [N^.Val, N^.UnitS, s]);
+    end;
+    Info(y, 'Now: ' + s);
+    y := y + 14;
+    if N^.Kind <> FN_INPUT then
+    begin
+      for k := 0 to FLOW_OPS - 1 do
+        if Button(966 + k, QX + k * 35, y, 33, 17, OpShort[k], N^.Op = k) then N^.Op := k;
+      y := y + 21;
+      if N^.Op < FOP_ON then
+      begin
+        rg := UnitRange(N^.UnitS, N^.Val);
+        v := N^.Value;
+        ParamRowD(975, y, 'Value', v, 0, rg, rg / 100, Decs(rg));
+        N^.Value := v;
+        y := y + 20;
+      end;
+      if not N^.Known then s := '----' else if N^.Yes then s := 'YES (green)' else s := 'NO (red)';
+      if N^.Kind = FN_DECISION then Info(y, 'Now: ' + s + ', Yes down / No right')
+      else Info(y, 'Test now: ' + s);
+      y := y + 14;
+    end;
+  end;
+  if N^.Kind = FN_ACTION then
+  begin
+    for k := 0 to 4 do
+      if Button(980 + k, QX + k * 57, y, 54, 17, ActShort[k], N^.Act = k) then N^.Act := k;
+    y := y + 20;
+    for k := 5 to FLOW_ACTS - 1 do
+      if Button(980 + k, QX + (k - 5) * 71, y, 67, 17, ActShort[k], N^.Act = k) then N^.Act := k;
+    y := y + 21;
+    N^.Target := FlowNameRow(990, y, 'Works', N^.Target, N^.Act <> FA_TAG, 11);
+    y := y + 22;
+    if N^.Act in [FA_SET, FA_SP, FA_POS] then
+    begin
+      N^.Src := FlowNameRow(1005, y, 'From', N^.Src, False, 10);
+      y := y + 22;
+      if N^.Src = '' then
+      begin
+        rg := 100;
+        if (N^.Act = FA_SP) and AnalogValue(N^.Target + '.PV', v, u) then rg := UnitRange(u, v);
+        v := N^.Value;
+        if N^.Act = FA_POS then ParamRowD(993, y, 'Position', v, 1, 6, 1, 0)
+        else ParamRowD(993, y, 'Value', v, 0, rg, rg / 100, Decs(rg));
+        N^.Value := v;
+        y := y + 20;
+      end;
+    end;
+    case N^.Act of
+      FA_RUN: s := 'Runs the equipment (any page).';
+      FA_STOP: s := 'Stops the equipment (any page).';
+      FA_SET: s := 'Sets a level / speed / pot / valve.';
+      FA_SP: s := 'Sets the controller''s set point.';
+      FA_TAG: s := 'Tag is on while the scan is here.';
+      FA_ON: s := 'Switch / breaker / valve on; OL reset.';
+      FA_OFF: s := 'Switch / breaker / valve off; OL trip.';
+      FA_POS: s := 'A selector / 2-way / valve position.';
+    else
+      s := 'Resets a breaker, overload, counter.';
+    end;
+    Info(y, s);
+    y := y + 14;
+  end;
+  if N^.Kind = FN_RANDOM then
+  begin
+    for k := 0 to 3 do
+      if Button(1010 + k, QX + k * 70, y, 66, 17, RandomTypeNames[k], N^.RType = k) then
+      begin
+        N^.RType := k;
+        case k of
+          FR_BOOL: N^.Value := 50;
+          FR_BYTE: begin N^.Value2 := 0; N^.Value := 255; end;
+          FR_INT: begin N^.Value2 := 1; N^.Value := 6; end;
+        else
+          begin N^.Value2 := 0; N^.Value := 1; end;
+        end;
+        N^.Known := False;
+      end;
+    y := y + 21;
+    N^.Target := FlowNameRow(1014, y, 'Name', N^.Target, False, 11);
+    y := y + 22;
+    if N^.RType = FR_BOOL then
+    begin
+      v := N^.Value;
+      ParamRowD(1017, y, 'True %', v, 0, 100, 5, 0);
+      N^.Value := v;
+      y := y + 20;
+    end
+    else
+    begin
+      if N^.RType = FR_BYTE then rg := 255 else rg := 1000;
+      v := N^.Value2;
+      if N^.RType = FR_FLOAT then ParamRowD(1017, y, 'Lowest', v, -rg, rg, 0.1, 2)
+      else ParamRowD(1017, y, 'Lowest', v, -rg * Ord(N^.RType <> FR_BYTE), rg, 1, 0);
+      N^.Value2 := v;
+      v := N^.Value;
+      if N^.RType = FR_FLOAT then ParamRowD(1020, y + 20, 'Highest', v, -rg, rg, 0.1, 2)
+      else ParamRowD(1020, y + 20, 'Highest', v, -rg * Ord(N^.RType <> FR_BYTE), rg, 1, 0);
+      N^.Value := v;
+      y := y + 40;
+    end;
+    v := N^.Period;
+    ParamRowD(1023, y, 'Every s', v, 0, 60, 0.5, 1);
+    N^.Period := v;
+    y := y + 20;
+    Info(y, 'Now: ' + FlowLine2(N^));
+    Info(y + 11, 'Read it by its name anywhere; a');
+    Info(y + 22, 'boolean is a tag: Yes down, No right.');
+    y := y + 38;
+  end;
+  if N^.Kind = FN_DELAY then
+  begin
+    v := N^.Value;
+    ParamRowD(993, y, 'Wait s', v, 0, 600, 0.5, 1);
+    N^.Value := v;
+    y := y + 20;
+    Info(y, Format('Reached for %.1f s', [N^.Timer]));
+    y := y + 14;
+  end;
+  { where it goes next }
+  if N^.Kind <> FN_END then
+  begin
+    if FlowTwoWays(SelFl) then
+    begin
+      Info(y + 4, Copy('Yes -> ' + FlowNodeName(N^.Next), 1, 26));
+      if Button(996, QX + 214, y, 66, 17, 'Clear') then N^.Next := -1;
+      y := y + 20;
+      Info(y + 4, Copy('No  -> ' + FlowNodeName(N^.Next2), 1, 26));
+      if Button(997, QX + 214, y, 66, 17, 'Clear') then N^.Next2 := -1;
+      y := y + 20;
+      if Button(998, QX, y, 136, 17, 'Swap Yes / No') then
+      begin
+        k := N^.Next;
+        N^.Next := N^.Next2;
+        N^.Next2 := k;
+      end;
+      y := y + 21;
+    end
+    else
+    begin
+      Info(y + 4, Copy('Next -> ' + FlowNodeName(N^.Next), 1, 26));
+      if Button(996, QX + 214, y, 66, 17, 'Clear') then N^.Next := -1;
+      y := y + 21;
+    end;
+    Info(y, 'Arrow tool: drag to the next node.');
+    y := y + 14;
+  end;
+  { jump to what it reads or works }
+  s := '';
+  if (N^.Kind in [FN_INPUT, FN_DECISION, FN_DISPLAY]) then s := N^.Src
+  else if (N^.Kind = FN_ACTION) and (N^.Act <> FA_TAG) then s := N^.Target;
+  if (s <> '') and FindItem(s, pg, what, a, b) then
+  begin
+    if Button(999, QX, y, 136, 18, 'Go to ' + Copy(s, 1, 10)) then JumpTo(s);
+    Info(y + 5, '                   page ' + IntToStr(pg + 1));
+  end;
+  if Button(1001, QX + 214, y, 66, 18, 'Delete') then DeleteSelected;
+end;
+
+{ ---------------------------------------------------------------- trend chart properties }
+
+procedure DrawTrendProps(i: Integer; var y: Single);
+var
+  E: ^TEquipObj;
+  Hs: PTrendHist;
+  k: Integer;
+  v: Single;
+  s, cur: string;
+  ev: TTrendEvent;
+  editing: Boolean;
+begin
+  E := @Equips[i];
+  Hs := @TrendHist[EnsureRange(CurPage, 0, BUS_PAGES - 1), i];
+  for k := 0 to 2 do
+    if Button(1040 + k, QX + k * 94, y, 90, 18, TrendStyleNames[k], E^.Mode = k) then E^.Mode := k;
+  y := y + 22;
+  { its four pens: pick (< >), type or clear a name }
+  for k := 0 to TREND_PENS - 1 do
+  begin
+    cur := TrendPen(E^, k);
+    SetCol(PenRGB[k, 0], PenRGB[k, 1], PenRGB[k, 2]);
+    FillR(QX, y + 5, 8, 8);
+    SetC(Th.Text);
+    TextR(QX + 12, y + 5, 'P' + IntToStr(k + 1));
+    s := cur;
+    if Button(1044 + k * 4, QX + 30, y, 22, 18, '<') then s := NextFlowName(cur, -1, False);
+    if Button(1045 + k * 4, QX + 198, y, 22, 18, '>') then s := NextFlowName(cur, 1, False);
+    editing := (TxtEdit = 12 + k) and (TxtIdx = i);
+    SetC(Th.OverlayBg);
+    FillR(QX + 54, y, 142, 18);
+    SetC(Th.Text);
+    if editing then TextR(QX + 58, y + 5, Copy(cur, 1, 16) + TxtCaret(12 + k, i))
+    else if cur = '' then TextR(QX + 58, y + 5, '(none)')
+    else TextR(QX + 58, y + 5, Copy(cur, 1, 17));
+    if editing then
+    begin
+      if Button(1046 + k * 4, QX + 222, y, 34, 18, 'OK', True) then StopTxt;
+    end
+    else if Button(1046 + k * 4, QX + 222, y, 34, 18, 'Type') then StartTxt(12 + k, i);
+    if Button(1047 + k * 4, QX + 258, y, 22, 18, 'x') then s := '';
+    if s <> cur then
+      case k of
+        0: E^.Src := s;
+        1: E^.Src2 := s;
+        2: E^.Src3 := s;
+      else
+        E^.Src4 := s;
+      end;
+    y := y + 21;
+  end;
+  v := E^.Delay;
+  ParamRowD(1062, y, 'Time s', v, 5, 3600, 5, 0);
+  E^.Delay := v;
+  y := y + 20;
+  if Button(1065, QX, y, 136, 18, 'Auto range', E^.RMax <= E^.RMin) then
+  begin
+    if E^.RMax <= E^.RMin then
+    begin
+      E^.RMin := 0;
+      E^.RMax := 100;
+    end
+    else
+    begin
+      E^.RMin := 0;
+      E^.RMax := 0;
+    end;
+  end;
+  if Button(1066, QX + 142, y, 138, 18, 'Clear the record') then TrendClear(CurPage, i);
+  y := y + 22;
+  if E^.RMax > E^.RMin then
+  begin
+    v := E^.RMin;
+    ParamRowD(1067, y, 'Min', v, -10000, 10000, 1, 1);
+    E^.RMin := v;
+    v := E^.RMax;
+    ParamRowD(1070, y + 20, 'Max', v, -10000, 10000, 1, 1);
+    E^.RMax := fmax(v, E^.RMin + 0.001);
+    y := y + 42;
+  end;
+  { its latest events }
+  Info(y, Format('Events: %d (latest first)', [Hs^.NEv]));
+  y := y + 11;
+  for k := 0 to 5 do
+    if TrendEvent(Hs^, k, ev) then
+    begin
+      if ev.IsOn then s := 'ON' else s := 'OFF';
+      SetCol(PenRGB[ev.Pen, 0], PenRGB[ev.Pen, 1], PenRGB[ev.Pen, 2]);
+      TextR(QX, y, Copy(Format('%8.1f s  %s %s', [ev.T, TrendPen(E^, ev.Pen), s]), 1, 35));
+      y := y + 11;
+    end;
+  y := y + 4;
+end;
+
+{ ---------------------------------------------------------------- timeline properties }
+
+{ a row to pick (< >) or type a name for equipment / pin field TxtKind of equipment Idx }
+function EqNameRow(id: Integer; y: Single; const Lbl, Cur: string; Targets: Boolean; TxtKind, Idx: Integer): string;
+var
+  editing: Boolean;
+begin
+  Result := Cur;
+  editing := (TxtEdit = TxtKind) and (TxtIdx = Idx);
+  Info(y + 4, Lbl);
+  if Button(id, QX + 66, y, 20, 18, '<') then Result := NextFlowName(Cur, -1, Targets);
+  if Button(id + 1, QX + 212, y, 20, 18, '>') then Result := NextFlowName(Cur, 1, Targets);
+  SetC(Th.OverlayBg);
+  FillR(QX + 88, y, 122, 18);
+  SetC(Th.Text);
+  if editing then TextR(QX + 92, y + 5, Copy(Cur, 1, 13) + TxtCaret(TxtKind, Idx))
+  else if Cur = '' then TextR(QX + 92, y + 5, '(none)')
+  else TextR(QX + 92, y + 5, Copy(Cur, 1, 14));
+  if editing then
+  begin
+    if Button(id + 2, QX + 234, y, 24, 18, 'OK', True) then StopTxt;
+  end
+  else if Button(id + 2, QX + 234, y, 24, 18, 'T') then StartTxt(TxtKind, Idx);
+  if Button(id + 3, QX + 260, y, 20, 18, 'x') then Result := '';
+end;
+
+{ a number: -, its value (click Type to type it), + }
+procedure NumRow(id: Integer; y: Single; const Lbl: string; var v: Single; vmin, vmax, step: Single; TxtKind, Idx: Integer);
+var
+  editing: Boolean;
+begin
+  editing := (TxtEdit = TxtKind) and (TxtIdx = Idx);
+  Info(y + 4, Lbl);
+  if RepButton(id, QX + 80, y + 2, 18, 14, '-') then v := fmax(vmin, v - step);
+  SetC(Th.OverlayBg);
+  FillR(QX + 102, y, 110, 18);
+  SetC(Th.Text);
+  if editing then TextR(QX + 106, y + 5, TxtNum + TxtCaret(TxtKind, Idx))
+  else TextR(QX + 106, y + 5, NumText(v));
+  if RepButton(id + 1, QX + 216, y + 2, 18, 14, '+') then v := fmin(vmax, v + step);
+  if editing then
+  begin
+    if Button(id + 2, QX + 238, y, 42, 18, 'OK', True) then StopTxt;
+  end
+  else if Button(id + 2, QX + 238, y, 42, 18, 'Type') then StartTxt(TxtKind, Idx);
+end;
+
+procedure DrawTimelineProps(i: Integer; var y: Single);
+var
+  E: ^TEquipObj;
+  R: PTLRun;
+  P: ^TTLPin;
+  k, n, m, ph: Integer;
+  v, L, nt: Single;
+  s: string;
+begin
+  E := @Equips[i];
+  R := TLState(i);
+  L := fmax(0.1, E^.Delay);
+  { run it by hand }
+  if Button(1100, QX, y, 90, 18, 'Start', TLRunning(i)) then TimelineStart(i);
+  if Button(1101, QX + 94, y, 90, 18, 'Stop', (not TLRunning(i)) and R^.Started and not R^.Done) then TimelineStop(i);
+  if Button(1102, QX + 188, y, 92, 18, 'Reset') then TimelineReset(i);
+  y := y + 22;
+  Info(y, Format('%s  %.1f / %s s  cycle %d', [TLStateText(i), R^.Pos, NumText(L), R^.Cycles + 1]));
+  y := y + 14;
+  if Button(1103, QX, y, 90, 18, 'Loop cycle', (E^.Mode and TL_LOOP) <> 0) then E^.Mode := E^.Mode or TL_LOOP;
+  if Button(1104, QX + 94, y, 90, 18, 'One cycle', (E^.Mode and TL_LOOP) = 0) then E^.Mode := E^.Mode and not TL_LOOP;
+  if Button(1105, QX + 188, y, 92, 18, 'Auto start', (E^.Mode and TL_AUTO) <> 0) then E^.Mode := E^.Mode xor TL_AUTO;
+  y := y + 22;
+  v := E^.Delay;
+  NumRow(1106, y, 'Length s', v, 1, 3600, 1, 25, i);
+  E^.Delay := fclamp(v, 1, 3600);
+  y := y + 22;
+  E^.Src := EqNameRow(1110, y, 'Start by', E^.Src, False, 16, i);
+  y := y + 21;
+  E^.Src2 := EqNameRow(1196, y, 'Stop by', E^.Src2, False, 27, i);
+  y := y + 20;
+  Info(y, 'Starts / stops when it turns ON.');
+  Info(y + 11, 'Run / Stop: flow chart, a motor or');
+  Info(y + 22, 'drive with its name, double-click.');
+  y := y + 38;
+  { its pins }
+  nt := 0;
+  for k := 0 to TL_PINS - 1 do
+    if E^.Pins[k].Kind <> TLP_NONE then nt := fmax(nt, E^.Pins[k].T);
+  if R^.Started and not R^.Done then nt := R^.Pos
+  else if nt > 0 then nt := fmin(L, nt + L / 10)
+  else nt := L / 10;
+  if Button(1115, QX, y, 136, 18, '+ Input pin') then
+  begin
+    k := TLAddPin(i, TLP_INPUT, Round(nt * 10) / 10);
+    if k >= 0 then TLSel := k else SetStatus(Format('A timeline has up to %d pins', [TL_PINS]), True);
+  end;
+  if Button(1116, QX + 142, y, 138, 18, '+ Fix pin') then
+  begin
+    k := TLAddPin(i, TLP_FIX, Round(nt * 10) / 10);
+    if k >= 0 then TLSel := k else SetStatus(Format('A timeline has up to %d pins', [TL_PINS]), True);
+  end;
+  y := y + 22;
+  if (TLSel < 0) or (TLSel >= TL_PINS) or (E^.Pins[TLSel].Kind = TLP_NONE) then
+  begin
+    TLSel := -1;
+    for k := TL_PINS - 1 downto 0 do
+      if E^.Pins[k].Kind <> TLP_NONE then TLSel := k;
+  end;
+  n := 0;
+  for k := 0 to TL_PINS - 1 do
+    if E^.Pins[k].Kind <> TLP_NONE then
+    begin
+      if Button(1120 + k, QX + (n mod 3) * 94, y + (n div 3) * 22, 90, 18,
+        TLPinShort(E^, k) + ' ' + NumText(E^.Pins[k].T) + 's', TLSel = k) then
+      begin
+        if TLSel <> k then StopTxt;
+        TLSel := k;
+      end;
+      Inc(n);
+    end;
+  if n = 0 then
+  begin
+    Info(y + 4, 'No pins: add one or right-click it');
+    y := y + 18;
+  end
+  else
+    y := y + ((n + 2) div 3) * 22;
+  if TLSel < 0 then Exit;
+  P := @E^.Pins[TLSel];
+  SetC(Th.Title);
+  TextR(QX, y + 2, TLPinLabel(E^, TLSel) + ' - ' + TLPinName(E^, TLSel));
+  y := y + 16;
+  v := P^.T;
+  NumRow(1130, y, 'Time s', v, 0, L, 0.5, 24, i);
+  P^.T := fclamp(v, 0, L);
+  y := y + 22;
+  v := P^.W;
+  NumRow(1133, y, 'At for s', v, 0.1, 3600, 0.5, 26, i);
+  P^.W := fclamp(v, 0.05, 3600);
+  y := y + 22;
+  if P^.Kind = TLP_INPUT then
+  begin
+    P^.Src := EqNameRow(1136, y, 'Reads', P^.Src, False, 17, i);
+    y := y + 22;
+  end;
+  { its state now }
+  with R^.P[TLSel] do
+  begin
+    if not R^.Started then s := 'Now: not started'
+    else
+    begin
+      s := 'Now: ' + TLPhaseNames[Phase];
+      if OutOK then s := s + ', gives ' + NumText(Out) else s := s + ', gives nothing';
+    end;
+    Info(y, s);
+    y := y + 12;
+    if P^.Kind = TLP_INPUT then
+    begin
+      if LiveOK then s := 'Input now ' + NumText(Live) else s := 'Input: ----';
+      if HeldOK then s := s + Format(', kept %s (cycle %d)', [NumText(Held), HeldCycle + 1]);
+      Info(y, s);
+      y := y + 12;
+    end;
+  end;
+  y := y + 4;
+  { before / at / after: its value and where it goes }
+  for ph := 0 to 2 do
+  begin
+    SetC(Th.Title);
+    TextR(QX, y + 5, TLPhaseNames[ph]);
+    if P^.Kind = TLP_INPUT then n := 3 else n := 1;
+    for m := 0 to n do
+      if Button(1140 + ph * 4 + m, QX + 48 + m * 58, y, 54, 18, TLValueNames[m], P^.VMode[ph] = m) then P^.VMode[ph] := m;
+    y := y + 21;
+    if P^.VMode[ph] = TLV_FIX then
+    begin
+      v := P^.V[ph];
+      NumRow(1155 + ph * 3, y, 'Value', v, -1e6, 1e6, 1, 21 + ph, i);
+      P^.V[ph] := v;
+      y := y + 21;
+    end;
+    P^.Dest[ph] := EqNameRow(1170 + ph * 4, y, 'Send to', P^.Dest[ph], True, 18 + ph, i);
+    y := y + 24;
+  end;
+  if Button(1190, QX, y, 136, 18, 'Same target x3') then
+  begin
+    s := P^.Dest[1];
+    if s = '' then s := P^.Dest[2];
+    if s = '' then s := P^.Dest[0];
+    for ph := 0 to 2 do P^.Dest[ph] := s;
+  end;
+  if Button(1191, QX + 142, y, 138, 18, 'Delete pin') then
+  begin
+    StopTxt;
+    TLDeletePin(i, TLSel);
+    TLSel := -1;
+  end;
+  y := y + 24;
+end;
+
 procedure DrawPropsContent(y0: Single);
 var
   np, nb: Integer;
@@ -9999,6 +12377,7 @@ begin
   if (SelKind = selEquip) and ((SelEq < 0) or not Equips[SelEq].Active) then SelKind := selNone;
   if (SelKind = selECell) and EEmpty(SelEX, SelEY) then SelKind := selNone;
   if (SelKind = selFCell) and FEmpty(SelFX, SelFY) then SelKind := selNone;
+  if (SelKind = selFlow) and ((SelFl < 0) or (SelFl >= MAX_FLOW) or not FlowNodes[SelFl].Active) then SelKind := selNone;
   if SelKind = selMulti then
   begin
     CountSelection(np, nb);
@@ -10012,6 +12391,7 @@ begin
     selEquip: DrawEquipProps(y0);
     selECell: DrawECellProps(y0);
     selFCell: DrawFCellProps(y0);
+    selFlow: DrawFlowProps(y0);
     selBucket: DrawBucketProps(y0);
     selMulti: DrawMultiProps(y0);
   else
@@ -10099,9 +12479,9 @@ begin
 end;
 
 const
-  HELP_PAGES = 8;
+  HELP_PAGES = 9;
   HelpTitles: array[0..HELP_PAGES - 1] of string = ('Basics', 'Select & move', 'Edit',
-    'View & panels', 'Files & labels', 'Pages & links', 'Lab & shapes', 'Control');
+    'View & panels', 'Files & labels', 'Pages & links', 'Lab & shapes', 'Control', 'Flow chart');
   HelpText: array[0..HELP_PAGES - 1, 0..4] of string = (
     ('L-drag: use the current tool', 'R-click: menu   R-drag: erase', 'Wheel on part: strength/size',
      'Space pause  P pressure  A air', 'Keys 1-0: pick a tool'),
@@ -10118,7 +12498,8 @@ const
      'Click a link: go to page / popup', 'Ctrl+click a link: select it'),
     ('F8: physics lab - materials,', 'world, test scenes, .mfphys files', 'F9: shape editor - draw a kind''s',
      'own vector shape, .mfshape files', 'Drag their corner: make larger'),
-    ('Ctrl tab: counter, sensors and', 'controller (set point, actual, out)', 'Timer: on/off-delay, pulse, flasher', 'All pages run at the same time;', 'same tag / name links two pages'));
+    ('Ctrl tab: counter, sensors and', 'controller (set point, actual, out)', 'Timer: on/off-delay, pulse, flasher', 'All pages run at the same time;', 'same tag / name links two pages'),
+    ('Flow: Start Input Decision Action', 'Display Delay End Random; Arrow:', 'drag from a node to the next one', 'R-click a node: Go to its item', 'then R-click: Back to flow chart'));
 
 var
   HelpPage: Integer = 0;
@@ -10137,14 +12518,425 @@ end;
 
 { ---------------------------------------------------------------- panel window frame }
 
+{ ---------------------------------------------------------------- panel content: scale and scroll }
+
+type
+  TPanelRun = record
+    sc, kOX, kOY, kMX, kMY, visH, maxS, sbx, sby, sbh, sth, stp, top: Single;
+    keepP, hidP: Boolean;
+  end;
+
+{ the content of a window at X, Y, W, H (its title bar included), drawn sc times larger and scrolled by
+  Scroll: sets the scale, the clip and the scrollbar (wheel, drag, a click above / below it); returns
+  the y its content starts at. The content's height is measured while it draws (EndPanel). }
+function BeginPanel(var R: TPanelRun; X, Y, W, H, sc: Single; var Scroll, ContentH, DragOff: Single;
+  var ScrollDrag: Boolean): Single;
+begin
+  R.sc := sc;
+  R.kOX := OX;
+  R.kOY := OY;
+  R.kMX := MX;
+  R.kMY := MY;
+  if sc <> 1 then
+  begin
+    OX := OX / sc;
+    OY := OY / sc;
+    MX := MX / sc;
+    MY := MY / sc;
+    SDL_SetRenderScale(Ren, sc, sc);
+  end;
+  R.visH := (H - WIN_TITLE_H) / sc - 2;
+  R.maxS := fmax(0, ContentH - R.visH);
+  R.sbx := X / sc + W / sc - 8;
+  R.sby := (Y + WIN_TITLE_H) / sc + 3;
+  R.sbh := R.visH - 18;
+  R.sth := 0;
+  R.stp := 0;
+  if R.maxS > 0 then
+  begin
+    R.sth := fmax(20, R.sbh * R.visH / ContentH);
+    if ScrollDrag then
+    begin
+      if MDown then Scroll := (MY - DragOff - R.sby) / fmax(1, R.sbh - R.sth) * R.maxS
+      else ScrollDrag := False;
+    end;
+    Scroll := fclamp(Scroll, 0, R.maxS);
+    R.stp := R.sby + (R.sbh - R.sth) * Scroll / R.maxS;
+    if MPressed and Inside(R.sbx - 3, R.sby, 11, R.sbh) then
+    begin
+      if (MY >= R.stp) and (MY <= R.stp + R.sth) then
+      begin
+        ScrollDrag := True;
+        DragOff := MY - R.stp;
+      end
+      else if MY < R.stp then Scroll := fmax(0, Scroll - R.visH * 0.9)
+      else Scroll := fmin(R.maxS, Scroll + R.visH * 0.9);
+      MPressed := False;
+    end;
+  end
+  else
+    Scroll := 0;
+  R.top := (Y + WIN_TITLE_H) / sc;
+  QX := X / sc + 8;
+  Result := R.top + 6 - Scroll;
+  WinClipRect.x := Floor(SXf(X / sc + 1));
+  WinClipRect.y := Floor(SYf(R.top + 1));
+  WinClipRect.w := Ceil(W / sc - 2);
+  WinClipRect.h := Ceil(R.visH);
+  WinClipOn := True;
+  RestoreWinClip;
+  { a press outside the visible content is not for the content (it may be scrolled away) }
+  R.keepP := MPressed;
+  R.hidP := MPressed and not Inside(X / sc, R.top, W / sc, R.visH);
+  if R.hidP then MPressed := False;
+  TrackDraw := True;
+  MaxDrawY := -1e9;
+end;
+
+procedure EndPanel(var R: TPanelRun; var Scroll, ContentH: Single; ScrollDrag: Boolean);
+begin
+  TrackDraw := False;
+  if MaxDrawY > -1e8 then ContentH := MaxDrawY + Scroll - R.top + 8 else ContentH := 0;
+  if R.hidP then MPressed := R.keepP;
+  if R.maxS > 0 then
+  begin
+    SetC(Th.SliderTrack);
+    FillR(R.sbx, R.sby, 6, R.sbh);
+    if ScrollDrag or Inside(R.sbx - 3, R.stp, 11, R.sth) then SetC(Th.SliderFill) else SetC(Th.SliderKnob);
+    FillR(R.sbx, R.stp, 6, R.sth);
+  end;
+  SDL_SetRenderClipRect(Ren, nil);
+  WinClipOn := False;
+  if R.sc <> 1 then
+  begin
+    SDL_SetRenderScale(Ren, 1, 1);
+    OX := R.kOX;
+    OY := R.kOY;
+    MX := R.kMX;
+    MY := R.kMY;
+  end;
+  QX := PX;
+end;
+
+{ the size grip in the bottom-right corner of a window }
+procedure DrawGrip(X, Y, W, H: Single; Hot: Boolean);
+var
+  k: Integer;
+begin
+  if Hot or Inside(X + W - 14, Y + H - 14, 14, 14) then SetC(Th.Select) else SetC(Th.TextDim);
+  for k := 0 to 2 do
+    LineR(X + W - 4 - k * 4, Y + H - 2, X + W - 2, Y + H - 4 - k * 4);
+end;
+
+{ ---------------------------------------------------------------- IPC panels }
+
+var
+  IPCSide: Integer = IPC_SERVER;     { which points the I/O panel shows }
+
+{ a text field: its label, the text (typed into with Type), a Type / OK button }
+procedure TextField(id: Integer; y: Single; const Lbl, Cur: string; TxtKind, Idx: Integer; x0, BoxW: Single);
+var
+  editing: Boolean;
+begin
+  editing := (TxtEdit = TxtKind) and (TxtIdx = Idx);
+  if Lbl <> '' then Info(y + 4, Lbl);
+  SetC(Th.OverlayBg);
+  FillR(QX + x0, y, BoxW, 18);
+  SetC(Th.MenuBorder);
+  RectR(QX + x0, y, BoxW, 18);
+  SetC(Th.Text);
+  if editing then
+  begin
+    if TxtKind in [29, 33] then TextR(QX + x0 + 4, y + 5, TxtNum + TxtCaret(TxtKind, Idx))
+    else TextR(QX + x0 + 4, y + 5, Copy(Cur, 1, Max(1, Trunc((BoxW - 12) / 8))) + TxtCaret(TxtKind, Idx));
+    if Button(id, QX + x0 + BoxW + 2, y, 26, 18, 'OK', True) then StopTxt;
+  end
+  else
+  begin
+    if Cur = '' then TextR(QX + x0 + 4, y + 5, '-') else TextR(QX + x0 + 4, y + 5, Copy(Cur, 1, Max(1, Trunc((BoxW - 8) / 8))));
+    if Button(id, QX + x0 + BoxW + 2, y, 26, 18, 'T') then StartTxt(TxtKind, Idx);
+  end;
+end;
+
+procedure DrawIPCNetContent(y0: Single);
+var
+  y: Single;
+  i, n: Integer;
+  info2: TIPCConnInfo;
+  v: Single;
+begin
+  y := y0;
+  { ---- the server }
+  SetC(Th.Title);
+  TextR(QX, y, 'SERVER - for many clients');
+  y := y + 14;
+  if Button(1, QX, y, 136, 18, 'Server ON', IPCServerOn) then
+  begin
+    IPCServerOn := True;
+    IPCChanged := True;
+  end;
+  if Button(2, QX + 142, y, 138, 18, 'Server OFF', not IPCServerOn) then
+  begin
+    IPCServerOn := False;
+    IPCChanged := True;
+  end;
+  y := y + 22;
+  if IPCServerOn and not IPCServerListening and (Pos('error', IPCServerState) = 1) then SetC(Th.StatusErr) else SetC(Th.TextDim);
+  TextR(QX, y, Copy(IPCServerState, 1, 35));
+  y := y + 14;
+  TextField(3, y, 'Name', IPCServerName, 28, 0, 56, 196);
+  y := y + 22;
+  Info(y + 4, 'Bind');
+  if Button(4, QX + 56, y, 108, 18, 'This PC only', IPCServerBind = '127.0.0.1') then
+  begin
+    IPCServerBind := '127.0.0.1';
+    IPCChanged := True;
+  end;
+  if Button(5, QX + 168, y, 112, 18, 'All networks', IPCServerBind = '0.0.0.0') then
+  begin
+    IPCServerBind := '0.0.0.0';
+    IPCChanged := True;
+  end;
+  y := y + 22;
+  TextField(6, y, 'Port', IntToStr(IPCServerPort), 29, 0, 56, 80);
+  v := IPCMaxClients;
+  SetC(Th.TextDim);
+  TextR(QX + 172, y + 5, 'max');
+  if RepButton(7, QX + 204, y + 2, 18, 14, '-') then v := fmax(1, v - 1);
+  SetC(Th.Text);
+  TextR(QX + 228, y + 5, Format('%2.0f', [v]));
+  if RepButton(8, QX + 252, y + 2, 18, 14, '+') then v := fmin(IPC_MAX_CLIENTS, v + 1);
+  if Round(v) <> IPCMaxClients then
+  begin
+    IPCMaxClients := Round(v);
+    IPCChanged := True;
+  end;
+  y := y + 22;
+  n := 0;
+  while IPCClientInfo(n, info2) do
+  begin
+    SetC(Th.Text);
+    TextR(QX, y, Copy(Format('%d %s  %s  rx %d tx %d', [n + 1, info2.Name, info2.Addr, info2.Rx, info2.Tx]), 1, 35));
+    y := y + 12;
+    Inc(n);
+  end;
+  if IPCServerOn and (n = 0) then
+  begin
+    Info(y, 'no client yet');
+    y := y + 12;
+  end;
+  y := y + 8;
+  SetC(Th.HeaderLine);
+  LineR(QX, y, QX + 280, y);
+  y := y + 8;
+  { ---- the client }
+  SetC(Th.Title);
+  TextR(QX, y, 'CLIENT - of many servers');
+  y := y + 14;
+  if Button(10, QX, y, 136, 18, 'Client ON', IPCClientOn) then
+  begin
+    IPCClientOn := True;
+    IPCChanged := True;
+  end;
+  if Button(11, QX + 142, y, 138, 18, 'Client OFF', not IPCClientOn) then
+  begin
+    IPCClientOn := False;
+    IPCChanged := True;
+  end;
+  y := y + 22;
+  TextField(12, y, 'Name', IPCClientName, 30, 0, 56, 196);
+  y := y + 24;
+  for i := 0 to IPC_MAX_TARGETS - 1 do
+    with IPCTargets[i] do
+    begin
+      if not Used then Continue;
+      if Button(20 + i * 8, QX, y, 22, 18, 'v', Enabled) then
+      begin
+        Enabled := not Enabled;
+        IPCChanged := True;
+      end;
+      TextField(21 + i * 8, y, '', Name, 31, i, 26, 200);
+      if Button(22 + i * 8, QX + 258, y, 22, 18, 'x') then
+      begin
+        StopTxt;
+        IPCDeleteTarget(i);
+        IPCChanged := True;
+        Continue;
+      end;
+      y := y + 21;
+      TextField(23 + i * 8, y, '', Host, 32, i, 26, 134);
+      TextField(24 + i * 8, y, '', IntToStr(Port), 33, i, 192, 58);
+      y := y + 21;
+      if IPCTargetConnected(i) then SetC(Th.StatusOk) else SetC(Th.TextDim);
+      TextR(QX + 26, y, Copy(IPCTargetState(i), 1, 32));
+      y := y + 16;
+    end;
+  if Button(90, QX, y, 280, 18, '+ Server to connect to') then
+  begin
+    n := 1;
+    for i := 0 to IPC_MAX_TARGETS - 1 do
+      if IPCTargets[i].Used then Inc(n);
+    if IPCAddTarget('Server' + IntToStr(n), '127.0.0.1', IPC_DEFAULT_PORT) < 0 then
+      SetStatus(Format('The client connects to up to %d servers', [IPC_MAX_TARGETS]), True);
+    IPCChanged := True;
+  end;
+  y := y + 26;
+  { ---- the file }
+  Info(y, 'Saved in ' + IPC_NET_FILE + ' (its own file)');
+  y := y + 14;
+  if Button(91, QX, y, 136, 18, 'Save') then
+  begin
+    IPCChanged := True;
+    IPCSaveFiles;
+  end;
+  if Button(92, QX + 142, y, 138, 18, 'Reload') then IPCReloadFiles;
+  y := y + 22;
+  Info(y, 'Default: server and client off.');
+  y := y + 14;
+end;
+
+{ points for every name in the layout: outputs for what can be read, inputs for what can be worked }
+procedure IPCAutoMap(Side: Integer);
+var
+  L: TNameList;
+  i, x, y, n: Integer;
+  s: string;
+
+  procedure AddIt(Dir: Integer; const Nm: string);
+  begin
+    if (Nm = '') or (IPCFindPoint(Side, Dir, Nm) >= 0) then Exit;
+    if IPCAddPoint(Side, Dir, Nm, '', '') >= 0 then Inc(n);
+  end;
+
+begin
+  n := 0;
+  L := FlowNames(False);
+  for i := 0 to High(L) do AddIt(IPC_OUT, L[i]);
+  { what a value from the network can work: switches, buttons, pots, drives, set points, equipment }
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+      with EGrid[x, y] do
+        if (Tag <> '') and (Kind in [ekSwitch, ekSw2, ekSw3, ekPBNO, ekPBNC, ekPBLatch, ekSelector, ekBreaker, ekPot,
+          ekDrive]) then AddIt(IPC_IN, Tag)
+        else if (Tag <> '') and (Kind = ekController) then
+        begin
+          s := Tag + '.SP';
+          AddIt(IPC_IN, s);
+        end;
+  for i := 0 to MAX_EQUIP - 1 do
+    if Equips[i].Active and EquipActuated(Equips[i].Kind) then AddIt(IPC_IN, Equips[i].Name);
+  IPCChanged := True;
+  SetStatus(Format('Auto map: %d %s points added (%d in all)', [n, IPCSideNames[Side], IPCPointCount(Side)]));
+end;
+
+procedure DrawIPCIOContent(y0: Single);
+var
+  y: Single;
+  i, n: Integer;
+  s, cur: string;
+begin
+  y := y0;
+  if Button(1, QX, y, 136, 18, 'Server points', IPCSide = IPC_SERVER) then
+  begin
+    StopTxt;
+    IPCSide := IPC_SERVER;
+  end;
+  if Button(2, QX + 142, y, 138, 18, 'Client points', IPCSide = IPC_CLIENT) then
+  begin
+    StopTxt;
+    IPCSide := IPC_CLIENT;
+  end;
+  y := y + 22;
+  if Button(3, QX, y, 90, 18, '+ Input') then
+  begin
+    IPCAddPoint(IPCSide, IPC_IN, 'IN' + IntToStr(IPCPointCount(IPCSide) + 1), '', '');
+    IPCChanged := True;
+  end;
+  if Button(4, QX + 94, y, 90, 18, '+ Output') then
+  begin
+    IPCAddPoint(IPCSide, IPC_OUT, 'OUT' + IntToStr(IPCPointCount(IPCSide) + 1), '', '');
+    IPCChanged := True;
+  end;
+  if Button(5, QX + 188, y, 92, 18, 'Auto map') then IPCAutoMap(IPCSide);
+  y := y + 22;
+  Info(y, 'IN: from the network to the part (Link).');
+  Info(y + 11, 'OUT: the part (Link) to the network.');
+  Info(y + 22, 'Link empty: the Name. Peer empty: all.');
+  y := y + 38;
+  n := 0;
+  for i := 0 to IPC_MAX_POINTS - 1 do
+    with IPCPoints[i] do
+    begin
+      if not (Used and (Side = IPCSide)) then Continue;
+      Inc(n);
+      if Button(100 + i * 8, QX, y, 34, 18, UpperCase(IPCDirNames[Dir]), Dir = IPC_OUT) then
+      begin
+        Dir := 1 - Dir;
+        Known := False;
+        IPCChanged := True;
+      end;
+      TextField(101 + i * 8, y, '', Name, 34, i, 38, 128);
+      if Known then s := FloatToStrF(Value, ffGeneral, 6, 2) else s := '----';
+      SetC(Th.Text);
+      TextR(QX + 198, y + 5, Copy(s, 1, 7));
+      if Button(102 + i * 8, QX + 258, y, 22, 18, 'x') then
+      begin
+        StopTxt;
+        IPCDeletePoint(i);
+        IPCChanged := True;
+        Continue;
+      end;
+      y := y + 21;
+      { its link: picked (< >) from the layout or typed }
+      cur := Link;
+      Info(y + 4, 'Link');
+      if Button(103 + i * 8, QX + 34, y, 18, 18, '<') then cur := NextFlowName(Link, -1, Dir = IPC_IN);
+      if cur <> Link then
+      begin
+        Link := cur;
+        IPCChanged := True;
+      end;
+      TextField(104 + i * 8, y, '', Link, 35, i, 54, 104);
+      if Button(105 + i * 8, QX + 186, y, 18, 18, '>') then
+      begin
+        Link := NextFlowName(Link, 1, Dir = IPC_IN);
+        IPCChanged := True;
+      end;
+      TextField(106 + i * 8, y, '', Peer, 36, i, 208, 44);
+      y := y + 21;
+      if (Dir = IPC_IN) and Known then
+      begin
+        if Virtual then s := ' (a name of its own)' else s := '';
+        Info(y, Copy(Format('from %s, %d values%s', [From, Count, s]), 1, 36));
+        y := y + 12;
+      end;
+      y := y + 4;
+    end;
+  if n = 0 then
+  begin
+    Info(y, 'No points: + Input / + Output, or Auto map');
+    y := y + 14;
+  end;
+  y := y + 6;
+  Info(y, 'Saved in ' + IPC_IO_FILE + ' (its own file)');
+  y := y + 14;
+  if Button(6, QX, y, 136, 18, 'Save') then
+  begin
+    IPCChanged := True;
+    IPCSaveFiles;
+  end;
+  if Button(7, QX + 142, y, 138, 18, 'Reload') then IPCReloadFiles;
+  y := y + 22;
+end;
+
 procedure DrawWin(i: Integer);
 const
   BW = 16;
 var
   Wn: ^TWin;
-  closeX, y0, sc, kOX, kOY, kMX, kMY, visH, maxS, sbx, sby, sbh, sth, stp: Single;
-  hot, keepP, hidP: Boolean;
-  k: Integer;
+  R: TPanelRun;
+  closeX, y0, sc: Single;
+  hot: Boolean;
 begin
   Wn := @Wins[i];
   if not Wn^.Visible then Exit;
@@ -10228,68 +13020,14 @@ begin
     MPressed := False;
   end;
 
-  { a resizable panel scales its content: drawing and the mouse go through the panel's scale }
+  { the content: drawn at the panel's scale, scrolled when it is taller than the panel }
   sc := Wn^.Scale;
   if WinResizable(i) and not WinDocked(i) and MPressed and Inside(Wn^.X + Wn^.W - 14, Wn^.Y + Wn^.H - 14, 14, 14) then
   begin
     Wn^.Sizing := True;
     MPressed := False;
   end;
-  kOX := OX;
-  kOY := OY;
-  kMX := MX;
-  kMY := MY;
-  if sc <> 1 then
-  begin
-    OX := OX / sc;
-    OY := OY / sc;
-    MX := MX / sc;
-    MY := MY / sc;
-    SDL_SetRenderScale(Ren, sc, sc);
-  end;
-  { a panel whose content is taller than it scrolls: wheel, the bar on its right, or a click on the bar }
-  visH := (Wn^.H - WIN_TITLE_H) / sc - 2;
-  maxS := fmax(0, Wn^.ContentH - visH);
-  sbx := Wn^.X / sc + Wn^.W / sc - 8;
-  sby := (Wn^.Y + WIN_TITLE_H) / sc + 3;
-  sbh := visH - 18;
-  sth := 0;
-  if maxS > 0 then
-  begin
-    sth := fmax(20, sbh * visH / Wn^.ContentH);
-    if Wn^.ScrollDrag then
-    begin
-      if MDown then Wn^.Scroll := (MY - Wn^.DragOff - sby) / fmax(1, sbh - sth) * maxS
-      else Wn^.ScrollDrag := False;
-    end;
-    Wn^.Scroll := fclamp(Wn^.Scroll, 0, maxS);
-    stp := sby + (sbh - sth) * Wn^.Scroll / maxS;
-    if MPressed and Inside(sbx - 3, sby, 11, sbh) then
-    begin
-      if (MY >= stp) and (MY <= stp + sth) then
-      begin
-        Wn^.ScrollDrag := True;
-        Wn^.DragOff := MY - stp;
-      end
-      else if MY < stp then Wn^.Scroll := fmax(0, Wn^.Scroll - visH * 0.9)
-      else Wn^.Scroll := fmin(maxS, Wn^.Scroll + visH * 0.9);
-      MPressed := False;
-    end;
-  end
-  else
-    Wn^.Scroll := 0;
-  QX := Wn^.X / sc + 8;
-  y0 := (Wn^.Y + WIN_TITLE_H) / sc + 6 - Wn^.Scroll;  WinClipRect.x := Floor(SXf(Wn^.X / sc + 1));
-  WinClipRect.y := Floor(SYf((Wn^.Y + WIN_TITLE_H) / sc + 1));
-  WinClipRect.w := Ceil(Wn^.W / sc - 2);
-  WinClipRect.h := Ceil((Wn^.H - WIN_TITLE_H) / sc - 2);
-  WinClipOn := True;
-  RestoreWinClip;
-  { a press outside the visible content is not for the content (it may be scrolled away) }
-  keepP := MPressed;
-  hidP := MPressed and not Inside(Wn^.X / sc, (Wn^.Y + WIN_TITLE_H) / sc, Wn^.W / sc, visH);
-  if hidP then MPressed := False;
-  WinContentBottom := -1;
+  y0 := BeginPanel(R, Wn^.X, Wn^.Y, Wn^.W, Wn^.H, sc, Wn^.Scroll, Wn^.ContentH, Wn^.DragOff, Wn^.ScrollDrag);
   case i of
     WIN_TOOLS: DrawToolsContent(y0);
     WIN_SIM: DrawSimContent(y0);
@@ -10310,42 +13048,28 @@ begin
         DrawShapeContent(y0);
         IdBase := 0;
       end;
+    WIN_IPCNET:
+      begin
+        IdBase := 4000;
+        DrawIPCNetContent(y0);
+        IdBase := 0;
+      end;
+    WIN_IPCIO:
+      begin
+        IdBase := 4500;
+        DrawIPCIOContent(y0);
+        IdBase := 0;
+      end;
   end;
-  { how tall the content was: the scroll range for the next frame }
-  if WinContentBottom > 0 then Wn^.ContentH := WinContentBottom - (y0 - 6) + 6 else Wn^.ContentH := 0;
-  if hidP then MPressed := keepP;
-  if maxS > 0 then
-  begin
-    SetC(Th.SliderTrack);
-    FillR(sbx, sby, 6, sbh);
-    if Wn^.ScrollDrag or Inside(sbx - 3, stp, 11, sth) then SetC(Th.SliderFill) else SetC(Th.SliderKnob);
-    FillR(sbx, stp, 6, sth);
-  end;
-  SDL_SetRenderClipRect(Ren, nil);
-  WinClipOn := False;  if sc <> 1 then
-  begin
-    SDL_SetRenderScale(Ren, 1, 1);
-    OX := kOX;
-    OY := kOY;
-    MX := kMX;
-    MY := kMY;
-  end;
-  QX := PX;
-  { the size grip }
-  if WinResizable(i) and not WinDocked(i) then
-  begin
-    if Wn^.Sizing or Inside(Wn^.X + Wn^.W - 14, Wn^.Y + Wn^.H - 14, 14, 14) then SetC(Th.Select) else SetC(Th.TextDim);
-    for k := 0 to 2 do
-      LineR(Wn^.X + Wn^.W - 4 - k * 4, Wn^.Y + Wn^.H - 2, Wn^.X + Wn^.W - 2, Wn^.Y + Wn^.H - 4 - k * 4);
-  end;
+  EndPanel(R, Wn^.Scroll, Wn^.ContentH, Wn^.ScrollDrag);
+  if WinResizable(i) and not WinDocked(i) then DrawGrip(Wn^.X, Wn^.Y, Wn^.W, Wn^.H, Wn^.Sizing);
 end;
-
 { ---------------------------------------------------------------- Focus Properties windows }
 
 type
   TSelSave = record
     K: TSelKind;
-    X, Y, B, L, Fr, Lk, Eq, EX, EY, X1, Y1, X2, Y2: Integer;
+    X, Y, B, L, Fr, Lk, Eq, EX, EY, X1, Y1, X2, Y2, Fl, FX, FY: Integer;
   end;
 
 procedure SaveSel(out S: TSelSave);
@@ -10364,6 +13088,9 @@ begin
   S.Y1 := SelY1;
   S.X2 := SelX2;
   S.Y2 := SelY2;
+  S.Fl := SelFl;
+  S.FX := SelFX;
+  S.FY := SelFY;
 end;
 
 procedure RestoreSel(const S: TSelSave);
@@ -10381,6 +13108,9 @@ begin
   SelX1 := S.X1;
   SelY1 := S.Y1;
   SelX2 := S.X2;
+  SelFl := S.Fl;
+  SelFX := S.FX;
+  SelFY := S.FY;
   SelY2 := S.Y2;
 end;
 
@@ -10397,6 +13127,7 @@ begin
     selEquip: SelEq := P.A;
     selECell: begin SelEX := P.A; SelEY := P.B; end;
     selFCell: begin SelFX := P.A; SelFY := P.B; end;
+    selFlow: SelFl := P.A;
   end;
 end;
 
@@ -10411,6 +13142,7 @@ begin
     selEquip: Result := (P.A >= 0) and (P.A < MAX_EQUIP) and Equips[P.A].Active;
     selECell: Result := not EEmpty(P.A, P.B);
     selFCell: Result := not FEmpty(P.A, P.B);
+    selFlow: Result := (P.A >= 0) and (P.A < MAX_FLOW) and FlowNodes[P.A].Active;
   else
     Result := False;
   end;
@@ -10445,7 +13177,7 @@ var
   P: TPinWin;
   k, n: Integer;
 begin
-  if not (SelKind in [selCell, selBucket, selLabel, selFrame, selLink, selEquip, selECell, selFCell]) then
+  if not (SelKind in [selCell, selBucket, selLabel, selFrame, selLink, selEquip, selECell, selFCell, selFlow]) then
   begin
     SetStatus('Right-click one item to focus its properties', True);
     Exit;
@@ -10461,8 +13193,10 @@ begin
     selEquip: P.A := SelEq;
     selECell: begin P.A := SelEX; P.B := SelEY; end;
     selFCell: begin P.A := SelFX; P.B := SelFY; end;
+    selFlow: P.A := SelFl;
   end;
   P.Page := CurPage;
+  P.Scale := 1;
   { it is open already: bring it up }
   for k := 0 to High(Pins) do
     if (Pins[k].Page = P.Page) and (Pins[k].Kind = P.Kind) and (Pins[k].A = P.A) and (Pins[k].B = P.B) then
@@ -10495,6 +13229,8 @@ procedure DrawPin(k: Integer; Press: Boolean);
 const
   BW = 16;
 var
+  R: TPanelRun;
+  bh, s: Single;
   P: ^TPinWin;
   saved: TSelSave;
   closeX, y0: Single;
@@ -10551,10 +13287,29 @@ begin
     P^.DOY := MY - P^.Y;
     MPressed := False;
   end;
+  { its size grip: the window and its content grow together }
+  if P^.Scale <= 0 then P^.Scale := 1;
+  if P^.Sizing then
+  begin
+    if MDown then
+    begin
+      bh := P^.H / P^.Scale;
+      s := fmin(fmax((MX - P^.X) / 296, (MY - P^.Y) / bh), fmin((WIN_H - P^.Y) / bh, (SceneRight - P^.X) / 296));
+      P^.Scale := fclamp(s, 0.8, 3);
+      P^.W := 296 * P^.Scale;
+      P^.H := bh * P^.Scale;
+    end
+    else
+      P^.Sizing := False;
+  end;
+  if MPressed and Inside(P^.X + P^.W - 14, P^.Y + P^.H - 14, 14, 14) then
+  begin
+    P^.Sizing := True;
+    MPressed := False;
+  end;
   { the properties of the pinned item; widget ids of their own so its sliders and
     buttons do not move with the Properties panel's }
-  QX := P^.X + 8;
-  y0 := P^.Y + WIN_TITLE_H + 6;
+  y0 := BeginPanel(R, P^.X, P^.Y, P^.W, P^.H, P^.Scale, P^.Scroll, P^.ContentH, P^.DragOff, P^.ScrollDrag);
   if PinValid(P^) then
   begin
     IdBase := 10000 * (k + 1);
@@ -10566,6 +13321,7 @@ begin
       selEquip: DrawEquipProps(y0);
       selECell: DrawECellProps(y0);
       selFCell: DrawFCellProps(y0);
+      selFlow: DrawFlowProps(y0);
       selBucket: DrawBucketProps(y0);
     end;
     IdBase := 0;
@@ -10575,7 +13331,8 @@ begin
     Info(y0 + 4, 'The item is gone: deleted, or moved');
     Info(y0 + 16, 'to another cell. Close this window.');
   end;
-  QX := PX;
+  EndPanel(R, P^.Scroll, P^.ContentH, P^.ScrollDrag);
+  DrawGrip(P^.X, P^.Y, P^.W, P^.H, P^.Sizing);
   RestoreSel(saved);
 end;
 
@@ -10614,6 +13371,7 @@ begin
     selEquip: DeleteEquip(SelEq);
     selECell: EErase(SelEX, SelEY);
     selFCell: FErase(SelFX, SelFY);
+    selFlow: FlowDelete(SelFl);
     selFrame:
       begin
         if EditFrame = SelFr then StopEditFrame;
@@ -10703,6 +13461,7 @@ end;
 
 procedure CanvasPress(Right: Boolean);
 var
+  fl: Integer;
   gx, gy, b, L, sx, sy, fr, part, lk, eq, epart: Integer;
   blocked: Boolean;
 begin
@@ -10727,9 +13486,55 @@ begin
     EqPick := -1;
     Exit;
   end;
+  { flow charts: the flow tools place nodes, the Arrow tool joins them, the Select tool picks and moves them }
+  if (not Right) and (not PasteArmed) then
+  begin
+    if ((Tool >= tFwStart) and (Tool <= tFwEnd)) or (Tool = tFwRandom) then
+    begin
+      StopEditLabel;
+      StopEditFrame;
+      if Tool = tFwRandom then fl := FlowAdd(FN_RANDOM, SnapCell(MWX), SnapCell(MWY))
+      else fl := FlowAdd(Ord(Tool) - Ord(tFwStart), SnapCell(MWX), SnapCell(MWY));
+      if fl < 0 then SetStatus(Format('A page has at most %d flow chart nodes', [MAX_FLOW]), True)
+      else
+      begin
+        SelectFlow(fl);
+        SetStatus('Placed ' + FlowKindNames[FlowNodes[fl].Kind] + ' - set it up in Properties; the Arrow tool joins nodes');
+      end;
+      Exit;
+    end;
+    fl := FlowPick(MWX, MWY);
+    if Tool = tFwArrow then
+    begin
+      if fl >= 0 then
+      begin
+        FlowFrom := fl;
+        FlowFromNo := FlowTwoWays(fl) and (MWX > FlowNodes[fl].X + FlowNodes[fl].W * 0.6);
+        Drag := dragFlowArrow;
+        if FlowFromNo then SetStatus('No: drag to the node that comes next')
+        else SetStatus('Drag to the node that comes next');
+      end
+      else
+        SetStatus('Start an arrow on a node (a decision''s right part: its No way)', True);
+      Exit;
+    end;
+    if (Tool = tSelect) and (fl >= 0) then
+    begin
+      StopEditLabel;
+      StopEditFrame;
+      SelectFlow(fl);
+      if LastClicks >= 2 then StartTxt(9, fl)
+      else
+      begin
+        Drag := dragFlowMove;
+        LastMX := MWX;
+        LastMY := MWY;
+      end;
+      Exit;
+    end;
+  end;
   L := LabelAt(MWX, MWY);
-  lk := LinkAt(MWX, MWY);
-  { links sit on top of everything: the Select tool follows them, the Link tool (or Ctrl) picks them }
+  lk := LinkAt(MWX, MWY);  { links sit on top of everything: the Select tool follows them, the Link tool (or Ctrl) picks them }
   if (not Right) and (not PasteArmed) and (lk >= 0) then
   begin
     if (Tool = tSelect) and ((SDL_GetModState and SDL_KMOD_CTRL) = 0) then
@@ -10859,6 +13664,25 @@ begin
     StopEditFrame;
     SelKind := selEquip;
     SelEq := eq;
+    if Equips[eq].Kind = EQ_TIMELINE then
+    begin
+      lk := TLPinAt(eq, MWX, MWY);
+      if lk >= 0 then
+      begin
+        if TLSel <> lk then StopTxt;
+        TLSel := lk;
+        DragTLT := Equips[eq].Pins[lk].T;
+        Drag := dragTLPin;
+        LastMX := MWX;
+        LastMY := MWY;
+        Exit;
+      end;
+      if LastClicks >= 2 then
+      begin
+        if TLRunning(eq) then TimelineStop(eq) else TimelineStart(eq);
+        Exit;
+      end;
+    end;
     if (LastClicks >= 2) and (EquipActuated(Equips[eq].Kind) or (Equips[eq].Kind in [EQ_LAMP, EQ_RAIN, EQ_FIRE, EQ_SEQUENCE])) then
       ToggleEquip(eq)
     else
@@ -10869,7 +13693,7 @@ begin
     end;
     Exit;
   end;
-  if (not Right) and (not PasteArmed) and (Tool >= tEqMotor) and (Tool <= tEqChiller) then
+  if (not Right) and (not PasteArmed) and (Tool >= tEqMotor) and (Tool <= tEqRack) then
   begin
     StopEditLabel;
     StopEditFrame;
@@ -11075,6 +13899,24 @@ begin
   end;
 end;
 
+{ the Arrow tool let go: join the node it started on to the node under the mouse }
+procedure FinishFlowArrow;
+var
+  t: Integer;
+begin
+  t := FlowPick(MWX, MWY);
+  if (FlowFrom >= 0) and (t >= 0) and (t <> FlowFrom) then
+  begin
+    FlowConnect(FlowFrom, t, FlowFromNo);
+    if FlowFromNo then SetStatus(Format('No of %d now goes to %d %s', [FlowFrom + 1, t + 1, FlowNodes[t].Caption]))
+    else SetStatus(Format('%d now goes to %d %s', [FlowFrom + 1, t + 1, FlowNodes[t].Caption]));
+  end
+  else if FlowFrom >= 0 then
+    SetStatus('Let go over another node to join them', True);
+  FlowFrom := -1;
+  Drag := dragNone;
+end;
+
 procedure CanvasMotion;
 var
   gx, gy: Integer;
@@ -11109,6 +13951,14 @@ begin
       if (gx <> LastCX) or (gy <> LastCY) then EWireTo(gx, gy);
     dragFLine:
       if (gx <> LastCX) or (gy <> LastCY) then FLineTo(gx, gy);
+    dragFlowMove:
+      if (SelKind = selFlow) and FlowNodes[SelFl].Active then
+      begin
+        FlowNodes[SelFl].X := fclamp(FlowNodes[SelFl].X + MWX - LastMX, 0, CANVAS_W - FlowNodes[SelFl].W);
+        FlowNodes[SelFl].Y := fclamp(FlowNodes[SelFl].Y + MWY - LastMY, 0, CANVAS_H - FlowNodes[SelFl].H);
+        LastMX := MWX;
+        LastMY := MWY;
+      end;
     dragEqMove:
       if (SelKind = selEquip) and Equips[SelEq].Active then
       begin
@@ -11130,6 +13980,13 @@ begin
         Links[SelLk].Y := fclamp(Links[SelLk].Y + MWY - LastMY, 0, CANVAS_H - 18);
         LastMX := MWX;
         LastMY := MWY;
+      end;
+    dragTLPin:
+      if (SelKind = selEquip) and (Equips[SelEq].Kind = EQ_TIMELINE) and (TLSel >= 0) and (TLSel < TL_PINS) then
+      begin
+        DragTLT := DragTLT + (MWX - LastMX) / fmax(1, Equips[SelEq].W - 32) * fmax(0.1, Equips[SelEq].Delay);
+        Equips[SelEq].Pins[TLSel].T := fclamp(Round(DragTLT * 10) / 10, 0, fmax(0.1, Equips[SelEq].Delay));
+        LastMX := MWX;
       end;
     dragLabel:
       if (SelKind = selLabel) and Labels[SelL].Active then
@@ -11157,15 +14014,20 @@ end;
 { ---------------------------------------------------------------- right-click popup }
 
 const
-  POPUP_W = 170;
+  POPUP_W = 200;
   CanvasLabels: array[0..6] of string = ('Cut', 'Copy', 'Paste here', 'Delete', 'Rotate', 'Edit text',
     'Focus properties');
   CanvasKeys: array[0..6] of string = ('Ctrl+X', 'Ctrl+C', 'Ctrl+V', 'Del', 'R', '2x click', '');
   PanelLabels: array[0..3] of string = ('Right embed', 'Left embed', 'Float', 'Hide');
 
+var
+  { the popup's jump items: go to what a flow chart node reads / works, back to the flow chart }
+  JumpItems: array[0..5] of record Lbl, Name: string; Back: Boolean; TL, TLEq, TLPin: Integer; TLT: Single; end;
+  NJumpItems: Integer = 0;
+
 function PopupCount: Integer;
 begin
-  if PopupWin >= 0 then Result := 4 else Result := 7;
+  if PopupWin >= 0 then Result := 4 else Result := 7 + NJumpItems;
 end;
 
 function PopupH: Single;
@@ -11189,6 +14051,86 @@ begin
   PlacePopup;
 end;
 
+procedure BuildJumpItems;
+
+  procedure AddJump(const Name: string);
+  var
+    pg, what, a, b: Integer;
+  begin
+    if (Name = '') or (NJumpItems > 1) or not FindItem(Name, pg, what, a, b) then Exit;
+    JumpItems[NJumpItems].Lbl := Copy('Go to ' + Name, 1, 17) + Format(' (p%d)', [pg + 1]);
+    JumpItems[NJumpItems].Name := Name;
+    JumpItems[NJumpItems].Back := False;
+    JumpItems[NJumpItems].TL := 0;
+    Inc(NJumpItems);
+  end;
+
+  procedure AddTL(Kind, Pin: Integer; TT: Single; const Lbl: string);
+  begin
+    if NJumpItems > High(JumpItems) then Exit;
+    JumpItems[NJumpItems].Lbl := Lbl;
+    JumpItems[NJumpItems].Name := '';
+    JumpItems[NJumpItems].Back := False;
+    JumpItems[NJumpItems].TL := Kind;
+    JumpItems[NJumpItems].TLEq := SelEq;
+    JumpItems[NJumpItems].TLPin := Pin;
+    JumpItems[NJumpItems].TLT := TT;
+    Inc(NJumpItems);
+  end;
+
+var
+  k: Integer;
+  t: Single;
+begin
+  NJumpItems := 0;
+  if (SelKind = selFlow) and (SelFl >= 0) and FlowNodes[SelFl].Active then
+  begin
+    if FlowNodes[SelFl].Kind in [FN_INPUT, FN_DECISION, FN_DISPLAY] then AddJump(FlowNodes[SelFl].Src);
+    if (FlowNodes[SelFl].Kind = FN_ACTION) and (FlowNodes[SelFl].Act <> FA_TAG) then AddJump(FlowNodes[SelFl].Target);
+  end;
+  if JumpBackPage >= 0 then
+  begin
+    JumpItems[NJumpItems].Lbl := 'Back to flow chart';
+    JumpItems[NJumpItems].Name := '';
+    JumpItems[NJumpItems].Back := True;
+    JumpItems[NJumpItems].TL := 0;
+    Inc(NJumpItems);
+  end;
+  { a timeline: a pin where it was right-clicked; delete the pin there }
+  if (SelKind = selEquip) and (SelEq >= 0) and Equips[SelEq].Active and (Equips[SelEq].Kind = EQ_TIMELINE) then
+  begin
+    k := TLPinAt(SelEq, MWX, MWY);
+    t := Round(TLTimeAt(Equips[SelEq], MWX) * 10) / 10;
+    AddTL(1, k, t, 'Input pin at ' + NumText(t) + ' s');
+    AddTL(2, k, t, 'Fix pin at ' + NumText(t) + ' s');
+    if k >= 0 then AddTL(3, k, t, 'Delete ' + TLPinShort(Equips[SelEq], k));
+  end;
+end;
+
+procedure TimelinePopupItem(j: Integer);
+var
+  k: Integer;
+begin
+  with JumpItems[j] do
+  begin
+    if (TLEq < 0) or (TLEq >= MAX_EQUIP) or not (Equips[TLEq].Active and (Equips[TLEq].Kind = EQ_TIMELINE)) then Exit;
+    SelKind := selEquip;
+    SelEq := TLEq;
+    case TL of
+      1: k := TLAddPin(TLEq, TLP_INPUT, TLT);
+      2: k := TLAddPin(TLEq, TLP_FIX, TLT);
+    else
+      begin
+        TLDeletePin(TLEq, TLPin);
+        TLSel := -1;
+        Exit;
+      end;
+    end;
+    if k >= 0 then TLSel := k
+    else SetStatus(Format('A timeline has up to %d pins', [TL_PINS]), True);
+  end;
+end;
+
 procedure OpenPopup;
 var
   gx, gy, b, L, sx, sy, fr, part: Integer;
@@ -11201,7 +14143,9 @@ begin
     b := BucketPick(MWX, MWY);
     L := LabelAt(MWX, MWY);
     fr := FrameAt(MWX, MWY, part);
-    if LinkAt(MWX, MWY) >= 0 then
+    if FlowPick(MWX, MWY) >= 0 then
+      SelectFlow(FlowPick(MWX, MWY))
+    else if LinkAt(MWX, MWY) >= 0 then
     begin
       SelKind := selLink;
       SelLk := LinkAt(MWX, MWY);
@@ -11241,6 +14185,7 @@ begin
   PopupWin := -1;
   PopupGX := gx;
   PopupGY := gy;
+  BuildJumpItems;
   PlacePopup;
 end;
 
@@ -11278,14 +14223,20 @@ begin
       end;
       en := not chk;
     end
+    else if i >= 7 then
+    begin
+      lbl := JumpItems[i - 7].Lbl;
+      key := '';
+      en := True;
+    end
     else
     begin
       lbl := CanvasLabels[i];
       key := CanvasKeys[i];
       case i of
         2: en := not ClipEmpty;
-        5: en := SelKind in [selLabel, selFrame, selLink, selEquip, selECell, selFCell];
-        6: en := SelKind in [selCell, selBucket, selLabel, selFrame, selLink, selEquip, selECell, selFCell];
+        5: en := SelKind in [selLabel, selFrame, selLink, selEquip, selECell, selFCell, selFlow];
+        6: en := SelKind in [selCell, selBucket, selLabel, selFrame, selLink, selEquip, selECell, selFCell, selFlow];
       else
         en := SelKind <> selNone;
       end;
@@ -11327,8 +14278,12 @@ begin
              else if SelKind = selEquip then StartTxt(6, SelEq)
              else if SelKind = selECell then StartTxt(7, SelEY * GW + SelEX)
              else if SelKind = selFCell then StartTxt(8, SelFY * GW + SelFX)
+             else if SelKind = selFlow then StartTxt(9, SelFl)
              else StartEditLabel(SelL);
           6: OpenPin;
+        else
+          if JumpItems[i - 7].TL > 0 then TimelinePopupItem(i - 7)
+          else if JumpItems[i - 7].Back then JumpBack else JumpTo(JumpItems[i - 7].Name);
         end;
       Exit;
     end;
@@ -11469,6 +14424,8 @@ begin
     SDLK_F7: ToggleWin(WIN_POPUPS);
     SDLK_F8: ToggleWin(WIN_LAB);
     SDLK_F9: ToggleWin(WIN_SHAPE);
+    SDLK_F10: ToggleWin(WIN_IPCNET);
+    SDLK_F11: ToggleWin(WIN_IPCIO);
     SDLK_PAGEUP: if CurPage > 0 then AppGoToPage(CurPage - 1);
     SDLK_PAGEDOWN: if CurPage < PageCount - 1 then AppGoToPage(CurPage + 1);
   end;
@@ -11478,6 +14435,8 @@ end;
 
 { a mouse button went down at MX, MY }
 procedure MouseDown(Button: Integer);
+var
+  jx, jy, jw, jh: Single;
 begin
   if Button = SDL_BUTTON_MIDDLE then
   begin
@@ -11492,8 +14451,15 @@ begin
   else if (Button = SDL_BUTTON_LEFT) and (ShownPopup >= 0) and (OpenMenu < 0) and (not PopupOpen) and
     (MX >= 0) and (MX < CANVAS_W) and (MY >= 0) and (MY < CANVAS_H) and not InAnyWin(MX, MY) then
   begin
-    { the frame popup over the canvas: its buttons, or a click beside it closes it }
-    if InFramePopup then FPClick := True else CloseFramePopup;
+    { the frame popup over the canvas: its title / corner (held: moved / sized), its buttons, or a click
+      beside it closes it }
+    if InFramePopup then
+    begin
+      MDown := True;
+      FramePopupPress;
+    end
+    else
+      CloseFramePopup;
   end
   else if PopupOpen then
   begin
@@ -11520,7 +14486,12 @@ begin
   begin
     MDown := True;
     MPressed := True;
-    if (MX >= 0) and (MX < CANVAS_W) and (MY >= 0) and not InAnyWin(MX, MY) then CanvasPress(False);
+    if JumpBackRect(jx, jy, jw, jh) and Inside(jx, jy, jw, jh) and not InAnyWin(MX, MY) then
+    begin
+      JumpBack;
+      MPressed := False;
+    end
+    else if (MX >= 0) and (MX < CANVAS_W) and (MY >= 0) and not InAnyWin(MX, MY) then CanvasPress(False);
   end
   else if Button = SDL_BUTTON_RIGHT then
   begin
@@ -11596,13 +14567,19 @@ begin
   Rewrite(f);
   WriteLn(f, 'sim ms/frame ', ShotMsPerFrame: 0: 2);
   WriteLn(f, 'on floor outside buckets ', onFloor);
+  WriteLn(f, 'pieces ', PieceCount);
   WriteLn(f, 'particles ', NPart, ' inPipe ', inPipe, ' air ', NAir, ' limit ', LimitHit);
   for m := Low(TMat) to High(TMat) do
     WriteLn(f, '  ', MatP[m].Name, ' ', cnt[m]);
   for i := 0 to MAX_BUCKETS - 1 do
     if Buckets[i].Active then
+    begin
+      for m := Low(TMat) to High(TMat) do cnt[m] := 0;
+      for x := 0 to NPart - 1 do
+        if Parts[x].Bucket = i then Inc(cnt[Parts[x].Mat]);
       WriteLn(f, 'bucket ', i + 1, ' count ', Buckets[i].Count, ' fill ', BucketFill(i): 0: 2,
-        ' spilled ', Buckets[i].Spilled);
+        ' spilled ', Buckets[i].Spilled, Format('  W%d O%d F%d S%d', [cnt[mWater], cnt[mOil], cnt[mFluff], cnt[mSand]]));
+    end;
   for y := 0 to GH - 1 do
     for x := 0 to GW - 1 do
     begin
@@ -11610,6 +14587,8 @@ begin
       if c^.Kind = ckSource then
         WriteLn(f, Format('tank %d,%d stock W%.0f O%.0f F%.0f S%.0f', [x, y, c^.Stock[mWater],
           c^.Stock[mOil], c^.Stock[mFluff], c^.Stock[mSand]]))
+      else if c^.Kind in [ckSilo, ckHopper] then
+        WriteLn(f, Format('%s %d,%d holds %.0f', [KindNames[c^.Kind], x, y, StoreTotal(c^)]))
       else if c^.Mouth >= 0 then
         WriteLn(f, Format('%s %d,%d mouth flow %.3f  speed %.0f', [KindNames[c^.Kind], x, y,
           c^.F[c^.Mouth], CellSpeed(x, y)]));
@@ -11641,14 +14620,59 @@ begin
 end;
 
 { --selftest <report.txt> : exercises undo/redo, cut/copy/paste and themes }
+{ the network for some frames (the tests) }
+procedure NetSteps(n: Integer; dt: Single = 1 / 60);
+var
+  k: Integer;
+begin
+  for k := 1 to n do
+  begin
+    IPCStep(dt);
+    Sleep(2);
+  end;
+end;
+
+{ every line a test peer has got, each ended by | }
+function ProbeAll(var P: TIPCProbe): string;
+var
+  s: string;
+begin
+  Result := '';
+  while ProbeReadLine(P, s) do Result := Result + s + '|';
+end;
+
+{ WCAG contrast ratio of two colours (1..21) }
+function Contrast(const a, b: TRGB): Single;
+
+  function Lum(const c: TRGB): Single;
+
+    function Ch(v: Byte): Single;
+    begin
+      Result := v / 255;
+      if Result <= 0.03928 then Result := Result / 12.92 else Result := Power((Result + 0.055) / 1.055, 2.4);
+    end;
+
+  begin
+    Result := 0.2126 * Ch(c.R) + 0.7152 * Ch(c.G) + 0.0722 * Ch(c.B);
+  end;
+
+begin
+  Result := (fmax(Lum(a), Lum(b)) + 0.05) / (fmin(Lum(a), Lum(b)) + 0.05);
+end;
+
 procedure RunSelfTest(const FileName: string);
 var
   f: TextFile;
   fails, i, b, np, nb, k, lk, lk2, cx, cy: Integer;
-  bx, by, fw, fh: Single;
+  bx, by, fw, fh, x2, y2, w2, h2: Single;
   err: string;
   tf: TextFile;
   b2: Boolean;
+  ev, ev2: TTrendEvent;
+  pa, pb, pc, sc, sd: TIPCProbe;
+  port: Integer;
+  ga, gb, gc, gd: string;
+  ci, ci2: TIPCConnInfo;
 
   { open menu m and click item i through the real mouse path; m = -1 clicks the Edit button on the bar }
   procedure ClickMenu(m, i: Integer);
@@ -12256,9 +15280,9 @@ begin
   Check('Panels > Simulation works by click', not Wins[WIN_SIM].Visible);
   ClickMenu(MENU_PANELS, 1);
   BuildMenu(MENU_PANELS);
-  Check('Panels menu holds the panels, the lab + Dock all', (MCount = 10) and (MItems[5].Lbl = 'Page & Layer') and
+  Check('Panels menu holds the panels, the lab, the IPC panels + Dock all', (MCount = 12) and (MItems[5].Lbl = 'Page & Layer') and
     (MItems[6].Lbl = 'Frame popup') and (MItems[7].Lbl = 'Physics lab') and (MItems[8].Lbl = 'Shape editor') and
-    (MItems[9].Lbl = 'Dock all panels'));
+    (MItems[9].Lbl = 'IPC network') and (MItems[11].Lbl = 'Dock all panels'));
   BuildMenu(MENU_VIEW);
   Check('View menu: zoom, pressure, air, Grid >', (MCount = 6) and MItems[VIEW_GRID_ITEM].HasSub);
 
@@ -12519,6 +15543,84 @@ begin
   MDown := False;
   MPressed := False;
   Check('a click beside the popup closes it', (ShownPopup = -1) and (CurPage = 0));
+  { a frame popup moves by its title and sizes by its corner, through the mouse as the user does it }
+  ShowFramePopup(1);
+  Render;
+  FramePopupBox(bx, by, fw, fh);
+  MX := bx + 60;
+  MY := by + 8;
+  LastClicks := 1;
+  MouseDown(SDL_BUTTON_LEFT);
+  Check('pressing a frame popup''s title holds it', MDown and (FPDrag = 1));
+  for b := 1 to 10 do
+  begin
+    MX := MX - 10;
+    MY := MY + 5;
+    Render;
+  end;
+  MDown := False;
+  Render;
+  FramePopupBox(x2, y2, w2, h2);
+  Check(Format('drag a frame popup by its title (%.0f,%.0f -> %.0f,%.0f)', [bx, by, x2, y2]), (FPDrag = 0) and
+    (Abs(x2 - (bx - 100)) < 0.5) and (Abs(y2 - (by + 50)) < 0.5) and (w2 = fw) and (ShownPopup = 1));
+  bx := x2;
+  by := y2;
+  MX := bx + fw - 4;
+  MY := by + fh - 4;
+  LastClicks := 1;
+  MouseDown(SDL_BUTTON_LEFT);
+  MX := MX + 120;
+  MY := MY + 60;
+  Render;
+  MDown := False;
+  Render;
+  FramePopupBox(x2, y2, w2, h2);
+  Check(Format('size it by its corner (%.0f x %.0f)', [w2, h2]), (FPDrag = 0) and (Abs(w2 - (fw + 120)) < 0.5) and
+    (Abs(h2 - (fh + 60)) < 0.5) and (x2 = bx) and (ShownPopup = 1));
+  Check(Format('... its text and buttons grow with it (x%.2f)', [FramePopupScale(w2, h2)]), FramePopupScale(w2, h2) > 1.2);
+  MX := bx + w2 - 30;
+  MY := by + 8;
+  LastClicks := 1;
+  MouseDown(SDL_BUTTON_LEFT);
+  MX := bx - 5000;
+  Render;
+  MDown := False;
+  Render;
+  FramePopupBox(x2, y2, w2, h2);
+  Check('it stays on the canvas', x2 >= 0);
+  { sized down past its minimum }
+  FramePopupBox(x2, y2, w2, h2);
+  MX := x2 + w2 - 4;
+  MY := y2 + h2 - 4;
+  LastClicks := 1;
+  MouseDown(SDL_BUTTON_LEFT);
+  MX := MX - 800;
+  MY := MY - 800;
+  Render;
+  MDown := False;
+  Render;
+  FramePopupBox(x2, y2, w2, h2);
+  Check(Format('it is never sized smaller than its minimum (%.0f x %.0f)', [w2, h2]), (w2 = FP_MINW) and (h2 = FP_MINH));
+  Popups[1].BX := 100;
+  Popups[1].BY := 80;
+  Popups[1].BW := 360;
+  Popups[1].BH := 150;
+  Check('save a moved popup', SaveLayout(UnicodeString(FileName + '.fp.mflow'), err));
+  Popups[1].BW := 0;
+  Check('load it: its place and size', LoadLayout(UnicodeString(FileName + '.fp.mflow'), err) and (Popups[1].BX = 100) and
+    (Popups[1].BY = 80) and (Popups[1].BW = 360) and (Popups[1].BH = 150));
+  DeleteFile(FileName + '.fp.mflow');
+  ShowFramePopup(1);
+  Render;
+  FramePopupBox(bx, by, fw, fh);
+  LastClicks := 2;
+  MX := bx + 60;
+  MY := by + 8;
+  FramePopupPress;
+  LastClicks := 1;
+  Check('a double-click on its title puts it back in the middle', Popups[1].BW = 0);
+  CloseFramePopup;
+  AppGoToPage(0);
   HandleKey(SDLK_PAGEDOWN, 0);
   Check('PgDn: next page', CurPage = 1);
   HandleKey(SDLK_PAGEUP, 0);
@@ -12586,7 +15688,8 @@ begin
   begin
     RunMenuItem(MENU_EXAMPLES, k);
     Check(Format('example %d: pages Plant + About, layers Process + Notes, 2 popups', [k]),
-      ((PageCount = 2) or ((k = 24) and (PageCount = 4))) and (PageName(0) = 'Plant') and (PageName(1) = 'About') and (LayerCount >= 2) and
+      ((PageCount = 2) or ((k in [24, 31, 32]) and (PageCount = 4)) or ((k = 27) and (PageCount = 3))) and
+      ((PageName(0) = 'Plant') or ((k = 31) and (PageName(0) = 'Dryer')) or ((k = 32) and (PageName(0) = 'Mixing plant'))) and (PageName(1) = 'About') and (LayerCount >= 2) and
       (Pages[0].Layers[0].Name = 'Process') and (Pages[0].Layers[1].Name = 'Notes') and
       (FramePopupCount = 2) and (CurPage = 0) and (CurLayer = 0));
     np := 0;
@@ -12597,7 +15700,7 @@ begin
       if Pages[1].Links[i].Active then Inc(nb);
     end;
     { example 24 also links to its pages 3 and 4 }
-    Check(Format('example %d: 3 links on each page', [k]), ((np = 3) or ((k = 24) and (np = 5))) and (nb = 3));
+    Check(Format('example %d: 3 links on each page', [k]), ((np = 3) or ((k in [24, 31, 32]) and (np = 5)) or ((k = 27) and (np = 4))) and (nb = 3));
     np := 0;
     for cy := 0 to GH - 1 do
       for cx := 0 to GW - 1 do
@@ -12625,7 +15728,7 @@ begin
 
   { ---- plant equipment: motor, blower, paddle, screw, cyclone, silo bin, stand, lamp, legend }
   Check('every equipment kind has a tool', (ToolNames[tEqMotor] = 'Motor') and (ToolNames[tEqBlower] = 'Blower') and
-    (ToolNames[tEqLegend] = 'Legend') and (Ord(tEqChiller) - Ord(tEqMotor) + 1 = EQ_KINDS));
+    (ToolNames[tEqLegend] = 'Legend') and (Ord(tEqRack) - Ord(tEqMotor) + 1 = EQ_KINDS));
   DoNew;
   Zoom := 1;
   ViewX := 0;
@@ -12670,7 +15773,7 @@ begin
   Drag := dragNone;
   Check('double-click runs it', Equips[k].State = EQS_RUN);
   { the other kinds }
-  for i := Ord(tEqBlower) to Ord(tEqChiller) do
+  for i := Ord(tEqBlower) to Ord(tEqRack) do
   begin
     Tool := TTool(i);
     MX := 25 * CELL;
@@ -14034,6 +17137,1190 @@ begin
     (Equips[np].RMax = 7) and (Equips[np].Src = 'HX02') and (EGrid[22, 33].Kind = ekPHTx));
   DoNew;
 
+  { ---- flow charts }
+  DoNew;
+  Check('a Flow tab with 7 nodes and the arrow', (ToolTabOf(tFwStart) = 5) and (ToolTabOf(tFwArrow) = 5) and
+    (Ord(tFwEnd) - Ord(tFwStart) + 1 = FN_RANDOM) and (ToolTabOf(tFwRandom) = 5) and not IsElecTool(tFwStart) and (ElecToolKind(tFwArrow) = ekNone));
+  b := AddEquip(EQ_POOL, 600, 600);
+  Equips[b].Name := 'Pool01';
+  Equips[b].Level := 20;
+  k := AddEquip(EQ_PUMP, 400, 600);
+  Equips[k].Name := 'Pump01';
+  { place nodes with the tools }
+  Tool := tFwStart;
+  MX := 100;
+  MY := 40;
+  CanvasPress(False);
+  Tool := tFwDecision;
+  MY := 140;
+  CanvasPress(False);
+  Tool := tFwAction;
+  MY := 300;
+  CanvasPress(False);
+  MX := 400;
+  MY := 140;
+  CanvasPress(False);
+  Drag := dragNone;
+  Check('the flow tools place nodes', (FlowCount = 4) and (FlowNodes[0].Kind = FN_START) and (FlowNodes[1].Kind = FN_DECISION) and
+    (FlowNodes[2].Kind = FN_ACTION) and (SelKind = selFlow) and (SelFl = 3));
+  { join them with the Arrow tool: a decision's right part is its No way }
+  Tool := tFwArrow;
+  MX := FlowNodes[0].X + 20;
+  MY := FlowNodes[0].Y + 10;
+  CanvasPress(False);
+  MX := FlowNodes[1].X + 80;
+  MY := FlowNodes[1].Y + 40;
+  FinishFlowArrow;
+  MX := FlowNodes[1].X + 60;
+  MY := FlowNodes[1].Y + 40;
+  CanvasPress(False);
+  MX := FlowNodes[2].X + 20;
+  MY := FlowNodes[2].Y + 10;
+  FinishFlowArrow;
+  MX := FlowNodes[1].X + FlowNodes[1].W - 20;
+  MY := FlowNodes[1].Y + 40;
+  CanvasPress(False);
+  MX := FlowNodes[3].X + 20;
+  MY := FlowNodes[3].Y + 10;
+  FinishFlowArrow;
+  Tool := tSelect;
+  Check('the Arrow tool joins them: Yes down, No from the right part', (FlowNodes[0].Next = 1) and (FlowNodes[1].Next = 2) and
+    (FlowNodes[1].Next2 = 3));
+  FlowNodes[1].Src := 'Pool01';
+  FlowNodes[1].Op := FOP_LT;
+  FlowNodes[1].Value := 40;
+  FlowNodes[2].Act := FA_RUN;
+  FlowNodes[2].Target := 'Pump01';
+  FlowNodes[3].Act := FA_STOP;
+  FlowNodes[3].Target := 'Pump01';
+  SimFrame(1 / 60, True);
+  Check('flow chart: pool low - Yes - the pump runs', FlowNodes[1].Known and FlowNodes[1].Yes and FlowNodes[2].Hit and
+    not FlowNodes[3].Hit and (FlowNodes[1].Taken = 1) and (Equips[k].State = EQS_RUN));
+  Equips[b].Level := 70;
+  SimFrame(1 / 60, True);
+  Check('flow chart: pool up - No - the pump stops', (not FlowNodes[1].Yes) and FlowNodes[3].Hit and (FlowNodes[1].Taken = 2) and
+    (Equips[k].State = EQS_STOP));
+  { a loop in the chart ends the scan, it does not hang }
+  FlowNodes[3].Next := 1;
+  SimFrame(1 / 60, True);
+  Check('a loop in a chart ends the scan', FlowNodes[3].Hit);
+  FlowNodes[3].Next := -1;
+  { a display shows a value off any path; Set % and a delay with Tag ON }
+  i := FlowAdd(FN_DISPLAY, 600, 40);
+  FlowNodes[i].Src := 'Pool01';
+  FlowNodes[i].Op := FOP_GE;
+  FlowNodes[i].Value := 50;
+  np := FlowAdd(FN_DELAY, 100, 400);
+  FlowNodes[np].Value := 1;
+  nb := FlowAdd(FN_ACTION, 100, 480);
+  FlowNodes[nb].Act := FA_TAG;
+  FlowNodes[nb].Target := 'FLOWT';
+  FlowConnect(2, np, False);
+  FlowConnect(np, nb, False);
+  Equips[b].Level := 10;
+  for lk := 1 to 30 do SimFrame(1 / 60, True);
+  Check('a display shows its value and colour (no path)', FlowNodes[i].Known and (Abs(FlowNodes[i].Val - Equips[b].Level) < 0.5) and
+    not FlowNodes[i].Yes and not FlowNodes[i].Hit);
+  Check('a delay holds the scan', FlowNodes[np].Hit and not FlowNodes[nb].Hit and not TagActive('FLOWT'));
+  for lk := 1 to 40 do SimFrame(1 / 60, True);
+  Check('after the delay, Tag ON: contacts follow it', FlowNodes[nb].Hit and TagActive('FLOWT') and FlowTagOn('FLOWT'));
+  FlowNodes[3].Act := FA_SET;
+  FlowNodes[3].Value := 35;
+  Equips[b].Level := 90;
+  SimFrame(1 / 60, True);
+  Check('Set % sets the pump''s flow', Abs(Equips[k].Level - 35) < 0.01);
+  { saved with the layout, part of undo }
+  FlowNodes[1].Caption := 'Pool low? (40)';
+  Check('save a flow chart', SaveLayout(UnicodeString(FileName + '.flow.mflow'), err));
+  DoNew;
+  Check('load it', LoadLayout(UnicodeString(FileName + '.flow.mflow'), err));
+  Check('the chart comes back', (FlowCount = 7) and (FlowNodes[1].Caption = 'Pool low? (40)') and (FlowNodes[1].Src = 'Pool01') and
+    (FlowNodes[1].Op = FOP_LT) and (FlowNodes[1].Value = 40) and (FlowNodes[1].Next = 2) and (FlowNodes[1].Next2 = 3) and
+    (FlowNodes[nb].Target = 'FLOWT') and (FlowNodes[3].Act = FA_SET));
+  HistReset;
+  i := FlowAdd(FN_END, 300, 600);
+  HistCheck;
+  Check('undo takes a new node away', Undo and (FlowCount = 7));
+  { properties and a Focus Properties window of a node }
+  SelectFlow(1);
+  Render;
+  PopupX := 200;
+  PopupY := 200;
+  OpenPin;
+  Render;
+  Check('Focus Properties of a flow node', (Length(Pins) = 1) and (Pins[0].Kind = Ord(selFlow)) and (Pins[0].A = 1));
+  { a Focus Properties window grows by its corner and scrolls }
+  bx := Pins[0].H;
+  MX := Pins[0].X + Pins[0].W - 5;
+  MY := Pins[0].Y + Pins[0].H - 5;
+  MouseDown(SDL_BUTTON_LEFT);
+  Render;
+  MPressed := False;
+  MX := Pins[0].X + 296 * 1.5;
+  MY := Pins[0].Y + 10;
+  Render;
+  MDown := False;
+  Render;
+  Check(Format('Focus Properties: the corner makes it larger (%.2f)', [Pins[0].Scale]), (Abs(Pins[0].Scale - 1.5) < 0.05) and
+    (Abs(Pins[0].H - bx * Pins[0].Scale) < 1));
+  Pins[0].Scroll := 9999;
+  Render;
+  Check('Focus Properties: it scrolls no further than its content', Pins[0].Scroll <= fmax(0, Pins[0].ContentH));
+  SetLength(Pins, 0);
+
+  { ---- the Properties panel: larger by its corner, and it scrolls a long content }
+  RunMenuItem(MENU_EXAMPLES, 23);
+  SelectECell(40, 3);
+  Wins[WIN_PROPS].X := 300;
+  Wins[WIN_PROPS].Y := 60;
+  Wins[WIN_PROPS].BaseH := 150;
+  SetWinScale(WIN_PROPS, 1);
+  BringToFront(WIN_PROPS);
+  Render;
+  Render;
+  Check(Format('Properties: a controller''s properties are taller than the panel (%.0f > %.0f)', [Wins[WIN_PROPS].ContentH,
+    Wins[WIN_PROPS].H - WIN_TITLE_H]), Wins[WIN_PROPS].ContentH > Wins[WIN_PROPS].H - WIN_TITLE_H);
+  with Wins[WIN_PROPS] do Scroll := Scroll + 40;
+  Render;
+  Check('Properties: the wheel scrolls it', Wins[WIN_PROPS].Scroll > 30);
+  MX := Wins[WIN_PROPS].X + Wins[WIN_PROPS].W - 5;
+  MY := Wins[WIN_PROPS].Y + Wins[WIN_PROPS].H - 5;
+  MouseDown(SDL_BUTTON_LEFT);
+  Render;
+  MPressed := False;
+  MX := Wins[WIN_PROPS].X + 296 * 1.3;
+  MY := Wins[WIN_PROPS].Y + 10;
+  Render;
+  MDown := False;
+  Render;
+  Check(Format('Properties: floating, its corner makes it larger (%.2f)', [Wins[WIN_PROPS].Scale]),
+    Abs(Wins[WIN_PROPS].Scale - 1.3) < 0.05);
+  InitWins;
+  ApplyLayout;
+
+  { ---- example 27: a flow chart works the pump house on another page }
+  RunMenuItem(MENU_EXAMPLES, 27);
+  Check('example 27: the chart and the pump house on page 3', (FlowCount = 18) and (PageCount = 3) and
+    (PageName(2) = 'Pump house'));
+  for i := 1 to 30 do SimAllPages(1 / 60, True);
+  b := -1;
+  for k := 0 to MAX_EQUIP - 1 do
+    if Pages[2].Equips[k].Active and (Pages[2].Equips[k].Name = 'Pump01') then b := k;
+  Check('flow chart: it reads the pool on page 3 and starts its pump there', FlowNodes[1].Known and
+    (Abs(FlowNodes[1].Val - 30) < 2) and FlowNodes[6].Yes and FlowNodes[7].Hit and (Pages[2].Equips[b].State = EQS_RUN));
+  for i := 1 to 150 do SimAllPages(1 / 60, True);
+  Check('flow chart: after the delay its tag lights lamp H1', FlowNodes[9].Hit and TagActive('FILLING') and
+    EGrid[39, 26].Energized and not EGrid[39, 28].Energized);
+  for k := 0 to MAX_EQUIP - 1 do
+    if Pages[2].Equips[k].Active and (Pages[2].Equips[k].Name = 'Pool01') then np := k;
+  Pages[2].Equips[np].Level := 90;
+  for i := 1 to 30 do SimAllPages(1 / 60, True);
+  Check('flow chart: the pool full - it stops the pump on page 3', FlowNodes[11].Yes and FlowNodes[12].Hit and
+    (Pages[2].Equips[b].State = EQS_STOP) and not TagActive('FILLING'));
+  for k := 0 to MAX_EQUIP - 1 do
+    if Pages[2].Equips[k].Active and (Pages[2].Equips[k].Name = 'Well01') then nb := k;
+  Pages[2].Equips[nb].Level := 5;
+  Pages[2].Equips[np].Level := 20;
+  for i := 1 to 30 do SimAllPages(1 / 60, True);
+  Check('flow chart: a dry well - Protect pump, the DRY tag lights H2', FlowNodes[2].Yes and FlowNodes[3].Hit and
+    not FlowNodes[7].Hit and (Pages[2].Equips[b].State = EQS_STOP) and EGrid[39, 28].Energized);
+  { jump from a node to what it reads, and back }
+  SelectFlow(6);
+  BuildJumpItems;
+  Check('right-click a node: Go to what it reads', (NJumpItems = 1) and (Pos('Pool01', JumpItems[0].Lbl) > 0) and
+    (Pos('(p3)', JumpItems[0].Lbl) > 0));
+  MX := FlowNodes[6].X + FlowNodes[6].W / 2;
+  MY := FlowNodes[6].Y + FlowNodes[6].H / 2;
+  OpenPopup;
+  Check('the popup has the jump', PopupOpen and (PopupCount = 8) and (SelKind = selFlow) and (SelFl = 6));
+  MX := PopupX + 20;
+  MY := PopupY + 4 + 7 * 20 + 10;
+  PopupClick := True;
+  DrawPopup;
+  Check('Go to: on page 3, Pool01 selected and blinking', (CurPage = 2) and (SelKind = selEquip) and
+    (Equips[SelEq].Name = 'Pool01') and (JumpFlash > 0) and JumpBackRect(bx, by, fw, fh));
+  MX := 500;
+  MY := 400;
+  OpenPopup;
+  Check('right-click there: Back to flow chart', PopupOpen and (PopupCount = 8) and JumpItems[0].Back);
+  MX := PopupX + 20;
+  MY := PopupY + 4 + 7 * 20 + 10;
+  PopupClick := True;
+  DrawPopup;
+  Check('back on the flow chart, its node selected', (CurPage = 0) and (SelKind = selFlow) and (SelFl = 6) and
+    not JumpBackRect(bx, by, fw, fh));
+  { the Back button over the canvas works too }
+  SelectFlow(7);
+  JumpTo('Pump01');
+  JumpBackRect(bx, by, fw, fh);
+  MX := bx + 10;
+  MY := by + 10;
+  MouseDown(SDL_BUTTON_LEFT);
+  MDown := False;
+  MPressed := False;
+  Check('the Back button returns to the chart', (CurPage = 0) and (SelKind = selFlow) and (SelFl = 7));
+  DoNew;
+
+  { ---- flow charts work switches; random values }
+  DoNew;
+  Check('switch actions and the Random node', (FLOW_ACTS = 9) and (FlowActNames[FA_ON] = 'Switch ON') and
+    (FN_KINDS = 8) and (ToolNames[tFwRandom] = 'Random'));
+  EWireLine(2, 2, 6, 2);
+  EWireLine(8, 2, 20, 2);
+  EWireLine(2, 2, 2, 8);
+  EWireLine(20, 2, 20, 8);
+  EPlace(7, 2, ekAC);
+  EWireLine(2, 4, 20, 4);
+  EPlace(4, 4, ekBreaker);
+  EGrid[4, 4].Tag := 'Q1';
+  EPlace(7, 4, ekSwitch);
+  EGrid[7, 4].Tag := 'S1';
+  EPlace(10, 4, ekOL);
+  EGrid[10, 4].Tag := 'OL1';
+  EPlace(16, 4, ekLamp);
+  EGrid[16, 4].Tag := 'H1';
+  EWireLine(2, 6, 20, 6);
+  EPlace(7, 6, ekSelector);
+  EGrid[7, 6].Tag := 'SA1';
+  EGrid[7, 6].NPos := 3;
+  EGrid[7, 6].Pos := 2;
+  EPlace(16, 6, ekLamp);
+  EGrid[16, 6].Tag := 'H2';
+  np := FlowAdd(FN_START, 40, 300);
+  nb := FlowAdd(FN_ACTION, 40, 380);
+  FlowConnect(np, nb, False);
+  FlowNodes[nb].Act := FA_ON;
+  FlowNodes[nb].Target := 'S1';
+  SimFrame(1 / 60, True);
+  SimFrame(1 / 60, True);
+  Check('Switch ON: S1 on, lamp H1 lit', EGrid[7, 4].On and EGrid[16, 4].Energized);
+  FlowNodes[nb].Act := FA_OFF;
+  FlowNodes[nb].Target := 'Q1';
+  SimFrame(1 / 60, True);
+  SimFrame(1 / 60, True);
+  Check('Switch OFF: breaker Q1 off, H1 out', (not EGrid[4, 4].On) and not EGrid[16, 4].Energized);
+  FlowNodes[nb].Act := FA_ON;
+  SimFrame(1 / 60, True);
+  FlowNodes[nb].Act := FA_OFF;
+  FlowNodes[nb].Target := 'OL1';
+  SimFrame(1 / 60, True);
+  SimFrame(1 / 60, True);
+  Check('Switch OFF on an overload trips it', EGrid[10, 4].Tripped and TagActive('OL1') and not EGrid[16, 4].Energized);
+  FlowNodes[nb].Act := FA_RESET;
+  SimFrame(1 / 60, True);
+  SimFrame(1 / 60, True);
+  Check('Reset: the overload is reset, H1 lit again', (not EGrid[10, 4].Tripped) and EGrid[16, 4].Energized);
+  EGrid[4, 4].Tripped := True;
+  FlowNodes[nb].Target := 'Q1';
+  SimFrame(1 / 60, True);
+  Check('Reset: a tripped breaker is reset', not EGrid[4, 4].Tripped);
+  FlowNodes[nb].Act := FA_POS;
+  FlowNodes[nb].Target := 'SA1';
+  FlowNodes[nb].Value := 2;
+  SimFrame(1 / 60, True);
+  SimFrame(1 / 60, True);
+  Check('Position 2: selector SA1, H2 lit', (EGrid[7, 6].Sel = 1) and EGrid[16, 6].Energized);
+  { random values }
+  i := FlowAdd(FN_RANDOM, 300, 300);
+  Check('a Random node: boolean, 50 %, every 1 s, named RND', (FlowNodes[i].RType = FR_BOOL) and (FlowNodes[i].Value = 50) and
+    (FlowNodes[i].Period = 1) and (FlowNodes[i].Target = 'RND' + IntToStr(i + 1)));
+  FlowNodes[i].Target := 'COIN';
+  FlowNodes[i].Value := 100;
+  FlowNodes[i].Known := False;
+  SimFrame(1 / 60, True);
+  Check('Random boolean 100 %: TRUE, its name is a tag', FlowNodes[i].BoolV and TagActive('COIN') and
+    AnalogValue('COIN', bx, err) and (bx = 1));
+  FlowNodes[i].Value := 0;
+  FlowNodes[i].Known := False;
+  SimFrame(1 / 60, True);
+  Check('Random boolean 0 %: FALSE', (not FlowNodes[i].BoolV) and not TagActive('COIN'));
+  FlowNodes[i].RType := FR_INT;
+  FlowNodes[i].Value2 := 1;
+  FlowNodes[i].Value := 6;
+  FlowNodes[i].Period := 0;
+  k := 0;
+  b := 0;
+  for lk := 1 to 300 do
+  begin
+    SimFrame(1 / 60, True);
+    if (FlowNodes[i].Val < 1) or (FlowNodes[i].Val > 6) or (Frac(FlowNodes[i].Val) <> 0) then b := 1;
+    if FlowNodes[i].Val = 1 then k := k or 1;
+    if FlowNodes[i].Val = 6 then k := k or 2;
+  end;
+  Check('Random integer 1..6: whole numbers in range, both ends come up', (b = 0) and (k = 3));
+  FlowNodes[i].RType := FR_BYTE;
+  FlowNodes[i].Value2 := 0;
+  FlowNodes[i].Value := 255;
+  b := 0;
+  for lk := 1 to 200 do
+  begin
+    SimFrame(1 / 60, True);
+    if (FlowNodes[i].Val < 0) or (FlowNodes[i].Val > 255) or (Frac(FlowNodes[i].Val) <> 0) then b := 1;
+  end;
+  Check('Random byte: 0..255', b = 0);
+  FlowNodes[i].RType := FR_FLOAT;
+  FlowNodes[i].Value2 := -1;
+  FlowNodes[i].Value := 1;
+  b := 0;
+  k := 0;
+  for lk := 1 to 200 do
+  begin
+    SimFrame(1 / 60, True);
+    if (FlowNodes[i].Val < -1) or (FlowNodes[i].Val > 1) then b := 1;
+    if Frac(Abs(FlowNodes[i].Val)) <> 0 then k := 1;
+  end;
+  Check('Random float: -1..1, fractions', (b = 0) and (k = 1));
+  FlowNodes[i].Period := 1;
+  SimFrame(1 / 60, True);
+  bx := FlowNodes[i].Val;
+  for lk := 1 to 20 do SimFrame(1 / 60, True);
+  Check('a Random node keeps its value for its period', FlowNodes[i].Val = bx);
+  { an action takes its value from a name: Set % from the random value }
+  b := AddEquip(EQ_PUMP, 600, 600);
+  Equips[b].Name := 'Pump01';
+  FlowNodes[i].RType := FR_INT;
+  FlowNodes[i].Value2 := 20;
+  FlowNodes[i].Value := 20;
+  FlowNodes[i].Known := False;
+  FlowNodes[nb].Act := FA_SET;
+  FlowNodes[nb].Target := 'Pump01';
+  FlowNodes[nb].Src := 'COIN';
+  SimFrame(1 / 60, True);
+  SimFrame(1 / 60, True);
+  Check('Set % from a name: the pump gets the random value', Abs(Equips[b].Level - 20) < 0.01);
+  { pneumatic: a manual valve and the compressor }
+  FLineRun(26, 30, 42, 30);
+  FPlace(26, 30, fkCompressor);
+  FGrid[26, 30].Tag := 'C1';
+  FGrid[26, 30].On := True;
+  FLineRun(39, 27, 39, 30);
+  FPlace(39, 26, fkV32);
+  FGrid[39, 26].Tag := 'V1';
+  FlowNodes[nb].Src := '';
+  FlowNodes[nb].Act := FA_ON;
+  FlowNodes[nb].Target := 'V1';
+  SimFrame(1 / 60, True);
+  Check('Switch ON: the air valve V1 switches over', FGrid[39, 26].Sel = 1);
+  FlowNodes[nb].Act := FA_OFF;
+  FlowNodes[nb].Target := 'C1';
+  SimFrame(1 / 60, True);
+  Check('Switch OFF: the compressor C1 stops', not FGrid[26, 30].On);
+  { save and load a random node }
+  FlowNodes[i].RType := FR_FLOAT;
+  FlowNodes[i].Value2 := 2.5;
+  FlowNodes[i].Period := 4;
+  Check('save random nodes', SaveLayout(UnicodeString(FileName + '.rnd.mflow'), err));
+  DoNew;
+  Check('load them', LoadLayout(UnicodeString(FileName + '.rnd.mflow'), err) and (FlowNodes[i].Kind = FN_RANDOM) and
+    (FlowNodes[i].RType = FR_FLOAT) and (FlowNodes[i].Value2 = 2.5) and (FlowNodes[i].Period = 4) and
+    (FlowNodes[i].Target = 'COIN') and (FlowNodes[nb].Act = FA_OFF));
+  { a switch on another page }
+  DoNew;
+  np := FlowAdd(FN_START, 40, 300);
+  nb := FlowAdd(FN_ACTION, 40, 380);
+  FlowConnect(np, nb, False);
+  FlowNodes[nb].Act := FA_OFF;
+  FlowNodes[nb].Target := 'Q9';
+  k := AddPage('Panel');
+  AppGoToPage(k);
+  EPlace(10, 10, ekBreaker);
+  EGrid[10, 10].Tag := 'Q9';
+  AppGoToPage(0);
+  Check('Q9 is on page 2, on', Pages[k].EGrid[10, 10].On);
+  for i := 1 to 3 do SimAllPages(1 / 60, True);
+  Check('Switch OFF reaches a breaker on another page', not Pages[k].EGrid[10, 10].On);
+  FlowNodes[nb].Act := FA_ON;
+  for i := 1 to 3 do SimAllPages(1 / 60, True);
+  Check('... and Switch ON', Pages[k].EGrid[10, 10].On);
+
+  { example 28 }
+  RunMenuItem(MENU_EXAMPLES, 28);
+  b := 0;
+  k := 0;
+  np := 0;
+  for i := 1 to 60 * 30 do
+  begin
+    SimFrame(1 / 60, True);
+    if EGrid[31, 3].On then b := b or 1 else b := b or 2;
+    if FGrid[39, 26].Sel = 1 then k := k or 1 else k := k or 2;
+    if FlowNodes[14].Hit and (EGrid[32, 7].Sel + 1 = Round(FlowNodes[13].Val)) then np := np or (1 shl Round(FlowNodes[13].Val));
+  end;
+  Check('example 28: the coin turns S1 and V1 on and off', (b = 3) and (k = 3) and (EGrid[31, 3].On = FlowNodes[1].BoolV));
+  Check(Format('example 28: the dice sets SA1 (positions seen %d)', [np]), ((np and 14) = np) and (np <> 0));
+  DoNew;
+
+  { trend charts: example 29 }
+  RunMenuItem(MENU_EXAMPLES, 29);
+  k := EquipByName('Trend01');
+  Check('example 29: Trend01 is a trend chart', (k >= 0) and (Equips[k].Kind = EQ_TREND));
+  for i := 1 to 60 * 20 do SimAllPages(1 / 60, True);
+  with TrendHist[0, k] do
+  begin
+    Check(Format('trend: TT1 is a value pen (%d samples)', [Pens[0].Count]), Pens[0].Known and not Pens[0].IsBool and
+      (Pens[0].Count >= 70) and (Pens[0].Count <= 90));
+    Check('trend: TIC1.SP reads the set point', Pens[1].Known and not Pens[1].IsBool and (Abs(Pens[1].Now - 80) < 0.01));
+    Check(Format('trend: K1 is an event pen (%d events)', [NEv]), Pens[2].Known and Pens[2].IsBool and (NEv >= 5));
+    Check('trend: DEMAND is a value pen in 0..100', Pens[3].Known and not Pens[3].IsBool and (Pens[3].Now >= 0) and
+      (Pens[3].Now <= 100));
+    Check('trend: the temperature rises', PenSample(Pens[0], 0) > PenSample(Pens[0], Pens[0].Count - 1));
+    b2 := TrendEvent(TrendHist[0, k], 0, ev) and (ev.Pen = 2) and (ev.T > 0) and (ev.T <= 20.1);
+    Check('trend: the latest event is K1''s', b2);
+  end;
+  { the newest events come first }
+  b2 := TrendEvent(TrendHist[0, k], 1, ev2) and (ev2.T <= ev.T) and (ev2.IsOn <> ev.IsOn);
+  Check('trend: events alternate ON / OFF, newest first', b2);
+  { recorded while another page is on screen }
+  np := TrendHist[0, k].Pens[0].Count;
+  AppGoToPage(1);
+  for i := 1 to 60 * 2 do SimAllPages(1 / 60, True);
+  AppGoToPage(0);
+  Check('trend: it records while another page is shown', TrendHist[0, k].Pens[0].Count > np);
+  { the three styles and its Properties render }
+  SelKind := selEquip;
+  SelEq := k;
+  for i := 0 to 2 do
+  begin
+    Equips[k].Mode := i;
+    Render;
+  end;
+  Check('trend: Full / Mini / Curve render', True);
+  { a pen typed in Properties }
+  StartTxt(13, k);
+  TxtStore('LT9');
+  StopTxt;
+  Check('trend: pen 2 typed', Equips[k].Src2 = 'LT9');
+  SimFrame(1 / 60, True);
+  Check(Format('trend: a new pen starts the record afresh (%d %d %d)', [TrendHist[0, k].Pens[0].Count, Ord(TrendHist[0, k].Pens[1].Known), Ord(TrendHist[0, k].Pens[1].IsBool)]), (TrendHist[0, k].Pens[0].Count <= 1) and not
+    TrendHist[0, k].Pens[1].Known);
+  { save and load its pens and style }
+  Equips[k].Mode := TS_MINI;
+  Equips[k].RMin := 10;
+  Equips[k].RMax := 90;
+  Check('save trend charts', SaveLayout(UnicodeString(FileName + '.trend.mflow'), err));
+  DoNew;
+  Check('load them', LoadLayout(UnicodeString(FileName + '.trend.mflow'), err));
+  k := EquipByName('Trend01');
+  Check('trend: pens, style, range and window load', (k >= 0) and (Equips[k].Src = 'TT1') and (Equips[k].Src2 = 'LT9') and
+    (Equips[k].Src3 = 'K1') and (Equips[k].Src4 = 'DEMAND') and (Equips[k].Mode = TS_MINI) and (Equips[k].RMin = 10) and
+    (Equips[k].RMax = 90) and (Equips[k].Delay = 60));
+  DeleteFile(FileName + '.trend.mflow');
+  { a new chart: 60 s, auto range }
+  DoNew;
+  i := AddEquip(EQ_TREND, 100, 100);
+  Check('a new trend chart: 60 s, auto range', (i >= 0) and (Equips[i].Delay = 60) and (Equips[i].RMax <= Equips[i].RMin));
+  DoNew;
+
+  { timelines }
+  DoNew;
+  i := AddEquip(EQ_TIMELINE, 60, 60);
+  Check('a timeline: 30 s, one cycle, stopped', (i >= 0) and (Equips[i].Kind = EQ_TIMELINE) and (Equips[i].Delay = 30) and
+    (Equips[i].Mode = 0) and not TLRunning(i));
+  Equips[i].Delay := 10;
+  EPlace(30, 5, ekSwitch);
+  EGrid[30, 5].Tag := 'S1';
+  EPlace(30, 8, ekPot);
+  EGrid[30, 8].Tag := 'RV1';
+  EGrid[30, 8].P1 := 40;
+  k := TLAddPin(i, TLP_FIX, 2);
+  for b := 0 to 2 do Equips[i].Pins[k].Dest[b] := 'S1';
+  np := TLAddPin(i, TLP_INPUT, 5);
+  Equips[i].Pins[np].Src := 'RV1';
+  Equips[i].Pins[np].Dest[2] := 'KEEP';
+  Check('pin names', (TLPinLabel(Equips[i], k) = 'Fix Pin 1') and (TLPinLabel(Equips[i], np) = 'Input Pin 1') and
+    (TLPinName(Equips[i], k) = 'Timeline01.FIX1') and (TLPinName(Equips[i], np) = 'Timeline01.IN1'));
+  Check('a fix pin: 0 / 1 / 0, an input pin: - / input / kept', (Equips[i].Pins[k].VMode[0] = TLV_FIX) and
+    (Equips[i].Pins[k].V[1] = 1) and (Equips[i].Pins[np].VMode[0] = TLV_NONE) and (Equips[i].Pins[np].VMode[1] = TLV_LIVE) and
+    (Equips[i].Pins[np].VMode[2] = TLV_HELD));
+  EGrid[30, 5].On := True;
+  for b := 1 to 30 do SimFrame(1 / 60, True);
+  Check('not started: it sends nothing', EGrid[30, 5].On and not TLState(i)^.Started);
+  TimelineStart(i);
+  for b := 1 to 60 do SimFrame(1 / 60, True);
+  Check(Format('started: before its time S1 gets 0 (%.2f s)', [TLState(i)^.Pos]), TLRunning(i) and
+    (Abs(TLState(i)^.Pos - 1) < 0.05) and not EGrid[30, 5].On and (TLState(i)^.P[k].Phase = 0));
+  for b := 1 to 90 do SimFrame(1 / 60, True);
+  Check('at its time S1 gets 1', EGrid[30, 5].On and (TLState(i)^.P[k].Phase = 1));
+  EGrid[30, 8].P1 := 70;
+  for b := 1 to 60 do SimFrame(1 / 60, True);
+  Check('after its time S1 gets 0', (not EGrid[30, 5].On) and (TLState(i)^.P[k].Phase = 2));
+  for b := 1 to 120 do SimFrame(1 / 60, True);
+  EGrid[30, 8].P1 := 20;
+  for b := 1 to 60 do SimFrame(1 / 60, True);
+  Check(Format('the input pin kept RV1 at its time (%.1f)', [TLState(i)^.P[np].Held]), TLState(i)^.P[np].HeldOK and
+    (Abs(TLState(i)^.P[np].Held - 70) < 0.01) and (TLState(i)^.P[np].Phase = 2));
+  Check('... and sends it to KEEP, a name of its own', AnalogValue('KEEP', bx, err) and (Abs(bx - 70) < 0.01) and ESignal('KEEP'));
+  Check('... and its own name reads it', AnalogValue('Timeline01.IN1', bx, err) and (Abs(bx - 70) < 0.01));
+  Check('the timeline''s name reads its clock', AnalogValue('Timeline01', bx, err) and (Abs(bx - TLState(i)^.Pos) < 0.01));
+  for b := 1 to 60 * 4 do SimFrame(1 / 60, True);
+  Check('one cycle: it ends at its length, DONE', (not TLRunning(i)) and TLState(i)^.Done and (TLState(i)^.Pos = 10));
+  Check('a done timeline keeps sending its "after" values', (not EGrid[30, 5].On) and AnalogValue('KEEP', bx, err));
+  { a run request still held after the cycle does not start it again }
+  TimelineReset(i);
+  Equips[i].Delay := 1;
+  for b := 1 to 120 do
+  begin
+    Equips[i].State := EQS_RUN;
+    SimFrame(1 / 60, True);
+  end;
+  Check('a held run request does not restart it', (not TLRunning(i)) and TLState(i)^.Done and (TLState(i)^.Pos = 1));
+  SimFrame(1 / 60, True);
+  Equips[i].Delay := 10;
+  Equips[i].State := EQS_RUN;
+  for b := 1 to 30 do SimFrame(1 / 60, True);
+  Check(Format('a new run request starts it from 0 (%.2f s)', [TLState(i)^.Pos]), TLRunning(i) and (TLState(i)^.Pos < 0.6));
+  { stop, start: it goes on from where it was }
+  TimelineStop(i);
+  for b := 1 to 30 do SimFrame(1 / 60, True);
+  bx := TLState(i)^.Pos;
+  Check('stopped: PAUSED, the clock stands', (TLStateText(i) = 'PAUSED') and (TLState(i)^.Pos = bx));
+  TimelineStart(i);
+  for b := 1 to 30 do SimFrame(1 / 60, True);
+  Check('started again it goes on', Abs(TLState(i)^.Pos - bx - 0.5) < 0.05);
+  { loop }
+  Equips[i].Mode := TL_LOOP;
+  Equips[i].Delay := 3;
+  Equips[i].Pins[np].T := 1;
+  TimelineReset(i);
+  Check('reset: back to 0, stopped', (TLState(i)^.Pos = 0) and not TLState(i)^.Started and not TLRunning(i));
+  TimelineStart(i);
+  EGrid[30, 8].P1 := 55;
+  for b := 1 to 60 * 7 + 30 do SimFrame(1 / 60, True);
+  Check(Format('loop cycle: cycle %d at %.2f s', [TLState(i)^.Cycles + 1, TLState(i)^.Pos]), TLRunning(i) and
+    (TLState(i)^.Cycles = 2) and (Abs(TLState(i)^.Pos - 1.5) < 0.05));
+  Check('the input pin keeps its value every cycle', (TLState(i)^.P[np].HeldCycle = 2) and (Abs(TLState(i)^.P[np].Held - 55) < 0.01));
+  { auto start and start by a name }
+  TimelineReset(i);
+  Equips[i].Mode := TL_LOOP or TL_AUTO;
+  SimFrame(1 / 60, True);
+  Check('auto start', TLRunning(i) and TLState(i)^.Started);
+  TimelineReset(i);
+  Equips[i].Mode := 0;
+  EPlace(30, 11, ekSwitch);
+  EGrid[30, 11].Tag := 'S9';
+  Equips[i].Src := 'S9';
+  for b := 1 to 10 do SimFrame(1 / 60, True);
+  Check('start by: off, it waits', not TLRunning(i));
+  EGrid[30, 11].On := True;
+  for b := 1 to 10 do SimFrame(1 / 60, True);
+  Check('start by: ON starts it', TLRunning(i));
+  EGrid[30, 11].On := False;
+  for b := 1 to 10 do SimFrame(1 / 60, True);
+  Check('start by: OFF again does not stop it', TLRunning(i));
+  EPlace(30, 13, ekPBNO);
+  EGrid[30, 13].Tag := 'SB8';
+  Equips[i].Src2 := 'SB8';
+  for b := 1 to 10 do SimFrame(1 / 60, True);
+  Check('stop by: off, it runs on', TLRunning(i));
+  EGrid[30, 13].Held := True;
+  for b := 1 to 3 do SimFrame(1 / 60, True);
+  EGrid[30, 13].Held := False;
+  for b := 1 to 10 do SimFrame(1 / 60, True);
+  Check('stop by: ON stops it', not TLRunning(i));
+  Equips[i].Src := '';
+  Equips[i].Src2 := '';
+  { the right-click menu: a pin there }
+  JumpBackPage := -1;
+  SelKind := selEquip;
+  SelEq := i;
+  TLTrack(Equips[i], bx, by, fw);
+  MX := ((bx + by) / 2 - ViewX) * Zoom;
+  MY := (fw - ViewY) * Zoom;
+  BuildJumpItems;
+  Check('right-click a timeline: Input pin / Fix pin here', (NJumpItems >= 2) and (JumpItems[0].TL = 1) and
+    (JumpItems[1].TL = 2) and (Abs(JumpItems[0].TLT - 1.5) < 0.11));
+  TimelinePopupItem(1);
+  Check('... a Fix pin added there', (TLSel >= 0) and (Equips[i].Pins[TLSel].Kind = TLP_FIX) and
+    (Abs(Equips[i].Pins[TLSel].T - 1.5) < 0.11));
+  MX := (bx + (by - bx) * Equips[i].Pins[TLSel].T / Equips[i].Delay - ViewX) * Zoom;
+  MY := (fw + 20 - ViewY) * Zoom;
+  BuildJumpItems;
+  Check('... right-click on it: Delete', (NJumpItems = 3) and (JumpItems[2].TL = 3) and (JumpItems[2].TLPin = TLSel));
+  lk := TLSel;
+  TimelinePopupItem(2);
+  Check('... deleted', Equips[i].Pins[lk].Kind = TLP_NONE);
+  { typing (also checks typing into flow chart nodes) }
+  TLSel := k;
+  StartTxt(18, i);
+  TxtTypeText('Q7');
+  StopTxt;
+  Check('type where a pin sends', Equips[i].Pins[k].Dest[0] = 'S1Q7');
+  StartTxt(24, i);
+  TxtStore('7.5');
+  StopTxt;
+  Check('type a pin''s time', Equips[i].Pins[k].T = 3);
+  Equips[i].Delay := 10;
+  StartTxt(24, i);
+  TxtStore('7.5');
+  StopTxt;
+  Check('... within its length', Equips[i].Pins[k].T = 7.5);
+  nb := FlowAdd(FN_ACTION, 300, 300);
+  StartTxt(9, nb);
+  TxtTypeText('!');
+  StopTxt;
+  Check('typing into a flow chart node works', FlowNodes[nb].Caption = 'Do!');
+  { its Properties, the right-click menu and the canvas render }
+  SelKind := selEquip;
+  SelEq := i;
+  TLSel := np;
+  Render;
+  TLSel := k;
+  Render;
+  Check('timeline renders', True);
+  { a pin on page 1 sends to a breaker on page 2 }
+  Equips[i].Pins[k].Dest[0] := 'Q9';
+  Equips[i].Pins[k].Dest[1] := 'Q9';
+  Equips[i].Pins[k].Dest[2] := 'Q9';
+  Equips[i].Pins[k].T := 0;
+  Equips[i].Pins[k].V[1] := 0;
+  TimelineReset(i);
+  lk := AddPage('Panel');
+  AppGoToPage(lk);
+  EPlace(10, 10, ekBreaker);
+  EGrid[10, 10].Tag := 'Q9';
+  AppGoToPage(0);
+  TimelineStart(i);
+  for b := 1 to 5 do SimAllPages(1 / 60, True);
+  Check('a pin switches a breaker on another page', not Pages[lk].EGrid[10, 10].On);
+  { save and load }
+  Check('save timelines', SaveLayout(UnicodeString(FileName + '.tl.mflow'), err));
+  DoNew;
+  Check('load them', LoadLayout(UnicodeString(FileName + '.tl.mflow'), err));
+  i := EquipByName('Timeline01');
+  Check('a timeline''s pins load', (i >= 0) and (Equips[i].Delay = 10) and (Equips[i].Pins[k].Kind = TLP_FIX) and
+    (Equips[i].Pins[k].Dest[1] = 'Q9') and (Equips[i].Pins[k].T = 0) and (Equips[i].Pins[np].Kind = TLP_INPUT) and
+    (Equips[i].Pins[np].Src = 'RV1') and (Equips[i].Pins[np].Dest[2] = 'KEEP') and (Equips[i].Pins[np].VMode[2] = TLV_HELD) and
+    (Equips[i].Pins[np].T = 1));
+  DeleteFile(FileName + '.tl.mflow');
+  { undo a pin's change }
+  HistCheck;
+  Equips[i].Pins[np].T := 0.5;
+  HistCheck;
+  Check('undo a pin''s time', Undo and (Equips[EquipByName('Timeline01')].Pins[np].T = 1));
+  DoNew;
+
+  { example 30 }
+  RunMenuItem(MENU_EXAMPLES, 30);
+  i := EquipByName('Timeline01');
+  k := EquipByName('Pump01');
+  b2 := False;
+  lk := 0;
+  for b := 1 to 60 * 18 do
+  begin
+    SimAllPages(1 / 60, True);
+    if (TLState(i)^.Pos > 3) and (TLState(i)^.Pos < 9) and EquipRunning(k) then b2 := True;
+    if (TLState(i)^.Pos > 13) and (TLState(i)^.Pos < 15) and ECellByTag('RV1', ekPot, cx, cy) and (EGrid[cx, cy].P1 = 100) then
+      lk := lk or 1;
+    if (TLState(i)^.Pos > 17) and (EGrid[cx, cy].P1 = 30) then lk := lk or 2;
+  end;
+  Check('example 30: Timeline01 auto starts and runs Pump01 (S1) from 2 to 10 s', TLRunning(i) and b2 and not EquipRunning(k));
+  Check(Format('example 30: RV1 100 from 12 to 16 s, then 30 (%d)', [lk]), lk = 3);
+  Check('example 30: POOL10 kept', AnalogValue('POOL10', bx, err) and (bx > 0));
+  ECellByTag('SB1', ekPBNO, cx, cy);
+  EGrid[cx, cy].Held := True;
+  for b := 1 to 5 do SimAllPages(1 / 60, True);
+  EGrid[cx, cy].Held := False;
+  for b := 1 to 90 do SimAllPages(1 / 60, True);
+  Check('example 30: SB1 starts Timeline02, which sounds BUZZ', TLRunning(EquipByName('Timeline02')) and ESignal('BUZZ'));
+  DoNew;
+
+  { example 31: the rotary dryer, over four pages }
+  RunMenuItem(MENU_EXAMPLES, 31);
+  Check('example 31: pages Dryer, About, Control, Monitor', (PageCount = 4) and (Pages[0].Name = 'Dryer') and
+    (Pages[2].Name = 'Control') and (Pages[3].Name = 'Monitor') and (EquipByName('Dryer01') >= 0) and
+    (Equips[EquipByName('Dryer01')].Kind = EQ_DRYER));
+  Pages[2].EGrid[31, 18].Held := True;
+  for b := 1 to 10 do SimAllPages(1 / 60, True);
+  Pages[2].EGrid[31, 18].Held := False;
+  for b := 1 to 60 * 13 do SimAllPages(1 / 60, True);
+  Check('example 31: SB1 starts the fans, burner, drum and feeder (page 3 runs page 1)',
+    EquipRunning(EquipByName('ExhaustFan01')) and EquipRunning(EquipByName('BlowFan01')) and
+    EquipRunning(EquipByName('CombFan01')) and EquipRunning(EquipByName('Furnace01')) and
+    EquipRunning(EquipByName('Dryer01')) and EquipRunning(EquipByName('LoadFeeder')));
+  for b := 1 to 60 * 30 do SimAllPages(1 / 60, True);
+  np := 0;
+  nb := 0;
+  k := 0;
+  lk := 0;
+  lk2 := 0;
+  cx := 0;
+  for b := 0 to NPart - 1 do
+    if Parts[b].Bucket = 0 then
+    begin
+      if Parts[b].Mat = mSand then Inc(np) else if Parts[b].Mat = mWater then Inc(nb) else if Parts[b].Mat = mFluff then Inc(k);
+    end
+    else if Parts[b].Bucket = 1 then
+    begin
+      if Parts[b].Mat = mFluff then Inc(lk) else if Parts[b].Mat = mSand then Inc(lk2) else if Parts[b].Mat = mWater then Inc(cx);
+    end;
+  Check(Format('example 31: dried product: sand %d, water %d (fed 0.53 per sand)', [np, nb]), (np > 150) and
+    (nb < np * 0.42));
+  Check(Format('example 31: the dust collector catches the fines (fluff %d, sand %d; product fluff %d)', [lk, lk2, k]),
+    (lk > k) and (lk2 < lk));
+  Check('example 31: MT1 and WT1 read the product', AnalogValue('MT1', bx, err) and (bx > 0) and AnalogValue('WT1', by, err) and
+    (by > 0));
+  Pages[2].EGrid[37, 18].Held := True;
+  for b := 1 to 10 do SimAllPages(1 / 60, True);
+  Pages[2].EGrid[37, 18].Held := False;
+  for b := 1 to 60 * 15 do SimAllPages(1 / 60, True);
+  Check('example 31: SB2 shuts it down', not (EquipRunning(EquipByName('ExhaustFan01')) or
+    EquipRunning(EquipByName('Furnace01')) or EquipRunning(EquipByName('Dryer01')) or EquipRunning(EquipByName('LoadFeeder'))));
+  DoNew;
+  { example 16: the gate cycle with its flow chart and timing chart }
+  RunMenuItem(MENU_EXAMPLES, 16);
+  Check('example 16: a flow chart and a timing chart explain the cycle', (FlowCount >= 9) and (EquipByName('Timing') >= 0) and
+    (EquipByName('FeedGate') >= 0));
+  for b := 1 to 120 do SimFrame(1 / 60, True);
+  Check('example 16: before SB1 the feed gate is shut (nothing spills)', not EquipRunning(EquipByName('FeedGate')));
+  EGrid[28, 5].Held := True;
+  SimFrame(1 / 60, True);
+  EGrid[28, 5].Held := False;
+  b2 := False;
+  for b := 1 to 60 * 20 do
+  begin
+    SimFrame(1 / 60, True);
+    if FlowNodes[6].Hit then b2 := True;
+  end;
+  np := 0;
+  nb := 0;
+  for b := 0 to NPart - 1 do
+    if Parts[b].Bucket = 0 then Inc(np)
+    else if (Parts[b].Mat <> mAir) and (Parts[b].Bucket < 0) and (not Parts[b].InPipe) and (Parts[b].Y > FLOOR_Y - 15) then Inc(nb);
+  Check(Format('example 16: click SB1 - the gate lets sand into the bin (%d), little spills (%d)', [np, nb]), (np > 40) and (nb < 40));
+  Check('example 16: the flow chart shows the step "gate open"', b2);
+
+  { backgrounds }
+  Check(Format('%d backgrounds', [BG_COUNT]), BG_COUNT >= 10);
+  b2 := True;
+  for i := 0 to BG_COUNT - 1 do
+    for k := 0 to i - 1 do
+      if SameText(Backgrounds[i].Name, Backgrounds[k].Name) then b2 := False;
+  Check('each background its own name', b2);
+  for i := 0 to BG_COUNT - 1 do
+  begin
+    SelectBackground(i);
+    Render;
+  end;
+  Check('every background renders', BgIndex = BG_COUNT - 1);
+  OpenMenu := MENU_THEME;
+  BuildMenu(MENU_THEME);
+  SubOpen := THEME_BG_ITEM;
+  BuildSub(MENU_THEME);
+  Check('Theme > Background > lists them', (SCount = BG_COUNT) and (SItems[3].Swatch = 1003));
+  LayoutBg := 5;
+  RunSub(MENU_THEME, 3);
+  Check('picking one shows it (over a layout''s own)', (BgIndex = 3) and (LayoutBg = -1) and (OpenMenu = -1));
+  SettingsFile := FileName + '.bg.ini';
+  SaveSettings;
+  SelectBackground(0);
+  LoadSettings;
+  Check('the background is kept in the settings', BgIndex = 3);
+  SettingsFile := '';
+  DeleteFile(FileName + '.bg.ini');
+  SelectBackground(0);
+
+  { example 32: the PVC dry blend plant }
+  RunMenuItem(MENU_EXAMPLES, 32);
+  Check('example 32: pages Mixing plant, About, Batch control, Trends; its own background', (PageCount = 4) and
+    (Pages[0].Name = 'Mixing plant') and (Pages[2].Name = 'Batch control') and (Pages[3].Name = 'Trends') and (LayoutBg = 3));
+  Check('save its background', SaveLayout(UnicodeString(FileName + '.bg.mflow'), err));
+  DoNew;
+  Check('a new layout has none', LayoutBg = -1);
+  Check('load it back', LoadLayout(UnicodeString(FileName + '.bg.mflow'), err) and (LayoutBg = 3));
+  DeleteFile(FileName + '.bg.mflow');
+  RunMenuItem(MENU_EXAMPLES, 32);
+  k := 0;
+  b2 := False;
+  for b := 1 to 60 * 70 do
+  begin
+    SimAllPages(1 / 60, True);
+    if EquipRunning(EquipByName('V7.56')) then k := k or 1;
+    if EquipRunning(EquipByName('V7.57')) then k := k or 2;
+    if EquipRunning(EquipByName('V7.58')) then k := k or 4;
+    if EquipRunning(EquipByName('V7.53')) then k := k or 8;
+    if EquipRunning(EquipByName('VT3')) then k := k or 16;
+    if EquipRunning(EquipByName('VT4')) then k := k or 32;
+  end;
+  Check(Format('example 32: the flow chart doses the three lines, the timeline mixes and empties (%d)', [k]), k = 63);
+  np := 0;
+  for b := 0 to NPart - 1 do
+    if Parts[b].Bucket = 0 then Inc(np);
+  Check(Format('example 32: the blend reaches silo H9.3 and the extruder (%d)', [np]),
+    (StoreTotal(Grid[36, 16]) + np > 50));
+  DoNew;
+  { inclined conveyors }
+  DoNew;
+  i := AddEquip(EQ_BELT, 200, 300);
+  Equips[i].W := 400;
+  Equips[i].H := 200;
+  ConveyorDeck(i, bx, by, fw, fh);
+  Check('a belt is flat until it is given an incline', (ConveyorTilt(i) = 0) and (by = fh));
+  Equips[i].RMin := 20;
+  ConveyorDeck(i, bx, by, fw, fh);
+  Check('incline +20: its right end higher by tan 20 x its length', (fh < by) and (Abs((by - fh) - 400 * Tan(20 * Pi / 180)) < 0.5));
+  SimFrame(1 / 60, False);
+  Check('its deck is a solid slope', (NSlope = 1) and SolidAt(bx + 200, by + (fh - by) / 2 + 4) and
+    not SolidAt(bx + 200, by + (fh - by) / 2 - 6));
+  Check('save an inclined belt', SaveLayout(UnicodeString(FileName + '.belt.mflow'), err));
+  DoNew;
+  Check('load it: its incline', LoadLayout(UnicodeString(FileName + '.belt.mflow'), err) and (EquipByName('Belt01') >= 0) and
+    (Equips[EquipByName('Belt01')].RMin = 20));
+  DeleteFile(FileName + '.belt.mflow');
+
+  { example 33: the belt conveyor system }
+  RunMenuItem(MENU_EXAMPLES, 33);
+  i := EquipByName('BC-01');
+  Check('example 33: BC-01 is inclined 15 deg, the drive at its high end', (i >= 0) and (ConveyorTilt(i) = -15) and Equips[i].Flip);
+  for b := 1 to 60 do SimFrame(1 / 60, True);
+  Check('example 33: stopped, the feed gate stays shut', not EquipRunning(EquipByName('FeedGate')));
+  EGrid[32, 3].Held := True;
+  SimFrame(1 / 60, True);
+  EGrid[32, 3].Held := False;
+  for b := 1 to 60 * 20 do SimFrame(1 / 60, True);
+  np := 0;
+  nb := 0;
+  for b := 0 to NPart - 1 do
+    if Parts[b].Bucket = 0 then Inc(np)
+    else if (Parts[b].Mat <> mAir) and (Parts[b].Bucket < 0) and (not Parts[b].InPipe) and (Parts[b].Y > FLOOR_Y - 15) then Inc(nb);
+  Check(Format('example 33: SB1 - sand rides up the belt into the bin (%d, spilled %d)', [np, nb]),
+    EquipRunning(i) and (np > 100) and (nb < 60));
+  EGrid[30, 3].Held := True;
+  SimFrame(1 / 60, True);
+  EGrid[30, 3].Held := False;
+  SimFrame(1 / 60, True);
+  Check('example 33: SB0 stops the belt and shuts the feed gate', not (EquipRunning(i) or EquipRunning(EquipByName('FeedGate'))));
+  DoNew;
+  { pieces: bottles, glasses, boxes, dolls }
+  DoNew;
+  i := AddPiece(PK_BOX, 300, 200);
+  Check('a piece is added where asked', (i >= 0) and Pieces[i].Active and (Pieces[i].Kind = PK_BOX));
+  Check('no second piece in the same place', AddPiece(PK_BOX, 300, 200) < 0);
+  for b := 1 to 180 do SimFrame(1 / 60, True);
+  Check(Format('it falls and stands on the floor (%.1f)', [Pieces[i].Y]), Abs(Pieces[i].Y - FLOOR_Y) < 3);
+  k := AddPiece(PK_BOTTLE, 302, 100);
+  for b := 1 to 180 do SimFrame(1 / 60, True);
+  Check(Format('another one stands on top of it (%.1f)', [Pieces[k].Y]), Abs(Pieces[k].Y - (Pieces[i].Y - PieceH[PK_BOX])) < 3);
+  lk := AddEquip(EQ_BELT, 520, 500);
+  Equips[lk].W := 300;
+  Equips[lk].H := 60;
+  Equips[lk].Level := 50;
+  Equips[lk].State := EQS_RUN;
+  np := AddPiece(PK_GLASS, 560, 470);
+  for b := 1 to 60 do SimFrame(1 / 60, True);
+  Check(Format('a running belt carries a piece (%.0f)', [Pieces[np].X]), Pieces[np].X > 600);
+  lk2 := AddEquip(EQ_ITEMFEEDER, 100, 100);
+  Check('an item feeder: a piece every 2 s', (lk2 >= 0) and (Equips[lk2].RMin = 2) and EquipActuated(EQ_ITEMFEEDER));
+  Equips[lk2].Mode := PK_DOLL;
+  Equips[lk2].RMax := 3;
+  Equips[lk2].State := EQS_RUN;
+  for b := 1 to 60 * 10 do SimFrame(1 / 60, True);
+  nb := 0;
+  for b := 0 to MAX_PIECES - 1 do
+    if Pieces[b].Active and (Pieces[b].Kind = PK_DOLL) then Inc(nb);
+  Check(Format('it feeds its stock, then stops (%d dolls)', [nb]), (nb = 3) and (Equips[lk2].HotIn = 3));
+  Check('save an item feeder', SaveLayout(UnicodeString(FileName + '.items.mflow'), err));
+  DoNew;
+  Check('load it: what it feeds, how often, its stock; no pieces', LoadLayout(UnicodeString(FileName + '.items.mflow'), err) and
+    (PieceCount = 0) and (Equips[EquipByName('Items01')].Mode = PK_DOLL) and (Equips[EquipByName('Items01')].RMin = 2) and
+    (Equips[EquipByName('Items01')].RMax = 3));
+  DeleteFile(FileName + '.items.mflow');
+  { pieces stay on their own page }
+  i := AddPiece(PK_BOX, 200, 300);
+  k := AddPage('Two');
+  AppGoToPage(k);
+  Check('another page has none of them', PieceCount = 0);
+  AppGoToPage(0);
+  Check('back: they are there', (PieceCount = 1) and Pieces[i].Active);
+  ClearParticles;
+  Check('Clear flow clears the pieces too', PieceCount = 0);
+
+  { example 34 }
+  RunMenuItem(MENU_EXAMPLES, 34);
+  EGrid[5, 19].Held := True;
+  SimFrame(1 / 60, True);
+  EGrid[5, 19].Held := False;
+  for b := 1 to 60 * 40 do SimFrame(1 / 60, True);
+  ECellByTag('CNT1', ekCounter, cx, cy);
+  np := PiecesInBucket(0, bx);
+  nb := PiecesInBucket(1, by);
+  Check(Format('example 34: PE1 counts the bottles into the crate (%d counted, %d in it)', [Round(EGrid[cx, cy].Acc), np]),
+    (EGrid[cx, cy].Acc >= 12) and (np >= 8));
+  Check('example 34: the crate is full - line 1 stops', not (EquipRunning(EquipByName('Bottles')) or
+    EquipRunning(EquipByName('Belt01'))) and ESignal('CNT1'));
+  Check(Format('example 34: line 2 carries the mixed pieces into the bin (%d)', [nb]), nb >= 4);
+  Check('example 34: WT1 weighs the crate', AnalogValue('WT1', bx, err) and (bx > 3));
+  DoNew;
+  { ---- IPC: the server for many clients, the client of many servers }
+  IPCDefaults;
+  Check('IPC: server and client are off by default', (not IPCServerOn) and (not IPCClientOn) and (not IPCServerListening) and
+    (IPCServerState = 'off') and (IPCPointCount(IPC_SERVER) = 0) and (IPCPointCount(IPC_CLIENT) = 0));
+  NetSteps(5);
+  Check('IPC: off, it opens nothing', not IPCServerListening);
+  DoNew;
+  EPlace(5, 5, ekSwitch);
+  EGrid[5, 5].Tag := 'S1';
+  EPlace(5, 7, ekPot);
+  EGrid[5, 7].Tag := 'RV1';
+  EGrid[5, 7].P1 := 10;
+  lk := AddEquip(EQ_MOTOR, 400, 300);
+  Equips[lk].Name := 'Motor01';
+  port := 47000 + Random(900);
+  { the server }
+  IPCServerName := 'TestServer';
+  IPCServerPort := port;
+  IPCAddPoint(IPC_SERVER, IPC_OUT, 'S1', '', '');
+  IPCAddPoint(IPC_SERVER, IPC_OUT, 'MOTOR', 'Motor01', '');
+  IPCAddPoint(IPC_SERVER, IPC_IN, 'RV1', '', '');
+  IPCAddPoint(IPC_SERVER, IPC_IN, 'START', 'Motor01', 'PanelB');
+  IPCAddPoint(IPC_SERVER, IPC_IN, 'ALARM', '', '');
+  IPCServerOn := True;
+  NetSteps(2);
+  Check(Format('IPC server listens on 127.0.0.1:%d', [port]), IPCServerListening and (Pos('listening', IPCServerState) = 1));
+  ProbeInit(pa);
+  ProbeInit(pb);
+  ProbeInit(pc);
+  ProbeInit(sc);
+  ProbeInit(sd);
+  Check('two outside clients connect', ProbeConnect(pa, port) and ProbeConnect(pb, port));
+  ProbeSend(pa, 'HELLO PanelA');
+  ProbeSend(pb, 'HELLO PanelB');
+  NetSteps(10);
+  ga := ProbeAll(pa);
+  gb := ProbeAll(pb);
+  Check('the server has both clients, by their names', (IPCClientCount = 2) and IPCClientInfo(0, ci) and
+    IPCClientInfo(1, ci2) and (((ci.Name = 'PanelA') and (ci2.Name = 'PanelB')) or ((ci.Name = 'PanelB') and (ci2.Name = 'PanelA'))));
+  Check(Format('each client gets HELLO and every output at once (%s)', [ga]), (Pos('HELLO TestServer|', ga) = 1) and
+    (Pos('SET S1 0|', ga) > 0) and (Pos('SET MOTOR 0|', ga) > 0) and (Pos('SET S1 0|', gb) > 0));
+  EGrid[5, 5].On := True;
+  NetSteps(5);
+  ga := ProbeAll(pa);
+  gb := ProbeAll(pb);
+  Check(Format('a change goes to every client (%s / %s)', [ga, gb]), (Pos('SET S1 1|', ga) > 0) and (Pos('SET S1 1|', gb) > 0) and
+    (Pos('MOTOR', ga) = 0));
+  ProbeSend(pa, 'SET RV1 42.5');
+  NetSteps(5);
+  Check(Format('an input from a client works the pot (%.1f)', [EGrid[5, 7].P1]), Abs(EGrid[5, 7].P1 - 42.5) < 0.01);
+  ProbeSend(pa, 'SET START 1');
+  NetSteps(5);
+  Check('an input for one peer only: another client cannot work it', not EquipRunning(lk));
+  ProbeSend(pb, 'SET START 1');
+  NetSteps(5);
+  Check('... its peer can: Motor01 runs', EquipRunning(lk));
+  ga := ProbeAll(pa);
+  Check('... and the motor''s new state goes out', Pos('SET MOTOR 100|', ga) > 0);
+  ProbeSend(pb, 'SET ALARM 1');
+  NetSteps(5);
+  Check('an input to a name that is no part: a tag and a value of its own', ESignal('ALARM') and AnalogValue('ALARM', bx, err) and
+    (bx = 1));
+  ProbeSend(pa, 'SET');
+  ProbeSend(pa, 'XYZ 1 2');
+  ProbeSend(pa, 'SET RV1 abc');
+  ProbeSend(pa, 'SET RV1');
+  ProbeSend(pa, StringOfChar('A', 2000));
+  ProbeSend(pa, 'PING');
+  NetSteps(5);
+  ga := ProbeAll(pa);
+  Check('bad lines are ignored, PING gets PONG', (Abs(EGrid[5, 7].P1 - 42.5) < 0.01) and (IPCClientCount = 2) and
+    (Pos('PONG|', ga) > 0));
+  ProbeSend(pa, 'SET RV1 ON');
+  NetSteps(5);
+  Check('ON / OFF are 1 / 0', Abs(EGrid[5, 7].P1 - 1) < 0.01);
+  { no more than its clients }
+  IPCMaxClients := 2;
+  Check('a third client connects ...', ProbeConnect(pc, port));
+  NetSteps(5);
+  gc := ProbeAll(pc);
+  Check(Format('... the server is full: it says so and closes (%s)', [gc]), (Pos('ERR full', gc) = 1) and (IPCClientCount = 2));
+  ProbeClose(pc);
+  IPCMaxClients := 8;
+  { the client of many servers: two outside servers and our own }
+  Check('two outside servers listen', ProbeListen(sc, port + 1) and ProbeListen(sd, port + 2));
+  IPCClientName := 'TestClient';
+  IPCAddTarget('Line1', '127.0.0.1', port + 1);
+  IPCAddTarget('Line2', '127.0.0.1', port + 2);
+  IPCAddTarget('Self', '127.0.0.1', port);
+  IPCAddPoint(IPC_CLIENT, IPC_OUT, 'RV1', '', '');
+  IPCAddPoint(IPC_CLIENT, IPC_OUT, 'S1ECHO', 'S1', 'Line2');
+  IPCAddPoint(IPC_CLIENT, IPC_IN, 'LEVEL', 'LEVEL_L1', 'Line1');
+  IPCAddPoint(IPC_CLIENT, IPC_IN, 'S1', 'S1_FROM_SERVER', 'Self');
+  NetSteps(5);
+  Check('client off: it connects to nothing', not (IPCTargetConnected(0) or IPCTargetConnected(1) or IPCTargetConnected(2)) and
+    (IPCTargetState(0) = 'client off'));
+  IPCClientOn := True;
+  for b := 1 to 40 do
+  begin
+    NetSteps(1);
+    if not sc.Up then ProbeAccept(sc);
+    if not sd.Up then ProbeAccept(sd);
+  end;
+  Check(Format('the client connects to all three servers (%s / %s / %s)', [IPCTargetState(0), IPCTargetState(1), IPCTargetState(2)]),
+    IPCTargetConnected(0) and IPCTargetConnected(1) and IPCTargetConnected(2) and sc.Up and sd.Up);
+  Check('our server now has three clients', IPCClientCount = 3);
+  gc := ProbeAll(sc);
+  gd := ProbeAll(sd);
+  Check(Format('each server gets HELLO and the client''s outputs (%s / %s)', [gc, gd]), (Pos('HELLO TestClient|', gc) = 1) and
+    (Pos('SET RV1 1|', gc) > 0) and (Pos('SET RV1 1|', gd) > 0));
+  Check('an output for one server goes only there', (Pos('SET S1ECHO 1|', gd) > 0) and (Pos('S1ECHO', gc) = 0));
+  ProbeSend(sc, 'HELLO Line1');
+  ProbeSend(sc, 'SET LEVEL 73.5');
+  ProbeSend(sd, 'SET LEVEL 11');
+  NetSteps(5);
+  Check('an input from its server (and not from another one)', AnalogValue('LEVEL_L1', bx, err) and (Abs(bx - 73.5) < 0.01));
+  Check('our own server to our own client: S1 comes back', AnalogValue('S1_FROM_SERVER', bx, err) and (bx = 1));
+  EGrid[5, 5].On := False;
+  NetSteps(10);
+  Check('... and follows it', AnalogValue('S1_FROM_SERVER', bx, err) and (bx = 0));
+  IPCDeletePoint(IPCFindPoint(IPC_SERVER, IPC_IN, 'RV1'));
+  EGrid[5, 7].P1 := 66;
+  NetSteps(5);
+  gc := ProbeAll(sc);
+  Check('a client output change goes to the servers', Pos('SET RV1 66|', gc) > 0);
+  { a server goes away and comes back }
+  ProbeClose(sc);
+  NetSteps(10);
+  Check(Format('a lost server: the client sees it and retries (%s)', [IPCTargetState(0)]), (not IPCTargetConnected(0)) and
+    IPCTargetConnected(1));
+  ProbeInit(sc);
+  ProbeListen(sc, port + 1);
+  for b := 1 to 60 do
+  begin
+    NetSteps(1, 0.1);
+    if not sc.Up then ProbeAccept(sc);
+  end;
+  Check('it connects again when the server is back', IPCTargetConnected(0) and sc.Up);
+  gc := ProbeAll(sc);
+  Check('... and sends all its outputs again', Pos('SET RV1 66|', gc) > 0);
+  { our server off and on }
+  IPCServerOn := False;
+  NetSteps(5);
+  ga := ProbeAll(pa);
+  Check('server off: it closes, its clients see it', (not IPCServerListening) and (not pa.Up) and (not IPCTargetConnected(2)) and
+    (IPCServerState = 'off'));
+  IPCServerOn := True;
+  for b := 1 to 40 do NetSteps(1, 0.1);
+  Check('server on again: our client is back', IPCServerListening and IPCTargetConnected(2));
+  { a server's port taken: an error, no crash }
+  IPCServerPort := port + 2;
+  NetSteps(3);
+  Check(Format('a port in use: an error (%s)', [IPCServerState]), (not IPCServerListening) and (Pos('error', IPCServerState) = 1));
+  IPCServerPort := port;
+  for b := 1 to 30 do NetSteps(1, 0.1);
+  Check('its own port again: it listens', IPCServerListening);
+  { a disabled server in the list }
+  IPCTargets[1].Enabled := False;
+  NetSteps(3);
+  Check('a server switched off in the list: disconnected', (not IPCTargetConnected(1)) and (IPCTargetState(1) = 'disabled'));
+  { the files }
+  Check('save the network', IPCSaveNet(FileName + '.ipcnet', err));
+  Check('save the inputs / outputs', IPCSaveIO(FileName + '.ipcio', err));
+  np := IPCPointCount(IPC_SERVER);
+  nb := IPCPointCount(IPC_CLIENT);
+  IPCDefaults;
+  Check('IPCDefaults: all off and empty again', (not IPCServerOn) and (not IPCClientOn) and (not IPCServerListening) and
+    (IPCPointCount(IPC_SERVER) = 0) and not IPCTargets[0].Used);
+  Check('load the network: its own file', IPCLoadNet(FileName + '.ipcnet', err) and IPCServerOn and IPCClientOn and
+    (IPCServerName = 'TestServer') and (IPCServerPort = port) and (IPCClientName = 'TestClient') and
+    (IPCTargets[0].Name = 'Line1') and (IPCTargets[1].Port = port + 2) and (not IPCTargets[1].Enabled) and
+    (IPCTargets[2].Name = 'Self'));
+  Check('load the inputs / outputs: their own file', IPCLoadIO(FileName + '.ipcio', err) and (IPCPointCount(IPC_SERVER) = np) and
+    (IPCPointCount(IPC_CLIENT) = nb) and (IPCFindPoint(IPC_SERVER, IPC_IN, 'START') >= 0) and
+    (IPCPoints[IPCFindPoint(IPC_SERVER, IPC_IN, 'START')].Peer = 'PanelB') and
+    (IPCPoints[IPCFindPoint(IPC_CLIENT, IPC_IN, 'LEVEL')].Link = 'LEVEL_L1'));
+  Check('a missing file: an error, nothing changes', (not IPCLoadNet(FileName + '.none', err)) and IPCServerOn);
+  DeleteFile(FileName + '.ipcnet');
+  DeleteFile(FileName + '.ipcio');
+  { the panels: windows of their own }
+  HandleKey(SDLK_F10, 0);
+  Check('F10 shows the IPC network panel, floating', Wins[WIN_IPCNET].Visible and not WinDocked(WIN_IPCNET));
+  HandleKey(SDLK_F11, 0);
+  Check('F11 shows the IPC inputs / outputs panel, floating', Wins[WIN_IPCIO].Visible and not WinDocked(WIN_IPCIO));
+  Render;
+  IPCSide := IPC_CLIENT;
+  Render;
+  OpenMenu := MENU_PANELS;
+  BuildMenu(MENU_PANELS);
+  Check('the Panels menu has them', (MItems[9].Lbl = 'IPC network') and (MItems[10].Lbl = 'IPC inputs / outputs') and
+    MItems[9].Checked);
+  OpenMenu := -1;
+  { typing a port }
+  StartTxt(29, 0);
+  TxtStore(IntToStr(port + 5));
+  StopTxt;
+  Check('type the server''s port: used when typed in', IPCServerPort = port + 5);
+  StartTxt(32, 0);
+  TxtTypeText('x');
+  StopTxt;
+  Check('type a server''s address', IPCTargets[0].Host = '127.0.0.1x');
+  { auto map: every part of the page }
+  IPCDefaults;
+  IPCAutoMap(IPC_SERVER);
+  Check(Format('auto map: outputs for what can be read, inputs for what can be worked (%d)', [IPCPointCount(IPC_SERVER)]),
+    (IPCFindPoint(IPC_SERVER, IPC_OUT, 'Motor01') >= 0) and (IPCFindPoint(IPC_SERVER, IPC_OUT, 'S1') >= 0) and
+    (IPCFindPoint(IPC_SERVER, IPC_IN, 'RV1') >= 0) and (IPCFindPoint(IPC_SERVER, IPC_IN, 'S1') >= 0) and
+    (IPCFindPoint(IPC_SERVER, IPC_IN, 'Motor01') >= 0));
+  np := IPCPointCount(IPC_SERVER);
+  IPCAutoMap(IPC_SERVER);
+  Check('auto map twice adds nothing twice', IPCPointCount(IPC_SERVER) = np);
+  HandleKey(SDLK_F10, 0);
+  HandleKey(SDLK_F11, 0);
+  ProbeClose(pa);
+  ProbeClose(pb);
+  ProbeClose(sc);
+  ProbeClose(sd);
+  IPCDefaults;
+  DoNew;
+
+  { workers: a loader puts pieces down in front, a picker lifts them and puts them down behind }
+  DoNew;
+  i := AddEquip(EQ_WORKER, 400, 662);
+  Check('a worker: a loader of boxes, working', (i >= 0) and (Equips[i].Mode = 0) and (Equips[i].Level = PK_BOX) and
+    EquipRunning(i) and EquipActuated(EQ_WORKER));
+  Equips[i].RMin := 1;
+  Equips[i].RMax := 2;
+  for b := 1 to 60 * 6 do SimFrame(1 / 60, True);
+  np := 0;
+  for b := 0 to MAX_PIECES - 1 do
+    if Pieces[b].Active and (Pieces[b].Kind = PK_BOX) and (Pieces[b].X > Equips[i].X + Equips[i].W / 2) then Inc(np);
+  Check(Format('the loader puts its stock down in front of it (%d)', [np]), (np = 2) and (Equips[i].HotIn = 2));
+  DoNew;
+  i := AddEquip(EQ_WORKER, 400, 662);
+  Equips[i].Mode := 1;
+  Equips[i].Level := PK_MIXED;
+  Equips[i].RMin := 0.5;
+  k := AddPiece(PK_DOLL, 470, 812);
+  for b := 1 to 60 * 3 do SimFrame(1 / 60, True);
+  np := -1;
+  for b := 0 to MAX_PIECES - 1 do
+    if Pieces[b].Active and (Pieces[b].Kind = PK_DOLL) then np := b;
+  Check('the picker lifts a piece in front of it and puts it down behind it', (np >= 0) and (Pieces[np].X < 400) and
+    (Equips[i].HotIn = 1));
+  Equips[i].Level := PK_BOTTLE;
+  k := AddPiece(PK_BOX, 470, 812);
+  for b := 1 to 60 * 2 do SimFrame(1 / 60, True);
+  Check('a picker of bottles leaves a box', Pieces[k].Active and (Pieces[k].X > 450));
+  Equips[i].State := EQS_STOP;
+  Equips[i].Level := PK_MIXED;
+  for b := 1 to 60 * 2 do SimFrame(1 / 60, True);
+  Check('a stopped worker does nothing', Pieces[k].Active and (Pieces[k].X > 450));
+  Check('save a worker', SaveLayout(UnicodeString(FileName + '.wk.mflow'), err));
+  DoNew;
+  Check('load it: picker, what it picks, its time', LoadLayout(UnicodeString(FileName + '.wk.mflow'), err) and
+    (Equips[EquipByName('Worker01')].Mode = 1) and (Equips[EquipByName('Worker01')].Level = PK_MIXED) and
+    (Equips[EquipByName('Worker01')].RMin = 0.5) and not EquipRunning(EquipByName('Worker01')));
+  DeleteFile(FileName + '.wk.mflow');
+
+  { example 35: the shipping dock }
+  RunMenuItem(MENU_EXAMPLES, 35);
+  Check('example 35: a box van, three racks, three pickers, a dock worker', (EquipByName('Box van') >= 0) and
+    (EquipByName('Rack3') >= 0) and (EquipByName('Picker3') >= 0) and (Equips[EquipByName('DockWorker')].Mode = 1));
+  EGrid[31, 3].Held := True;
+  SimFrame(1 / 60, True);
+  EGrid[31, 3].Held := False;
+  for b := 1 to 60 * 45 do SimFrame(1 / 60, True);
+  ECellByTag('CNT1', ekCounter, cx, cy);
+  np := PiecesInBucket(0, bx);
+  Check(Format('example 35: the pickers load, the conveyor carries, the dock worker fills the van (%d shipped, %d in the van)',
+    [Round(EGrid[cx, cy].Acc), np]), (EGrid[cx, cy].Acc >= 4) and (np >= 8));
+  DoNew;
   { themes }
   for i := 0 to THEME_COUNT - 1 do
   begin
@@ -14041,6 +18328,32 @@ begin
     Check('theme ' + Th.Name, (ThemeIndex = i) and (Th.Name = Themes[i].Name));
   end;
   SelectTheme(0);
+  { every theme's text reads well on its panels and canvas }
+  b := 0;
+  for i := 0 to THEME_COUNT - 1 do
+  begin
+    if (Contrast(Themes[i].Text, Themes[i].PanelBg) < 7) or (Contrast(Themes[i].TextDim, Themes[i].PanelBg) < 3.5) or
+      (Contrast(Themes[i].Text, Themes[i].CanvasBg) < 7) or (Contrast(Themes[i].Title, Themes[i].PanelBg) < 3) then
+    begin
+      Inc(b);
+      WriteLn(f, Format('  low contrast: %s %.1f %.1f %.1f %.1f', [Themes[i].Name, Contrast(Themes[i].Text, Themes[i].PanelBg),
+        Contrast(Themes[i].TextDim, Themes[i].PanelBg), Contrast(Themes[i].Text, Themes[i].CanvasBg),
+        Contrast(Themes[i].Title, Themes[i].PanelBg)]));
+    end;
+    for k := 0 to i - 1 do
+      if SameText(Themes[k].Name, Themes[i].Name) then Inc(b);
+  end;
+  Check(Format('%d themes, each its own name, all readable', [THEME_COUNT]), (THEME_COUNT >= 20) and (b = 0));
+  OpenMenu := MENU_THEME;
+  BuildMenu(MENU_THEME);
+  Check('the Theme menu lists them all, in two more groups, and Background >', (MCount = THEME_COUNT + 1) and
+    MItems[THEME_BG_ITEM].HasSub and MItems[THEME_DARK2].Sep and
+    MItems[THEME_LIGHT2].Sep and (MItems[5].Swatch = 5));
+  Render;
+  ClickMenu(MENU_THEME, THEME_LIGHT2 + 1);
+  Check('Theme > Mint', (ThemeIndex = THEME_LIGHT2 + 1) and Th.Light and (Th.Name = 'Mint'));
+  ClickMenu(MENU_THEME, 0);
+  OpenMenu := -1;
 
   WriteLn(f, Format('%d failure(s)', [fails]));
   CloseFile(f);
@@ -14132,6 +18445,13 @@ begin
   else
     SettingsFile := ExtractFilePath(ParamStr(0)) + 'materialflow.ini';
   LoadSettings;
+  { the IPC network and its points: their own files (not in test runs) }
+  if SettingsFile <> '' then
+  begin
+    IPCNetPath := ExtractFilePath(ParamStr(0)) + IPC_NET_FILE;
+    IPCIOPath := ExtractFilePath(ParamStr(0)) + IPC_IO_FILE;
+    IPCReloadFiles;
+  end;
   { the default physics (Physics lab > Default), not in test runs }
   if (SettingsFile <> '') and FileExists(ExtractFilePath(ParamStr(0)) + PHYS_FILE) then
     if LoadPhysics(UnicodeString(ExtractFilePath(ParamStr(0)) + PHYS_FILE), err) then
@@ -14247,6 +18567,18 @@ begin
       Wins[WIN_LAB].Y := 20;
       LabMat := mSand;
     end
+    else if ParamStr(5) = 'flow' then
+    begin
+      { the Flow tab, decision node 6 (Pool low?) selected }
+      ToolTab := 5;
+      SelectFlow(6);
+    end
+    else if ParamStr(5) = 'jump' then
+    begin
+      { after Go to Pool01 from node 6: page 3, the back button }
+      SelectFlow(6);
+      JumpTo('Pool01');
+    end
     else if ParamStr(5) = 'ctrl' then
     begin
       { the Control tab, controller LIC1 (example 23 at 40,3) selected }
@@ -14255,6 +18587,55 @@ begin
       SelKind := selECell;
       SelEX := 40;
       SelEY := 3;
+    end
+    else if Copy(ParamStr(5), 1, 5) = 'dryer' then
+    begin
+      { example 31 started: its start-up timeline on page 3; dryerN shows page N }
+      AppGoToPage(2);
+      TimelineStart(EquipByName('Startup'));
+      AppGoToPage(EnsureRange(StrToIntDef(Copy(ParamStr(5), 6, 2), 1) - 1, 0, PageCount - 1));
+    end
+    else if ParamStr(5) = 'ipc' then
+    begin
+      { the IPC panels at work: our server, our client connected to it and to a server that is not there }
+      IPCServerPort := 47950;
+      IPCServerOn := True;
+      IPCClientOn := True;
+      IPCAddTarget('Self', '127.0.0.1', 47950);
+      IPCAddTarget('PLC2', '127.0.0.1', 47951);
+      IPCAutoMap(IPC_SERVER);
+      IPCAddPoint(IPC_CLIENT, IPC_IN, 'BC-01', 'BELT_FROM_SERVER', 'Self');
+      IPCAddPoint(IPC_CLIENT, IPC_OUT, 'RV1', '', '');
+      ToggleWin(WIN_IPCNET);
+      ToggleWin(WIN_IPCIO);
+      Wins[WIN_IPCNET].X := 230;
+      Wins[WIN_IPCIO].X := 540;
+      IPCSide := IPC_SERVER;
+    end
+    else if ParamStr(5) = 'dock' then
+      EGrid[31, 3].Held := True   { example 35: SB1 held }
+    else if ParamStr(5) = 'items' then
+      EGrid[5, 19].Held := True   { example 34: SB1 held }
+    else if ParamStr(5) = 'belt' then
+      EGrid[32, 3].Held := True   { example 33: SB1 held }
+    else if ParamStr(5) = 'gate' then
+      EGrid[28, 5].Held := True   { example 16: SB1 held (its seal-in K1 keeps it on) }
+    else if ParamStr(5) = 'timeline' then
+    begin
+      { timeline Timeline01 selected (example 30), its first pin }
+      SelKind := selEquip;
+      SelEq := EquipByName('Timeline01');
+      TLSel := 0;
+      FloatWin(WIN_PROPS);
+      Wins[WIN_PROPS].X := 2;
+      Wins[WIN_PROPS].Y := 2;
+      Wins[WIN_PROPS].H := WIN_H - 8;
+    end
+    else if ParamStr(5) = 'trend' then
+    begin
+      { trend chart Trend01 selected (example 29) }
+      SelKind := selEquip;
+      SelEq := EquipByName('Trend01');
     end
     else if ParamStr(5) = 'timer' then
     begin
@@ -14312,6 +18693,15 @@ begin
       Wins[WIN_SHAPE].Y := 20;
     end
     else if ParamStr(5) = 'framepopup' then ShowFramePopup(0)
+    else if ParamStr(5) = 'fpmove' then
+    begin
+      { popup 1 moved to the left and made narrower }
+      Popups[0].BX := 40;
+      Popups[0].BY := 120;
+      Popups[0].BW := 260;
+      Popups[0].BH := 200;
+      ShowFramePopup(0);
+    end
     else if ParamStr(5) = 'about' then AppGoToPage(1)
     else if ParamStr(5) = 'notes' then
     begin
@@ -14319,6 +18709,10 @@ begin
       Pages[CurPage].Layers[1].Visible := False;
       SelKind := selNone;
     end
+    else if (Copy(ParamStr(5), 1, 2) = 'bg') and (Length(ParamStr(5)) > 2) then
+      SelectBackground(StrToIntDef(Copy(ParamStr(5), 3, 3), 0))   { background N, e.g. bg3 }
+    else if (Copy(ParamStr(5), 1, 5) = 'theme') and (Length(ParamStr(5)) > 5) then
+      SelectTheme(StrToIntDef(Copy(ParamStr(5), 6, 3), 0))   { theme N, e.g. theme12 }
     else if ParamStr(5) = 'theme' then OpenMenu := MENU_THEME
     else if ParamStr(5) = 'clock' then
     begin
@@ -14389,6 +18783,8 @@ begin
     begin
       while SDL_PollEvent(@ev) do ;
       SimAllPages(1 / 60, True);
+      IPCStep(1 / 60);
+      if IPCServerOn or IPCClientOn then Sleep(1);
     end;
     now := SDL_GetTicksNS;
     ShotMsPerFrame := (now - last) / 1e6 / shotFrames;
@@ -14473,7 +18869,8 @@ begin
               if Drag = dragBox then FinishBox
               else if Drag = dragMove then FinishMove
               else if Drag = dragFrameNew then FinishFrameNew
-              else if Drag = dragFrameMove then FinishFrameMove;
+              else if Drag = dragFrameMove then FinishFrameMove
+              else if Drag = dragFlowArrow then FinishFlowArrow;
             end
             else if ev.button.button = SDL_BUTTON_RIGHT then
             begin
@@ -14501,6 +18898,9 @@ begin
               else
                 CanvasWheel(MWX, MWY, ev.wheel.y);
             end
+            else if PinAt(MX, MY) >= 0 then
+              { over a Focus Properties window: scroll it }
+              with Pins[PinAt(MX, MY)] do Scroll := Scroll - ev.wheel.y * 40
             else if WinAt(MX, MY) >= 0 then
               { over a panel: scroll it }
               with Wins[WinAt(MX, MY)] do Scroll := Scroll - ev.wheel.y * 40;
@@ -14547,12 +18947,16 @@ begin
     LayerDelArmed := fmax(0, LayerDelArmed - FrameDt);
 
     SimAllPages(fmin(FrameDt, 1 / 30), Running);
+    IPCStep(fmin(FrameDt, 1 / 30));
+    if IPCChanged and (TxtEdit = 0) then IPCSaveFiles;
     Render;
     SDL_RenderPresent(Ren);
     TakePendingPage;
   end;
 
   SaveSettings;   { panel places and theme for next time }
+  if IPCChanged then IPCSaveFiles;
+  IPCStopAll;
   SDL_DestroyRenderer(Ren);
   SDL_DestroyWindow(Win);
   SDL_Quit;

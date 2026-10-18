@@ -1,0 +1,205 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)
+# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)
+MFLOW 2
+NAME Flow chart: switches & random
+POPUP 1 2 2 How it works
+POPUPTEXT 1 COIN (a random boolean, every 2 s) turns\nswitch S1 and air valve V1 on or off. LOAD\n(a random byte) over 235 trips OL1; after 3 s\nthe chart resets it. DICE (1..3) sets the\nposition of selector SA1 (H3 in position 3).
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Set COIN's True % (Properties) to 100.\nChange Overload?'s value: fewer trips.\nPoint Speed > 50? at another name.
+
+PAGE Plant
+LAYERS 5 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Flow chart
+LAYER 4 1 0 Electrical
+LAYER 5 1 0 Pneumatic
+GRAVITY 1.00
+ON 1
+ON 2
+LABEL 640.00 260.00 FLOW CHART: SWITCHES & RANDOM\nCOIN (random boolean) turns S1 and\nvalve V1 on / off; LOAD (random byte)\ntrips OL1, reset after a cool-down;\nDICE (random integer) sets SA1.
+LINK 780.00 360.00 1 page 2 About
+LINK 780.00 382.00 2 popup 1 How it works
+LINK 780.00 404.00 3 popup 2 Try this
+ON 3
+FLOW 1 start 40.00 30.00 120.00 40.00 0 0 2 0 0.00 - - Start
+FLOW 2 random 28.00 96.00 144.00 48.00 0 0 3 5 50.00 - COIN Coin
+FLOW 3 action 28.00 180.00 144.00 48.00 0 6 4 0 0.00 - S1 S1 on
+FLOW 4 action 28.00 250.00 144.00 48.00 0 6 7 0 0.00 - V1 V1 open
+FLOW 5 action 232.00 180.00 144.00 48.00 0 7 6 0 0.00 - S1 S1 off
+FLOW 6 action 232.00 250.00 144.00 48.00 0 7 7 0 0.00 - V1 V1 shut
+FLOW 7 random 28.00 330.00 144.00 48.00 0 0 8 0 255.00 - LOAD Load
+FLOW 8 decision 16.00 410.00 168.00 80.00 0 0 9 11 235.00 LOAD - Overload?
+FLOW 9 action 28.00 530.00 144.00 48.00 0 7 10 0 0.00 - OL1 Trip OL1
+FLOW 10 end 40.00 610.00 120.00 40.00 0 0 0 0 0.00 - - End
+FLOW 11 decision 220.00 410.00 168.00 80.00 6 0 12 14 0.00 OL1 - OL1 tripped?
+FLOW 12 delay 244.00 530.00 120.00 48.00 0 0 13 0 3.00 - - Cool down
+FLOW 13 action 232.00 610.00 144.00 48.00 0 5 0 0 0.00 - OL1 Reset OL1
+FLOW 14 random 430.00 430.00 144.00 48.00 0 0 15 0 3.00 - DICE Dice
+FLOW 15 action 430.00 530.00 144.00 48.00 0 8 16 0 0.00 DICE SA1 SA1 = dice
+FLOW 16 end 442.00 610.00 120.00 40.00 0 0 0 0 0.00 - - End
+FLOW 17 random 430.00 96.00 144.00 48.00 0 0 0 0 100.00 - SPEED Speed
+FLOW 18 display 418.00 180.00 168.00 56.00 0 0 0 0 50.00 SPEED - Speed > 50?
+FLOW 19 display 418.00 260.00 168.00 56.00 6 0 0 0 0.00 COIN - Coin
+FLOWX 2 0 0.00 2.00
+FLOWX 7 1 0.00 1.00
+FLOWX 14 2 1.00 3.00
+FLOWX 17 3 0.00 2.00
+ON 4
+ECELL 26 1 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 1 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 35 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 1 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 3 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 3 breaker EW 0 0 0 0 1 0 0.00 0.00 Q1 - - 0.00
+ECELL 29 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 3 switch EW 0 0 0 0 0 0 0.00 0.00 S1 - - 0.00
+ECELL 32 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 3 overload EW 0 0 0 0 0 0 0.00 0.00 OL1 - - 0.00
+ECELL 36 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 3 lamp EW 0 0 0 0 0 0 0.00 0.00 H1 - - 0.00
+ECELL 41 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 3 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 5 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 5 no EW 0 0 0 0 0 0 0.00 0.00 OL1 - - 0.00
+ECELL 33 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 5 lamp EW 0 1 0 0 0 0 0.00 0.00 H2 - - 0.00
+ECELL 41 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 5 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 7 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 7 selector EW 0 3 3 0 0 0 0.00 0.00 SA1 - - 0.00
+ECELL 33 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 7 lamp EW 0 2 0 0 0 0 0.00 0.00 H3 - - 0.00
+ECELL 41 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 7 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 9 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 28 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 9 no EW 0 0 0 0 0 0 0.00 0.00 COIN - - 0.00
+ECELL 33 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 9 lamp EW 0 4 0 0 0 0 0.00 0.00 H4 - - 0.00
+ECELL 41 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 9 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ON 5
+FCELL 37 18 cylsa S 3 0 0 0 2.00 0.00 B - - -
+FCELL 37 19 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 20 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 21 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 22 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 23 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 24 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 25 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 25 silencer S 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 26 line EN 0 0 0 0 0.00 0.00 - - - -
+FCELL 38 26 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 26 v32 SWN 0 0 0 0 0.00 0.00 V1 - - -
+FCELL 39 27 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 28 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 33 29 gauge S 0 0 0 0 0.00 0.00 PG1 - - -
+FCELL 39 29 line SN 0 0 0 0 0.00 0.00 - - - -
+FCELL 26 30 compressor E 0 0 0 1 8.00 0.00 C1 - - -
+FCELL 27 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 28 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 29 30 receiver EW 0 0 0 0 0.00 0.00 R1 - - -
+FCELL 30 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 31 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 32 30 frl EW 0 0 0 0 6.00 0.00 FRL1 - - -
+FCELL 33 30 line EWN 0 0 0 0 0.00 0.00 - - - -
+FCELL 34 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 35 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 36 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 37 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 38 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 39 30 line EWN 0 0 0 0 0.00 0.00 - - - -
+FCELL 40 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 41 30 line EW 0 0 0 0 0.00 0.00 - - - -
+FCELL 42 30 line W 0 0 0 0 0.00 0.00 - - - -
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 28 - FLOW CHART: SWITCHES & RANDOM\nRandom boolean, byte, integer and float values\nswitch S1, an air valve, an overload and a\nselector through Switch ON / OFF / Position.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

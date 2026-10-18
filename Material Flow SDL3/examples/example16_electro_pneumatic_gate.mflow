@@ -10,24 +10,26 @@
 # LINK x y colour page|popup n caption
 # EQUIP kind x y w h state flip linkx linky level name
 # ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)
+# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)
 MFLOW 2
 NAME Electro-pneumatic: gate cycle
 POPUP 1 2 2 How it works
-POPUPTEXT 1 K1 runs the cycle: with A in (A0) Y1 sends\nit out; it opens Gate01 and the hopper\nempties. At A1 timer T1 counts 2 s, then\nY2 brings it back. The valve keeps its\nposition between the pulses.
+POPUPTEXT 1 Click SB1: K1 latches on and runs the cycle;\nthe feed gate lets sand into the hopper.\nWith A in (A0) Y1 sends it out: Gate01 opens\nand sand falls into the bin. At A1 timer T1\ncounts 2 s, then Y2 brings A back. SB0 stops.
 POPUP 2 0 3 Try this
-POPUPTEXT 2 Hold SB0 to stop the cycle. Change T1.\nClick V1 in Ctrl: see its solenoids Y1 / Y2.
+POPUPTEXT 2 Watch the flow chart: its yellow path is the\nstep now; the Timing chart shows the gate\nand Y1 / A1 / Y2. Set T1 longer (select it):\nthe gate stays open longer. SB0 stops.
 
 PAGE Plant
 LAYERS 5 1
 LAYER 1 1 0 Process
 LAYER 2 1 0 Notes
-LAYER 3 1 0 Equipment
+LAYER 3 1 0 Equipment & chart
 LAYER 4 1 0 Pneumatic
 LAYER 5 1 0 Electrical
 GRAVITY 1.00
 ON 1
 CELL 8 2 feeder S 4 E 1 0.00
-STOCK 8 2 0.00 0.00 0.00 2600.00 0.00 70.00
+STOCK 8 2 0.00 0.00 0.00 2600.00 0.00 40.00
 CELL 8 3 pipe SN 3 E 1 0.00
 CELL 8 4 pipe SN 3 E 1 0.00
 CELL 8 5 pipe SN 3 E 1 0.00
@@ -41,13 +43,28 @@ CELL 8 17 pipe SN 3 E 1 0.00
 CELL 8 18 drop N 3 S 1 100.00
 BUCKET 124.00 716.00 160.00 90.00
 ON 2
-LABEL 24.00 470.00 ELECTRO-PNEUMATIC GATE\nHold SB1: K1 runs the cycle. Retracted\n(A0) gives Y1: A goes out and opens\nGate01; at A1 T1 counts 2 s, then Y2\nbrings A back. Again and again until SB0.
+LABEL 8.00 470.00 HOW TO USE\n1 Click SB1: K1\n  on, feed opens\n2 Y1 pushes A\n  out: Gate01\n  opens, sand\n  falls in the bin\n3 At A1 T1\n  counts 2 s\n4 Y2 brings A\n  back; again\n5 Click SB0:\n  stop\nChart: yellow\npath = step now
 LINK 24.00 24.00 1 page 2 About
 LINK 24.00 46.00 2 popup 1 How it works
 LINK 24.00 68.00 3 popup 2 Try this
 ON 3
 EQUIP slide 172.00 336.00 56.00 56.00 stop 0 8 13 50.00 Gate01
+EQUIP slide 172.00 84.00 56.00 44.00 stop 0 8 2 50.00 FeedGate
 EQUIP compressor 300.00 640.00 200.00 112.00 stop 0 -1 -1 50.00 Comp01
+EQUIP trend 240.00 446.00 330.00 150.00 stop 0 -1 -1 50.00 Timing
+EQX 0 0 30.00 -1 -1
+EQSRC 0.00 100.00 Gate01
+EQPENS Y1 A1 Y2
+FLOW 1 start 316.00 30.00 100.00 30.00 0 0 2 0 0.00 - - Cycle
+FLOW 2 decision 286.00 76.00 160.00 60.00 6 0 4 3 0.00 K1 - System on?
+FLOW 3 display 462.00 82.00 104.00 48.00 7 0 0 0 0.00 K1 - Click SB1
+FLOW 4 decision 286.00 156.00 160.00 60.00 6 0 5 6 0.00 A0 - A in?
+FLOW 5 display 286.00 236.00 160.00 48.00 6 0 0 0 0.00 Y1 - 1 Y1: A goes out
+FLOW 6 decision 452.00 156.00 116.00 60.00 6 0 7 10 0.00 A1 - A out?
+FLOW 7 display 452.00 236.00 116.00 48.00 0 0 8 0 50.00 Gate01 - 2 Gate open
+FLOW 8 display 452.00 300.00 116.00 48.00 2 0 9 0 0.00 T1 - 3 T1 counts
+FLOW 9 display 452.00 364.00 116.00 48.00 6 0 0 0 0.00 Y2 - 4 Y2: A in
+FLOW 10 display 286.00 300.00 160.00 48.00 0 0 0 0 0.00 Gate01 - A moving
 ON 4
 FCELL 31 19 cylda ES 3 0 0 0 2.00 0.00 A Gate01 - -
 FCELL 32 19 line EW 0 0 0 0 0.00 0.00 - - - -
@@ -210,7 +227,7 @@ ECELL 41 12 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
 ECELL 42 12 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
 ECELL 24 13 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
 ECELL 42 13 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
-ECELL 24 14 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 14 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
 ECELL 25 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
 ECELL 26 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
 ECELL 27 14 no EW 0 0 0 0 0 0 0.00 0.00 A1 - - 0.00
@@ -228,7 +245,28 @@ ECELL 38 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
 ECELL 39 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
 ECELL 40 14 lamp EW 0 0 0 0 0 0 0.00 0.00 H1 - - 0.00
 ECELL 41 14 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
-ECELL 42 14 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 14 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 15 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 15 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 16 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 27 16 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 28 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 16 motor EW 0 0 0 0 0 0 5.00 0.00 M1 FeedGate - 0.00
+ECELL 41 16 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 16 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
 
 PAGE About
 LAYERS 1 1

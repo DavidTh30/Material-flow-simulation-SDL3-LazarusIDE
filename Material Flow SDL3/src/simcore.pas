@@ -75,15 +75,22 @@ const
   EQ_HEATEX = 31;
   EQ_COOLTOWER = 32;
   EQ_CHILLER = 33;
-  EQ_KINDS = 34;
+  EQ_TREND = 34;
+  EQ_TIMELINE = 35;
+  EQ_DRYER = 36;
+  EQ_ITEMFEEDER = 37;
+  EQ_WORKER = 38;
+  EQ_VAN = 39;
+  EQ_RACK = 40;
+  EQ_KINDS = 41;
   EquipNames: array[0..EQ_KINDS - 1] of string = ('Motor', 'Blower', 'Paddle', 'Screw', 'Cyclone',
     'Silo bin', 'Silo stand', 'Lamp', 'Legend', 'Sequence', 'Diverter valve', 'Shutter valve', 'Slide valve',
     'Heater', 'IR heater', 'Rain', 'Fire', 'Pond', 'Pool', 'Well', 'Pump',
     'Electrical cabinet', 'Roller conveyor', 'Belt conveyor', 'Analog gauge', 'Digital display',
-    'Cylinder', 'Air compressor', 'Hydraulic power unit', 'Air receiver', 'Controller faceplate', 'Heat exchanger', 'Cooling tower', 'Chiller');
+    'Cylinder', 'Air compressor', 'Hydraulic power unit', 'Air receiver', 'Controller faceplate', 'Heat exchanger', 'Cooling tower', 'Chiller', 'Trend chart', 'Timeline', 'Rotary dryer', 'Item feeder', 'Worker', 'Box van', 'Standard rack');
   EquipTags: array[0..EQ_KINDS - 1] of string = ('motor', 'blower', 'paddle', 'screw', 'cyclone',
     'silo', 'stand', 'lamp', 'legend', 'sequence', 'diverter', 'shutter', 'slide', 'heater', 'irheater',
-    'rain', 'fire', 'pond', 'pool', 'well', 'pump', 'panel', 'conveyor', 'belt', 'gauge', 'digital', 'cylinder', 'compressor', 'hpu', 'receiver', 'faceplate', 'heatex', 'coolingtower', 'chiller');
+    'rain', 'fire', 'pond', 'pool', 'well', 'pump', 'panel', 'conveyor', 'belt', 'gauge', 'digital', 'cylinder', 'compressor', 'hpu', 'receiver', 'faceplate', 'heatex', 'coolingtower', 'chiller', 'trend', 'timeline', 'dryer', 'itemfeeder', 'worker', 'van', 'rack');
   { equipment states }
   EQS_STOP = 0;
   EQS_RUN = 1;
@@ -92,6 +99,21 @@ const
   EQS_MSTOP = 4;     { manual stop }
   EQS_DISABLE = 5;   { taken out of service }
   EQS_COUNT = 6;
+  { timeline pins: an Input pin keeps what it reads at its time, a Fix pin has fixed values }
+  TL_PINS = 8;
+  TLP_NONE = 0;
+  TLP_INPUT = 1;
+  TLP_FIX = 2;
+  { what a pin gives before / at / after its time }
+  TLV_NONE = 0;
+  TLV_FIX = 1;
+  TLV_LIVE = 2;
+  TLV_HELD = 3;
+  TLPhaseNames: array[0..2] of string = ('Before', 'At', 'After');
+  TLValueNames: array[0..3] of string = ('-', 'Fixed', 'Input', 'Kept');
+  { a timeline's Mode: bits }
+  TL_LOOP = 1;
+  TL_AUTO = 2;
   { sequence modes }
   SEQ_AUTO = 0;
   SEQ_MANUAL = 1;
@@ -209,6 +231,16 @@ type
     It may be linked to a grid part: while a motor-driven one is not running
     (stopped or faulted) the linked part is halted; a silo bin shows the
     linked store's level; a lamp lights while the linked part carries flow. }
+  { a pin on a timeline }
+  TTLPin = record
+    Kind: Byte;                            { TLP_* }
+    T, W: Single;                          { its time and how long "at" it lasts, s }
+    Src: string[24];                       { an Input pin: what it reads }
+    VMode: array[0..2] of Byte;            { before / at / after: TLV_* }
+    V: array[0..2] of Single;              { before / at / after: its fixed value }
+    Dest: array[0..2] of string[24];       { before / at / after: where it sends its value }
+  end;
+
   TEquipObj = record
     Active: Boolean;
     Kind: Byte;            { EQ_* }
@@ -235,6 +267,8 @@ type
     Temp: Single;          { heater / IR heater / fire: its temperature in C, 0 = not yet worked out; heat exchanger:
                              its cold (shell) outlet (not saved) }
     HotIn, HotOut, ColdIn, Duty: Single;   { heat exchanger: C and kW (not saved) }
+    Src2, Src3, Src4: string[24];          { trend chart: its pens 2..4 (Src is pen 1); Mode its style, Delay its time window }
+    Pins: array[0..TL_PINS - 1] of TTLPin; { timeline: its pins; Delay its length, Mode TL_LOOP / TL_AUTO, Src what starts it }
   end;
 
   TIntake = record
@@ -288,6 +322,9 @@ var
   NCatch: Integer = 0;
   Bodies: array[0..63] of TCatch;
   NBody: Integer = 0;
+  { the decks of inclined conveyors: solid lines from (X1, Y1) to (X2, Y2) }
+  Slopes: array[0..15] of TCatch;
+  NSlope: Integer = 0;
   GravityScale: Single = 1.0;
   { set by the electrical unit: solve the circuits before each frame / clear them with the layout }
   ElecHook: procedure(dt: Single; Running: Boolean) = nil;
@@ -295,6 +332,14 @@ var
   { set by the fluid power unit: solve the pneumatic / hydraulic circuits (after the electrical ones) / clear them }
   FluidHook: procedure(dt: Single; Running: Boolean) = nil;
   ClearHook2: procedure = nil;
+  { set by the flow chart unit: one scan of the page's flow charts (after the circuits) / clear them }
+  FlowHook: procedure(dt: Single; Running: Boolean) = nil;
+  ClearHook3: procedure = nil;
+  { set by the trend unit: record the trend charts after the frame's logic }
+  TrendHook: procedure(dt: Single; Running: Boolean) = nil;
+  { set by the pieces unit: move the pieces (bottles, boxes ...) / clear them }
+  PieceHook: procedure(dt: Single) = nil;
+  ClearHook4: procedure = nil;
   LimitHit: Boolean = False;
 
 function fmin(a, b: Single): Single; inline;
@@ -362,6 +407,11 @@ function EquipIsWater(Kind: Integer): Boolean;
 function WaterCap(i: Integer): Single;
 { the pond / pool / well a pump draws from: the nearest one, or -1 }
 function PumpSource(i: Integer): Integer;
+{ a belt / roller conveyor's incline in degrees (RMin; + its right end higher) and the top of its deck }
+function ConveyorTilt(i: Integer): Single;
+procedure ConveyorDeck(i: Integer; out x1, y1, x2, y2: Single);
+{ a free particle at px, py would be inside something solid }
+function SolidAt(px, py: Single): Boolean;
 
 type
   TEquipSizeHook = function(Kind: Integer; out W, H: Single): Boolean;
@@ -581,6 +631,7 @@ procedure ClearParticles;
 begin
   NPart := 0;
   NAir := 0;
+  if Assigned(ClearHook4) then ClearHook4;
 end;
 
 procedure ClearFloor;
@@ -611,6 +662,7 @@ begin
     Equips[i].Active := False;
   if Assigned(ClearHook) then ClearHook;
   if Assigned(ClearHook2) then ClearHook2;
+  if Assigned(ClearHook3) then ClearHook3;
   ClearParticles;
 end;
 
@@ -703,7 +755,7 @@ end;
 function EquipActuated(Kind: Integer): Boolean;
 begin
   Result := Kind in [EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW, EQ_DIVERTER, EQ_SHUTTER, EQ_SLIDE, EQ_HEATER, EQ_IRHEATER,
-    EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER];
+    EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER, EQ_DRYER, EQ_ITEMFEEDER, EQ_WORKER];
 end;
 
 function EquipIsValve(Kind: Integer): Boolean;
@@ -824,6 +876,13 @@ begin
     EQ_HEATEX: begin W := 168; H := 64; end;
     EQ_COOLTOWER: begin W := 144; H := 168; end;
     EQ_CHILLER: begin W := 216; H := 120; end;
+    EQ_TREND: begin W := 360; H := 200; end;
+    EQ_TIMELINE: begin W := 480; H := 130; end;
+    EQ_DRYER: begin W := 600; H := 96; end;
+    EQ_ITEMFEEDER: begin W := 64; H := 104; end;
+    EQ_WORKER: begin W := 56; H := 150; end;
+    EQ_VAN: begin W := 312; H := 250; end;
+    EQ_RACK: begin W := 110; H := 340; end;
   else
     begin W := 232; H := 136; end;
   end;
@@ -867,6 +926,13 @@ begin
       else if Kind = EQ_HEATEX then Equips[i].Name := 'HX' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
       else if Kind = EQ_COOLTOWER then Equips[i].Name := 'Tower' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
       else if Kind = EQ_CHILLER then Equips[i].Name := 'Chiller' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_TREND then Equips[i].Name := 'Trend' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_TIMELINE then Equips[i].Name := 'Timeline' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_DRYER then Equips[i].Name := 'Dryer' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_ITEMFEEDER then Equips[i].Name := 'Items' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_WORKER then Equips[i].Name := 'Worker' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_VAN then Equips[i].Name := 'Van' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_RACK then Equips[i].Name := 'Rack' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
       else if n < 10 then Equips[i].Name := EquipNames[Kind] + '0' + Chr(Ord('0') + n)
       else Equips[i].Name := EquipNames[Kind] + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10);
       if Kind = EQ_SILO then Equips[i].Name := 'Silo' + Copy(Equips[i].Name, 9, 2);
@@ -894,6 +960,19 @@ begin
         Equips[i].Level := 80;         { fan % }
         Equips[i].RMax := 38;          { water in C }
         Equips[i].RMin := 21;          { wet bulb C }
+      end;
+      if Kind = EQ_TIMELINE then Equips[i].Delay := 30;   { its length, s }
+      if Kind = EQ_ITEMFEEDER then Equips[i].RMin := 2;
+      if Kind = EQ_WORKER then
+      begin
+        Equips[i].RMin := 3;     { a loader: a piece every 3 s; Mode 0 loader / 1 picker, Level what it handles }
+        Equips[i].Level := 2;    { boxes }
+        Equips[i].State := EQS_RUN;
+      end;  { a piece every 2 s; Mode: what it feeds, RMax: its stock (0 no end) }
+      if Kind = EQ_TREND then
+      begin
+        Equips[i].Delay := 60;         { its time window, s }
+        Equips[i].RMax := 0;           { RMin = RMax: the value range follows the values }
       end;
       if Kind = EQ_CHILLER then
       begin
@@ -1057,7 +1136,7 @@ begin
     c := EquipLinkCell(i);
     run := EquipRunning(i);
     case E^.Kind of
-      EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW, EQ_PUMP:
+      EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW, EQ_PUMP, EQ_DRYER:
         if (c <> nil) and not run then c^.Halted := True;
       EQ_SHUTTER, EQ_SLIDE:
         if c <> nil then
@@ -1095,6 +1174,38 @@ begin
     end
     else if E^.Kind <> EQ_SEQUENCE then
       E^.RunTime := 0;
+  end;
+end;
+
+function ConveyorTilt(i: Integer): Single;
+begin
+  Result := fclamp(Equips[i].RMin, -35, 35);
+  if Abs(Result) < 0.5 then Result := 0;
+end;
+
+procedure ConveyorDeck(i: Integer; out x1, y1, x2, y2: Single);
+var
+  t, low: Single;
+begin
+  x1 := Equips[i].X;
+  x2 := Equips[i].X + Equips[i].W;
+  t := Tan(ConveyorTilt(i) * Pi / 180);
+  if t = 0 then
+  begin
+    y1 := Equips[i].Y + Equips[i].H * 0.2;
+    y2 := y1;
+    Exit;
+  end;
+  low := Equips[i].Y + Equips[i].H - 22;
+  if t > 0 then
+  begin
+    y1 := low;
+    y2 := low - Equips[i].W * t;
+  end
+  else
+  begin
+    y2 := low;
+    y1 := low + Equips[i].W * t;
   end;
 end;
 
@@ -1550,9 +1661,16 @@ begin
       Inc(NJet);
     end;
   end;
-  { conveyor decks are solid: material lands on them and rides along }
+  { conveyor decks are solid: material lands on them and rides along; an inclined one is a sloped line }
+  NSlope := 0;
   for i := 0 to MAX_EQUIP - 1 do
-    if Equips[i].Active and (Equips[i].Kind in [EQ_CONVEYOR, EQ_BELT]) and (NBody <= High(Bodies)) then
+    if Equips[i].Active and (Equips[i].Kind in [EQ_CONVEYOR, EQ_BELT]) and (ConveyorTilt(i) <> 0) and (NSlope <= High(Slopes)) then
+    begin
+      ConveyorDeck(i, Slopes[NSlope].X1, Slopes[NSlope].Y1, Slopes[NSlope].X2, Slopes[NSlope].Y2);
+      Inc(NSlope);
+    end;
+  for i := 0 to MAX_EQUIP - 1 do
+    if Equips[i].Active and (Equips[i].Kind in [EQ_CONVEYOR, EQ_BELT]) and (ConveyorTilt(i) = 0) and (NBody <= High(Bodies)) then
     begin
       Bodies[NBody].X1 := Equips[i].X;
       Bodies[NBody].X2 := Equips[i].X + Equips[i].W;
@@ -1745,10 +1863,18 @@ end;
 function InStoreBody(px, py: Single): Boolean;
 var
   i: Integer;
+  ly: Single;
 begin
   for i := 0 to NBody - 1 do
     if (px > Bodies[i].X1) and (px < Bodies[i].X2) and (py > Bodies[i].Y1) and (py < Bodies[i].Y2) then
       Exit(True);
+  for i := 0 to NSlope - 1 do
+    with Slopes[i] do
+      if (px > X1) and (px < X2) then
+      begin
+        ly := Y1 + (px - X1) * (Y2 - Y1) / (X2 - X1);
+        if (py > ly) and (py < ly + 9) then Exit(True);
+      end;
   Result := False;
 end;
 
@@ -2825,7 +2951,7 @@ var
   i, k: Integer;
   E: ^TEquipObj;
   p: PParticle;
-  top, v: Single;
+  top, v, x1, y1, x2, y2, len, ux, uy, ly: Single;
 begin
   for i := 0 to MAX_EQUIP - 1 do
   begin
@@ -2834,6 +2960,29 @@ begin
     top := E^.Y + E^.H * 0.2;
     v := 20 + E^.Level * 1.4;
     if E^.Flip then v := -v;
+    if ConveyorTilt(i) <> 0 then
+    begin
+      { inclined: what lies on the deck moves along the slope }
+      ConveyorDeck(i, x1, y1, x2, y2);
+      len := Sqrt(Sqr(x2 - x1) + Sqr(y2 - y1));
+      ux := (x2 - x1) / len;
+      uy := (y2 - y1) / len;
+      for k := 0 to NPart - 1 do
+      begin
+        p := @Parts[k];
+        if (p^.Life <= 0) or p^.InPipe or (p^.Mat = mAir) or (p^.X < x1) or (p^.X > x2) then Continue;
+        ly := y1 + (p^.X - x1) * (y2 - y1) / (x2 - x1);
+        if (p^.Y >= ly - 10) and (p^.Y <= ly + 1) then
+        begin
+          p^.VX := v * ux;
+          p^.VY := v * uy;
+          p^.X := p^.X + v * ux * dt * 0.5;
+          ly := y1 + (fclamp(p^.X, x1, x2) - x1) * (y2 - y1) / (x2 - x1);
+          p^.Y := fmin(p^.Y + v * uy * dt * 0.5, ly - 0.5);
+        end;
+      end;
+      Continue;
+    end;
     for k := 0 to NPart - 1 do
     begin
       p := @Parts[k];
@@ -2853,6 +3002,8 @@ procedure SimFrame(dt: Single; Running: Boolean);var
 begin
   if Assigned(ElecHook) then ElecHook(dt, Running);
   if Assigned(FluidHook) then FluidHook(dt, Running);
+  if Assigned(FlowHook) then FlowHook(dt, Running);
+  if Assigned(TrendHook) then TrendHook(dt, Running);
   ApplyEquipment(dt, Running);
   UpdateTopology;
   SolvePressure(60);
@@ -2870,6 +3021,7 @@ begin
   WaterBodies(dt);
   Pumps(dt);
   Conveyors(dt);
+  if Assigned(PieceHook) then PieceHook(dt);
   CountBuckets;
   for i := 0 to MAX_BUCKETS - 1 do
     Buckets[i].Flash := fmax(0, Buckets[i].Flash - dt);

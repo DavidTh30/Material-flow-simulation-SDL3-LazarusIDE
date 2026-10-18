@@ -1,0 +1,699 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)
+# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)
+MFLOW 2
+NAME Rotary dryer system
+POPUP 1 2 2 How it works
+POPUPTEXT 1 Wet sand drops into the hopper; the loading\nfeeder pushes it into the drum. The blow fan\ndrives furnace air in; hot zones boil the\nwater off. Dry sand falls out of the hood,\nthe exhaust fan draws dust to the collector.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Control panel (page 3): press SB1 and watch\nthe start-up, SB2 for the shut-down. Stop\nthe burner (S4): the moisture (Monitor) goes\nup. Set TIC1 lower on its faceplate.
+
+PAGE Dryer
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 1 0 Instruments
+GRAVITY 1.00
+ON 1
+CELL 4 2 feeder S 4 E 1 0.00
+STOCK 4 2 1600.00 0.00 350.00 3000.00 10.00 55.00
+CELL 4 3 pipe SN 3 E 1 0.00
+CELL 4 4 pipe SN 3 E 1 0.00
+CELL 4 5 drop N 3 S 1 100.00
+CELL 34 5 pipe ES 3 E 1 0.00
+CELL 35 5 pipe EW 3 E 1 0.00
+CELL 36 5 pipe SW 3 E 1 0.00
+CELL 34 6 pipe SN 3 E 1 0.00
+CELL 36 6 pipe SN 3 E 1 0.00
+CELL 34 7 pipe SN 3 E 1 0.00
+CELL 36 7 pipe SN 3 E 1 0.00
+CELL 34 8 pipe SN 3 E 1 0.00
+CELL 36 8 pipe SN 3 E 1 0.00
+CELL 34 9 pipe SN 3 E 1 0.00
+CELL 36 9 pipe SN 3 E 1 0.00
+CELL 4 10 hopper S 3 E 1 0.00
+STOCK 4 10 0.00 0.00 0.00 0.00 0.00 100.00
+CELL 34 10 pipe SN 3 E 1 0.00
+CELL 36 10 drop N 3 S 1 100.00
+CELL 4 11 pipe SN 3 E 1 0.00
+CELL 34 11 pipe SN 3 E 1 0.00
+CELL 4 12 pipe SN 3 E 1 0.00
+CELL 34 12 blower SN 3 N 1 60.00
+CELL 4 13 blower SN 3 S 1 60.00
+CELL 34 13 pipe SN 3 E 1 0.00
+CELL 4 14 pipe SN 3 E 1 0.00
+CELL 34 14 pipe SN 3 E 1 0.00
+CELL 36 14 hopper S 3 E 1 0.00
+STOCK 36 14 0.00 0.00 0.00 0.00 0.00 100.00
+CELL 4 15 pipe SN 3 E 1 0.00
+CELL 34 15 pipe SN 3 E 1 0.00
+CELL 36 15 pipe SN 3 E 1 0.00
+CELL 4 16 pipe EN 3 E 1 0.00
+CELL 5 16 pipe EW 3 E 1 0.00
+CELL 6 16 check EW 3 E 1 0.00
+CELL 7 16 pipe EW 3 E 1 0.00
+CELL 8 16 pipe ESW 3 E 1 0.00
+CELL 9 16 pipe EW 5 E 1 0.00
+CELL 10 16 blower EW 5 E 1 25.00
+CELL 11 16 pipe EW 5 E 1 0.00
+CELL 12 16 pipe EW 5 E 1 0.00
+CELL 13 16 pipe EW 5 E 1 0.00
+CELL 14 16 pipe EW 5 E 1 0.00
+CELL 15 16 pipe EW 5 E 1 0.00
+CELL 16 16 pipe EW 5 E 1 0.00
+CELL 17 16 pipe EW 5 E 1 0.00
+CELL 18 16 pipe EW 5 E 1 0.00
+CELL 19 16 pipe EW 5 E 1 0.00
+CELL 20 16 pipe EW 5 E 1 0.00
+CELL 21 16 pipe EW 5 E 1 0.00
+CELL 22 16 pipe EW 5 E 1 0.00
+CELL 23 16 pipe EW 5 E 1 0.00
+CELL 24 16 pipe EW 5 E 1 0.00
+CELL 25 16 pipe EW 5 E 1 0.00
+CELL 26 16 pipe EW 5 E 1 0.00
+CELL 27 16 pipe EW 3 E 1 0.00
+CELL 28 16 pipe SW 3 E 1 0.00
+CELL 34 16 pipe SN 3 E 1 0.00
+CELL 36 16 pipe SN 3 E 1 0.00
+CELL 8 17 pipe SN 3 E 1 0.00
+CELL 28 17 pipe SN 3 E 1 0.00
+CELL 34 17 pipe SN 3 E 1 0.00
+CELL 36 17 pipe SN 3 E 1 0.00
+CELL 8 18 pipe SN 3 E 1 0.00
+CELL 28 18 drop N 3 S 1 100.00
+CELL 34 18 pipe SN 3 E 1 0.00
+CELL 36 18 pipe SN 3 E 1 0.00
+CELL 8 19 pipe SN 3 E 1 0.00
+CELL 34 19 pipe SN 3 E 1 0.00
+CELL 36 19 pipe SN 3 E 1 0.00
+CELL 8 20 pipe SN 3 E 1 0.00
+CELL 34 20 pipe SN 3 E 1 0.00
+CELL 36 20 pipe SN 3 E 1 0.00
+CELL 8 21 pipe SN 3 E 1 0.00
+CELL 30 21 suction E 3 W 1 45.00
+CELL 31 21 pipe EW 3 E 1 0.00
+CELL 32 21 pipe EW 3 E 1 0.00
+CELL 33 21 pipe EW 3 E 1 0.00
+CELL 34 21 pipe SWN 3 E 1 0.00
+CELL 36 21 pipe SN 3 E 1 0.00
+CELL 8 22 pipe SN 3 E 1 0.00
+CELL 34 22 pipe N 3 E 1 0.00
+CELL 36 22 drop N 3 S 1 100.00
+CELL 8 23 pipe SN 3 E 1 0.00
+CELL 8 24 pipe SN 3 E 1 0.00
+CELL 8 25 pipe SN 3 E 1 0.00
+CELL 8 26 pipe SN 3 E 1 0.00
+CELL 8 27 pipe EN 3 E 1 0.00
+CELL 9 27 pipe EW 3 E 1 0.00
+CELL 10 27 pipe EW 3 E 1 0.00
+CELL 11 27 pipe EW 3 E 1 0.00
+CELL 12 27 blower EW 3 W 1 45.00
+CELL 13 27 pipe EW 3 E 1 0.00
+CELL 14 27 pipe EW 3 E 1 0.00
+CELL 15 27 pipe EW 3 E 1 0.00
+CELL 16 27 pipe EW 3 E 1 0.00
+CELL 17 27 pipe EW 3 E 1 0.00
+CELL 18 27 pipe EW 3 E 1 0.00
+CELL 19 27 pipe EW 3 E 1 0.00
+CELL 20 27 suction W 3 E 1 20.00
+BUCKET 609.00 706.00 150.00 100.00
+BUCKET 821.00 726.00 110.00 80.00
+ON 2
+LABEL 140.00 40.00 RAW MATERIAL INLET\nwet sand + fines
+LABEL 140.00 236.00 LOADING FEEDER
+LABEL 300.00 256.00 DRYER MAIN UNIT - hot zones
+LABEL 24.00 560.00 HOT AIR\noutside air -> oil furnace\n-> blow fan -> drum
+LABEL 700.00 200.00 EXHAUST FAN
+LABEL 912.00 150.00 DUST\nCOLLECTOR
+LABEL 912.00 200.00 exhaust air\nto outside
+LABEL 530.00 480.00 DRIED PRODUCT\nOUTLET
+LABEL 780.00 560.00 exhaust intake:\nfines + air
+LINK 24.00 470.00 2 page 3 Control panel
+LINK 24.00 494.00 3 page 4 Monitor
+LINK 920.00 6.00 1 page 2 About
+LINK 920.00 28.00 2 popup 1 How it works
+LINK 920.00 50.00 3 popup 2 Try this
+ON 3
+EQUIP dryer 84.00 356.00 600.00 96.00 stop 0 10 16 50.00 Dryer01
+EQUIP motor 128.00 296.00 64.00 40.00 stop 0 4 13 50.00 LoadFeeder
+EQUIP heater 300.00 300.00 72.00 40.00 stop 0 14 16 100.00 Zone1
+EQUIP heater 468.00 470.00 72.00 40.00 stop 0 21 16 100.00 Zone2
+EQUIP heater 360.00 690.00 110.00 56.00 stop 0 16 27 100.00 Furnace01
+EQUIP blower 480.00 706.00 84.00 80.00 stop 1 -1 -1 50.00 CombFan01
+EQUIP blower 236.00 690.00 110.00 100.00 stop 0 12 27 50.00 BlowFan01
+EQUIP blower 712.00 236.00 104.00 96.00 stop 0 34 12 50.00 ExhaustFan01
+EQUIP cyclone 848.00 150.00 56.00 112.00 stop 0 -1 -1 50.00 DustCol01
+ON 4
+ECELL 20 29 tt EW 0 0 0 0 0 0 0.00 0.00 TT1 Furnace01 - 0.00
+ECELL 28 33 mt EW 0 1 0 0 0 0 0.00 0.00 MT1 - - 0.00
+ECELL 30 33 wt EW 0 0 0 0 0 0 0.00 0.00 WT1 - - 0.00
+ECELL 36 33 wt EW 0 0 0 0 0 0 0.00 0.00 WT2 - - 0.00
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 31 - ROTARY DRYER SYSTEM\nA dryer drum, oil furnace, blow, combustion\nand exhaust fans and a dust collector on\npage 1; the control panel with start-up and\nshut-down timelines on page 3; trends and\nmeters on page 4.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this
+
+PAGE Control
+LAYERS 3 1
+LAYER 1 1 0 Electrical
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Sequence
+GRAVITY 1.00
+ON 1
+ECELL 2 1 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 1 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 15 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 1 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 3 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 3 estop EW 0 0 0 0 0 0 0.00 0.00 ES1 - - 0.00
+ECELL 6 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 3 relay EW 0 0 0 0 0 0 0.00 0.00 K0 - - 0.00
+ECELL 24 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 3 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 5 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 5 no EW 0 0 0 0 0 0 0.00 0.00 K0 - - 0.00
+ECELL 6 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 5 switch EW 0 0 0 0 0 0 0.00 0.00 S1 - - 0.00
+ECELL 10 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 5 contactor EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 24 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 5 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 7 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 7 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 6 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 7 switch EW 0 0 0 0 0 0 0.00 0.00 S2 - - 0.00
+ECELL 10 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 7 contactor EW 0 0 0 0 0 0 0.00 0.00 KM2 - - 0.00
+ECELL 24 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 7 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 9 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 9 no EW 0 0 0 0 0 0 0.00 0.00 KM2 - - 0.00
+ECELL 6 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 9 switch EW 0 0 0 0 0 0 0.00 0.00 S3 - - 0.00
+ECELL 10 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 9 contactor EW 0 0 0 0 0 0 0.00 0.00 KM3 - - 0.00
+ECELL 24 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 9 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 11 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 11 no EW 0 0 0 0 0 0 0.00 0.00 K0 - - 0.00
+ECELL 6 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 11 controller EW 0 0 0 0 0 0 180.00 20.00 TIC1 - TT1 10.00
+ECELL 24 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 11 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 13 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 13 no EW 0 0 0 0 0 0 0.00 0.00 KM3 - - 0.00
+ECELL 6 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 13 switch EW 0 0 0 0 0 0 0.00 0.00 S4 - - 0.00
+ECELL 10 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 13 no EW 0 0 0 0 0 0 0.00 0.00 TIC1 - - 0.00
+ECELL 14 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 13 contactor EW 0 0 0 0 0 0 0.00 0.00 KM4 - - 0.00
+ECELL 24 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 13 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 14 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 14 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 15 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 15 no EW 0 0 0 0 0 0 0.00 0.00 K0 - - 0.00
+ECELL 6 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 15 switch EW 0 0 0 0 0 0 0.00 0.00 S5 - - 0.00
+ECELL 10 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 15 contactor EW 0 0 0 0 0 0 0.00 0.00 KM5 - - 0.00
+ECELL 24 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 15 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 16 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 16 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 17 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 17 no EW 0 0 0 0 0 0 0.00 0.00 KM5 - - 0.00
+ECELL 6 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 17 no EW 0 0 0 0 0 0 0.00 0.00 KM2 - - 0.00
+ECELL 10 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 17 switch EW 0 0 0 0 0 0 0.00 0.00 S6 - - 0.00
+ECELL 14 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 17 contactor EW 0 0 0 0 0 0 0.00 0.00 KM6 - - 0.00
+ECELL 24 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 17 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 18 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 18 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 18 pbno EW 0 0 0 0 0 0 0.00 0.00 SB1 - - 0.00
+ECELL 37 18 pbno EW 0 0 0 0 0 0 0.00 0.00 SB2 - - 0.00
+ECELL 2 19 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 19 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 6 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 19 motor EW 0 0 0 0 0 0 5.00 0.00 M1 ExhaustFan01 - 0.00
+ECELL 24 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 19 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 20 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 20 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 21 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 21 no EW 0 0 0 0 0 0 0.00 0.00 KM2 - - 0.00
+ECELL 6 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 21 motor EW 0 0 0 0 0 0 5.00 0.00 M2 BlowFan01 - 0.00
+ECELL 24 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 21 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 22 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 22 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 23 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 23 no EW 0 0 0 0 0 0 0.00 0.00 KM3 - - 0.00
+ECELL 6 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 23 motor EW 0 0 0 0 0 0 5.00 0.00 M3 CombFan01 - 0.00
+ECELL 24 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 23 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 24 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 24 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 25 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 25 no EW 0 0 0 0 0 0 0.00 0.00 KM4 - - 0.00
+ECELL 6 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 25 motor EW 0 0 0 0 0 0 5.00 0.00 M4 Furnace01 - 0.00
+ECELL 24 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 25 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 26 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 26 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 27 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 27 no EW 0 0 0 0 0 0 0.00 0.00 KM4 - - 0.00
+ECELL 6 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 27 motor EW 0 0 0 0 0 0 5.00 0.00 M5 Zone1 - 0.00
+ECELL 24 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 27 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 28 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 28 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 29 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 29 no EW 0 0 0 0 0 0 0.00 0.00 KM4 - - 0.00
+ECELL 6 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 29 motor EW 0 0 0 0 0 0 5.00 0.00 M6 Zone2 - 0.00
+ECELL 24 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 29 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 30 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 30 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 31 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 31 no EW 0 0 0 0 0 0 0.00 0.00 KM5 - - 0.00
+ECELL 6 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 31 motor EW 0 0 0 0 0 0 5.00 0.00 M7 Dryer01 - 0.00
+ECELL 24 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 31 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 32 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 32 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 33 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 33 no EW 0 0 0 0 0 0 0.00 0.00 KM6 - - 0.00
+ECELL 6 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 33 motor EW 0 0 0 0 0 0 5.00 0.00 M8 LoadFeeder - 0.00
+ECELL 24 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 33 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ON 2
+LABEL 700.00 470.00 CONTROL PANEL (page 3)\nSB1: start-up - exhaust fan, blow fan,\ncombustion fan, burner, drum, feeder.\nSB2: shut-down in the other order; the\nfans run on to purge and cool.\nTIC1 holds the furnace at 180 C (TT1).\nES1 (E-stop) drops everything.
+LABEL 700.00 400.00 SB1 start      SB2 stop
+LINK 700.00 660.00 1 page 1 Dryer
+LINK 800.00 660.00 3 page 4 Monitor
+ON 3
+EQUIP timeline 576.00 40.00 360.00 130.00 stop 0 -1 -1 50.00 Startup
+EQX 0 0 12.00 -1 -1
+EQSRC 0.00 100.00 SB1
+EQPENS - - -
+TLPIN 1 fix 0.50 0.50 - 0 0.00 - 1 1.00 S1 0 0.00 -
+TLPIN 2 fix 2.00 0.50 - 0 0.00 - 1 1.00 S2 0 0.00 -
+TLPIN 3 fix 4.00 0.50 - 0 0.00 - 1 1.00 S3 0 0.00 -
+TLPIN 4 fix 6.00 0.50 - 0 0.00 - 1 1.00 S4 0 0.00 -
+TLPIN 5 fix 8.00 0.50 - 0 0.00 - 1 1.00 S5 0 0.00 -
+TLPIN 6 fix 10.50 0.50 - 0 0.00 - 1 1.00 S6 0 0.00 -
+EQUIP timeline 576.00 210.00 360.00 130.00 stop 0 -1 -1 50.00 Shutdown
+EQX 0 0 14.00 -1 -1
+EQSRC 0.00 100.00 SB2
+EQPENS - - -
+TLPIN 1 fix 0.50 0.50 - 0 0.00 - 1 0.00 S6 0 0.00 -
+TLPIN 2 fix 2.50 0.50 - 0 0.00 - 1 0.00 S4 0 0.00 -
+TLPIN 3 fix 6.00 0.50 - 0 0.00 - 1 0.00 S3 0 0.00 -
+TLPIN 4 fix 8.50 0.50 - 0 0.00 - 1 0.00 S5 0 0.00 -
+TLPIN 5 fix 11.00 0.50 - 0 0.00 - 1 0.00 S2 0 0.00 -
+TLPIN 6 fix 13.00 0.50 - 0 0.00 - 1 0.00 S1 0 0.00 -
+
+PAGE Monitor
+LAYERS 1 1
+LAYER 1 1 0 Meters
+GRAVITY 1.00
+ON 1
+LABEL 24.00 540.00 MONITOR (page 4)\nThe furnace temperature, the moisture of the\ndried product, the burner (KM4) and the feeder\n(KM6) as events, and what the bins hold.
+LINK 24.00 640.00 1 page 1 Dryer
+LINK 124.00 640.00 2 page 3 Control panel
+EQUIP trend 24.00 40.00 640.00 300.00 stop 0 -1 -1 50.00 Dryer trend
+EQX 0 0 120.00 -1 -1
+EQSRC 0.00 0.00 TT1
+EQPENS MT1 KM4 KM6
+EQUIP trend 24.00 380.00 300.00 110.00 stop 0 -1 -1 50.00 Product
+EQX 1 0 120.00 -1 -1
+EQSRC 0.00 0.00 WT1
+EQPENS - - -
+EQUIP trend 364.00 380.00 300.00 110.00 stop 0 -1 -1 50.00 Dust
+EQX 1 0 120.00 -1 -1
+EQSRC 0.00 0.00 WT2
+EQPENS - - -
+EQUIP faceplate 720.00 40.00 196.00 128.00 stop 0 -1 -1 50.00 Burner TIC1
+EQSRC 0.00 100.00 TIC1
+EQUIP digital 720.00 200.00 196.00 56.00 stop 0 -1 -1 50.00 Furnace C
+EQSRC 0.00 300.00 TT1
+EQUIP digital 720.00 296.00 196.00 56.00 stop 0 -1 -1 50.00 Product moisture %
+EQSRC 0.00 100.00 MT1
+EQUIP digital 720.00 392.00 196.00 56.00 stop 0 -1 -1 50.00 Product kg
+EQSRC 0.00 200.00 WT1
+EQUIP digital 720.00 488.00 196.00 56.00 stop 0 -1 -1 50.00 Dust kg
+EQSRC 0.00 200.00 WT2

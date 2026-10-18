@@ -57,7 +57,7 @@ function LoadLayout(const FileName: UnicodeString; out Err: string): Boolean;
 implementation
 
 uses
-  SysUtils, Math, simcore, mfpages, elec, fluid;
+  SysUtils, Math, simcore, mfpages, elec, fluid, flowchart, mftheme;
 
 const
   LabelKinds: array[0..2] of string = ('text', 'date', 'time');
@@ -67,8 +67,8 @@ const
   EquipStates: array[0..EQS_COUNT - 1] of string = ('stop', 'run', 'fault', 'mstart', 'mstop', 'disable');
   LinkKinds: array[0..1] of string = ('page', 'popup');
   { the app's selection kinds, in their order }
-  PinKinds: array[0..9] of string = ('none', 'cell', 'bucket', 'multi', 'label', 'frame', 'link', 'equip', 'ecell',
-    'fcell');
+  PinKinds: array[0..10] of string = ('none', 'cell', 'bucket', 'multi', 'label', 'frame', 'link', 'equip', 'ecell',
+    'fcell', 'flow');
 
 var
   FS: TFormatSettings;
@@ -152,6 +152,9 @@ begin
   end;
 end;
 { the objects of the live page that sit on layer L (objects on a layer past the last count as the last) }
+const
+  TLPinKinds: array[0..2] of string = ('-', 'in', 'fix');
+
 procedure WritePageBody(var f: TextFile; L, NL: Integer);
 
   function Mine(v: Byte): Boolean;
@@ -160,7 +163,7 @@ procedure WritePageBody(var f: TextFile; L, NL: Integer);
   end;
 
 var
-  x, y, i: Integer;
+  x, y, i, k: Integer;
   c: PCell;
 begin
   WriteLn(f, 'ON ', L + 1);
@@ -212,9 +215,31 @@ begin
         (Equips[i].Delay <> 2) then
         WriteLn(f, Format('EQX %d %d %s %d %d', [Equips[i].Mode, Equips[i].SeqStep, F2S(Equips[i].Delay),
           Equips[i].DivA, Equips[i].DivB]));
-      if Equips[i].Kind in [EQ_GAUGE, EQ_DIGITAL, EQ_CONTROLLER, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER] then
+      if (Equips[i].Kind in [EQ_GAUGE, EQ_DIGITAL, EQ_CONTROLLER, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER, EQ_TREND, EQ_TIMELINE,
+        EQ_ITEMFEEDER, EQ_WORKER]) or
+        ((Equips[i].Kind in [EQ_CONVEYOR, EQ_BELT]) and (Equips[i].RMin <> 0)) then
         WriteLn(f, Format('EQSRC %s %s %s', [F2S(Equips[i].RMin), F2S(Equips[i].RMax), EscapeText(Equips[i].Src)]));
+      if Equips[i].Kind in [EQ_TREND, EQ_TIMELINE] then
+        WriteLn(f, Format('EQPENS %s %s %s', [EscapeToken(Equips[i].Src2), EscapeToken(Equips[i].Src3),
+          EscapeToken(Equips[i].Src4)]));
+      if Equips[i].Kind = EQ_TIMELINE then
+        for k := 0 to TL_PINS - 1 do
+          if Equips[i].Pins[k].Kind in [TLP_INPUT, TLP_FIX] then
+            WriteLn(f, Format('TLPIN %d %s %s %s %s %d %s %s %d %s %s %d %s %s', [k + 1, TLPinKinds[Equips[i].Pins[k].Kind],
+              F2S(Equips[i].Pins[k].T), F2S(Equips[i].Pins[k].W), EscapeToken(Equips[i].Pins[k].Src),
+              Equips[i].Pins[k].VMode[0], F2S(Equips[i].Pins[k].V[0]), EscapeToken(Equips[i].Pins[k].Dest[0]),
+              Equips[i].Pins[k].VMode[1], F2S(Equips[i].Pins[k].V[1]), EscapeToken(Equips[i].Pins[k].Dest[1]),
+              Equips[i].Pins[k].VMode[2], F2S(Equips[i].Pins[k].V[2]), EscapeToken(Equips[i].Pins[k].Dest[2])]));
     end;
+  for i := 0 to MAX_FLOW - 1 do
+    if FlowNodes[i].Active and Mine(FlowNodes[i].Layer) then
+      with FlowNodes[i] do
+        WriteLn(f, Format('FLOW %d %s %s %s %s %s %d %d %d %d %s %s %s %s', [i + 1, FlowKindTags[Kind], F2S(X), F2S(Y),
+          F2S(W), F2S(H), Op, Act, Next + 1, Next2 + 1, F2S(Value), EscapeToken(Src), EscapeToken(Target),
+          EscapeText(Caption)]));
+  for i := 0 to MAX_FLOW - 1 do
+    if FlowNodes[i].Active and (FlowNodes[i].Kind = FN_RANDOM) and Mine(FlowNodes[i].Layer) then
+      WriteLn(f, Format('FLOWX %d %d %s %s', [i + 1, FlowNodes[i].RType, F2S(FlowNodes[i].Value2), F2S(FlowNodes[i].Period)]));
 end;
 
 { the electrical cells of the live page on layer L }
@@ -282,6 +307,8 @@ begin
       WriteLn(f, '# LINK x y colour page|popup n caption');
       WriteLn(f, '# EQUIP kind x y w h state flip linkx linky level name');
       WriteLn(f, '# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3');
+      WriteLn(f, '# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)');
+      WriteLn(f, '# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)');
       WriteLn(f, 'MFLOW 2');
       if LayoutName <> '' then WriteLn(f, 'NAME ', LayoutName);
       for p := 0 to MAX_POPUPS - 1 do
@@ -290,6 +317,9 @@ begin
           WriteLn(f, Format('POPUP %d %d %d %s', [p + 1, Popups[p].GoPage + 1, Popups[p].Color,
             EscapeText(Popups[p].Title)]));
           WriteLn(f, Format('POPUPTEXT %d %s', [p + 1, EscapeText(Popups[p].Text)]));
+          if Popups[p].BW > 0 then
+            WriteLn(f, Format('POPUPBOX %d %s %s %s %s', [p + 1, F2S(Popups[p].BX), F2S(Popups[p].BY), F2S(Popups[p].BW),
+              F2S(Popups[p].BH)]));
         end;
       for p := 0 to PageCount - 1 do
       begin
@@ -303,6 +333,7 @@ begin
           WriteLn(f, Format('LAYER %d %d %d %s', [L + 1, Ord(P2^.Layers[L].Visible), Ord(P2^.Layers[L].Locked),
             EscapeText(P2^.Layers[L].Name)]));
         WriteLn(f, 'GRAVITY ', F2S(GravityScale));
+        if LayoutBg >= 0 then WriteLn(f, 'BACKGROUND ', LayoutBg);
         for L := 0 to P2^.NLayers - 1 do
         begin
           WritePageBody(f, L, P2^.NLayers);
@@ -311,8 +342,8 @@ begin
         end;
         for L := 0 to High(Pins) do
           if (Pins[L].Page = p) and (Pins[L].Kind <= High(PinKinds)) then
-            WriteLn(f, Format('PIN %s %d %d %s %s %s %s', [PinKinds[Pins[L].Kind], Pins[L].A, Pins[L].B, F2S(Pins[L].X),
-              F2S(Pins[L].Y), F2S(Pins[L].W), F2S(Pins[L].H)]));
+            WriteLn(f, Format('PIN %s %d %d %s %s %s %s %s', [PinKinds[Pins[L].Kind], Pins[L].A, Pins[L].B, F2S(Pins[L].X),
+              F2S(Pins[L].Y), F2S(Pins[L].W), F2S(Pins[L].H), F2S(fmax(1, Pins[L].Scale))]));
         ParkPage(p);
       end;
     finally
@@ -458,6 +489,7 @@ begin
   name := '';
   ver := 1;
   lastEq := -1;
+  LayoutBg := -1;
   try
     AssignFile(f, FileName);
     Reset(f);
@@ -495,6 +527,18 @@ begin
         Popups[i].Color := EnsureRange(Int(3), 0, 5);
         Popups[i].Title := Copy(UnescapeText(AfterTokens(line, 4)), 1, 60);
         Popups[i].Text := '';
+        Popups[i].BW := 0;
+      end
+      else if SameText(Tok[0], 'POPUPBOX') then
+      begin
+        { where a popup was moved to and its size }
+        Need(6);
+        i := Int(1) - 1;
+        if (i < 0) or (i >= MAX_POPUPS) or not Popups[i].Active then Fail('POPUPBOX for a popup that has no POPUP line');
+        Popups[i].BX := fclamp(Num(2), 0, CANVAS_W);
+        Popups[i].BY := fclamp(Num(3), 0, CANVAS_H);
+        Popups[i].BW := fclamp(Num(4), 0, CANVAS_W);
+        Popups[i].BH := fclamp(Num(5), 0, CANVAS_H);
       end
       else if SameText(Tok[0], 'POPUPTEXT') then
       begin
@@ -541,6 +585,11 @@ begin
         if (i < 0) or (i >= MAX_LAYERS) then Fail(Format('layer number must be 1..%d', [MAX_LAYERS]));
         if i >= Pages[CurPage].NLayers then Pages[CurPage].NLayers := i + 1;
         CurLayer := i;
+      end
+      else if SameText(Tok[0], 'BACKGROUND') then
+      begin
+        Need(2);
+        LayoutBg := EnsureRange(Int(1), 0, BG_COUNT - 1);
       end
       else if SameText(Tok[0], 'GRAVITY') then
       begin
@@ -618,6 +667,44 @@ begin
         if Tok[14] <> '-' then FGrid[x, y].SolB := Copy(UnescapeText(Tok[14]), 1, 12);
         FGrid[x, y].Layer := CurLayer;
       end
+      else if SameText(Tok[0], 'FLOW') then
+      begin
+        Need(14);
+        i := Int(1) - 1;
+        if (i < 0) or (i >= MAX_FLOW) then Fail(Format('a flow chart node is 1..%d', [MAX_FLOW]));
+        k2 := -1;
+        for q := 0 to FN_KINDS - 1 do
+          if SameText(Tok[2], FlowKindTags[q]) then k2 := q;
+        if k2 < 0 then Fail('unknown flow chart node "' + Tok[2] + '"');
+        FillChar(FlowNodes[i], SizeOf(TFlowNode), 0);
+        with FlowNodes[i] do
+        begin
+          Active := True;
+          Kind := k2;
+          X := Num(3);
+          Y := Num(4);
+          W := fclamp(Num(5), 24, 600);
+          H := fclamp(Num(6), 16, 400);
+          Op := EnsureRange(Int(7), 0, FLOW_OPS - 1);
+          Act := EnsureRange(Int(8), 0, FLOW_ACTS - 1);
+          Next := EnsureRange(Int(9), 0, MAX_FLOW) - 1;
+          Next2 := EnsureRange(Int(10), 0, MAX_FLOW) - 1;
+          Value := Num(11);
+          if Tok[12] <> '-' then Src := Copy(UnescapeText(Tok[12]), 1, 24);
+          if Tok[13] <> '-' then Target := Copy(UnescapeText(Tok[13]), 1, 24);
+          Caption := Copy(UnescapeText(AfterTokens(line, 14)), 1, 40);
+          Layer := CurLayer;
+        end;
+      end
+      else if SameText(Tok[0], 'FLOWX') then
+      begin
+        Need(5);
+        i := Int(1) - 1;
+        if (i < 0) or (i >= MAX_FLOW) or not FlowNodes[i].Active then Fail('FLOWX without its FLOW line');
+        FlowNodes[i].RType := EnsureRange(Int(2), 0, 3);
+        FlowNodes[i].Value2 := Num(3);
+        FlowNodes[i].Period := fclamp(Num(4), 0, 3600);
+      end
       else if SameText(Tok[0], 'PIN') then
       begin
         Need(8);
@@ -633,8 +720,9 @@ begin
           B := Int(3);
           X := Num(4);
           Y := Num(5);
-          W := fclamp(Num(6), 120, 600);
-          H := fclamp(Num(7), 60, 800);
+          W := fclamp(Num(6), 120, 1000);
+          H := fclamp(Num(7), 60, 2400);
+          if n >= 9 then Scale := fclamp(Num(8), 0.8, 3) else Scale := 1;
           Page := CurPage;
           Dragging := False;
         end;
@@ -665,6 +753,35 @@ begin
         if n >= 17 then EGrid[x, y].P3 := Num(16);
         EGrid[x, y].Layer := CurLayer;
       end
+      else if SameText(Tok[0], 'TLPIN') then
+      begin
+        { a timeline's pin: slot, in / fix, time, "at" s, what it reads, then mode value target before / at / after }
+        Need(15);
+        if lastEq < 0 then Fail('TLPIN without an EQUIP line before it');
+        q := Int(1) - 1;
+        if (q < 0) or (q >= TL_PINS) then Fail(Format('a timeline pin is 1..%d', [TL_PINS]));
+        FillChar(Equips[lastEq].Pins[q], SizeOf(TTLPin), 0);
+        if SameText(Tok[2], 'in') then Equips[lastEq].Pins[q].Kind := TLP_INPUT
+        else if SameText(Tok[2], 'fix') then Equips[lastEq].Pins[q].Kind := TLP_FIX
+        else Fail('a timeline pin is "in" or "fix", not "' + Tok[2] + '"');
+        Equips[lastEq].Pins[q].T := fclamp(Num(3), 0, 3600);
+        Equips[lastEq].Pins[q].W := fclamp(Num(4), 0.05, 3600);
+        if Tok[5] <> '-' then Equips[lastEq].Pins[q].Src := Copy(UnescapeText(Tok[5]), 1, 24);
+        for k2 := 0 to 2 do
+        begin
+          Equips[lastEq].Pins[q].VMode[k2] := EnsureRange(Int(6 + k2 * 3), 0, 3);
+          Equips[lastEq].Pins[q].V[k2] := Num(7 + k2 * 3);
+          if Tok[8 + k2 * 3] <> '-' then Equips[lastEq].Pins[q].Dest[k2] := Copy(UnescapeText(Tok[8 + k2 * 3]), 1, 24);
+        end;
+      end
+      else if SameText(Tok[0], 'EQPENS') then
+      begin
+        Need(4);
+        if lastEq < 0 then Fail('EQPENS without an EQUIP line before it');
+        if Tok[1] <> '-' then Equips[lastEq].Src2 := Copy(UnescapeText(Tok[1]), 1, 24);
+        if Tok[2] <> '-' then Equips[lastEq].Src3 := Copy(UnescapeText(Tok[2]), 1, 24);
+        if Tok[3] <> '-' then Equips[lastEq].Src4 := Copy(UnescapeText(Tok[3]), 1, 24);
+      end
       else if SameText(Tok[0], 'EQSRC') then
       begin
         Need(3);
@@ -678,9 +795,9 @@ begin
         { the sequence settings of the EQUIP line before it }
         Need(6);
         if lastEq < 0 then Fail('EQX without an EQUIP line before it');
-        Equips[lastEq].Mode := EnsureRange(Int(1), 0, 2);
+        Equips[lastEq].Mode := EnsureRange(Int(1), 0, 4);
         Equips[lastEq].SeqStep := EnsureRange(Int(2), 0, MAX_SEQ_STEP);
-        Equips[lastEq].Delay := fclamp(Num(3), 0, 600);
+        Equips[lastEq].Delay := fclamp(Num(3), 0, 3600);
         Equips[lastEq].DivA := EnsureRange(Int(4), -1, 3);
         Equips[lastEq].DivB := EnsureRange(Int(5), -1, 3);
       end

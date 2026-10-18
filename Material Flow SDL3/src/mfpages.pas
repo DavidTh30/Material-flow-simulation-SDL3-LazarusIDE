@@ -23,7 +23,7 @@ unit mfpages;
 interface
 
 uses
-  simcore, elec, fluid, plantbus;
+  simcore, elec, fluid, plantbus, flowchart, trends, piecesim;
 
 const
   MAX_PAGES = 20;
@@ -53,6 +53,8 @@ type
     Equips: array[0..MAX_EQUIP - 1] of TEquipObj;
     EGrid: array[0..GW - 1, 0..GH - 1] of TECell;
     FGrid: array[0..GW - 1, 0..GH - 1] of TFCell;
+    Flows: array[0..MAX_FLOW - 1] of TFlowNode;
+    Pieces: array[0..MAX_PIECES - 1] of TPiece;
     Gravity: Single;
   end;
 
@@ -64,6 +66,11 @@ type
     Page: Integer;
     Dragging: Boolean;
     DOX, DOY: Single;
+    Scale: Single;            { its content drawn this much larger (0 = 1) }
+    Sizing: Boolean;          { its size grip is being dragged }
+    Scroll, ContentH: Single; { its content scrolled; how tall it was }
+    ScrollDrag: Boolean;
+    DragOff: Single;
   end;
 
   TPopup = record
@@ -72,6 +79,7 @@ type
     Text: string[255];     { lines separated by #10 }
     GoPage: Integer;       { -1: no button, else a "Go to page" button }
     Color: Byte;           { 0 theme, 1 blue, 2 green, 3 amber, 4 red, 5 white }
+    BX, BY, BW, BH: Single; { where it was moved / sized to; BW = 0: centred, sized to its text }
   end;
 
 var
@@ -189,6 +197,8 @@ begin
   for i := 0 to MAX_EQUIP - 1 do P.Equips[i].Active := False;
   FillChar(P.EGrid, SizeOf(P.EGrid), 0);
   FillChar(P.FGrid, SizeOf(P.FGrid), 0);
+  FillChar(P.Flows, SizeOf(P.Flows), 0);
+  FillChar(P.Pieces, SizeOf(P.Pieces), 0);
   P.Gravity := 1.0;
 end;
 
@@ -205,11 +215,14 @@ begin
   Pages[0].Name := 'Page 1';
   PageCount := 1;
   CurPage := 0;
+  BusPage := 0;
   CurLayer := 0;
   for i := 0 to MAX_POPUPS - 1 do Popups[i].Active := False;
   ShownPopup := -1;
   SetLength(Pins, 0);
   BusClear;
+  TrendsClear;
+  TimelinesClear;
 end;
 
 procedure ParkPage(i: Integer);
@@ -229,6 +242,8 @@ begin
   Pages[i].Equips := Equips;
   Pages[i].EGrid := EGrid;
   Pages[i].FGrid := FGrid;
+  Pages[i].Flows := FlowNodes;
+  Pages[i].Pieces := Pieces;
   Pages[i].Gravity := GravityScale;
   Pages[i].ActiveLayer := CurLayer;
 end;
@@ -253,6 +268,8 @@ begin
   Equips := Pages[i].Equips;
   EGrid := Pages[i].EGrid;
   FGrid := Pages[i].FGrid;
+  FlowNodes := Pages[i].Flows;
+  Pieces := Pages[i].Pieces;
   GravityScale := Pages[i].Gravity;
   if Pages[i].ActiveLayer >= Pages[i].NLayers then Pages[i].ActiveLayer := 0;
   CurLayer := Pages[i].ActiveLayer;
@@ -263,6 +280,7 @@ begin
   if (i < 0) or (i >= PageCount) or (i = CurPage) then Exit;
   ParkPage(CurPage);
   CurPage := i;
+  BusPage := i;
   UnparkPage(i);
   ShownPopup := -1;
 end;
@@ -306,6 +324,8 @@ begin
   end;
   ParkPage(CurPage);
   BusClear;
+  TrendsClear;
+  TimelinesClear;
   SetLength(Pages[i].Parts, 0);
   for k := i to PageCount - 2 do Pages[k] := Pages[k + 1];
   Dec(PageCount);
@@ -346,12 +366,15 @@ begin
   if (i < 0) or (i >= PageCount) or (j < 0) or (j >= PageCount) then Exit;
   ParkPage(CurPage);
   BusClear;
+  TrendsClear;
+  TimelinesClear;
   TmpPage := Pages[i];
   Pages[i] := Pages[j];
   Pages[j] := TmpPage;
   TmpPage.Parts := nil;
   if CurPage = i then CurPage := j
   else if CurPage = j then CurPage := i;
+  BusPage := CurPage;
   UnparkPage(CurPage);
   { links keep pointing at the same page }
   for k := 0 to PageCount - 1 do
@@ -469,6 +492,7 @@ begin
       Popups[i].Text := Text;
       Popups[i].GoPage := -1;
       Popups[i].Color := 1;
+      Popups[i].BW := 0;
       Exit(i);
     end;
   Result := -1;
@@ -517,6 +541,8 @@ begin
   Pages[i].Equips := Equips;
   Pages[i].EGrid := EGrid;
   Pages[i].FGrid := FGrid;
+  Pages[i].Flows := FlowNodes;
+  Pages[i].Pieces := Pieces;
   Pages[i].Gravity := GravityScale;
   Pages[i].ActiveLayer := CurLayer;
   tmp := Pages[i].Parts;
@@ -538,6 +564,8 @@ begin
   Equips := Pages[i].Equips;
   EGrid := Pages[i].EGrid;
   FGrid := Pages[i].FGrid;
+  FlowNodes := Pages[i].Flows;
+  Pieces := Pages[i].Pieces;
   GravityScale := Pages[i].Gravity;
   tmp := Parts;
   Parts := Pages[i].Parts;

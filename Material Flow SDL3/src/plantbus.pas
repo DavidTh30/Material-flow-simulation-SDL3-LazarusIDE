@@ -42,6 +42,13 @@ type
     Speed: Single;         { a drive's speed, -1 for a motor }
   end;
 
+  { a flow chart's command to a switch, breaker, overload or valve on another page }
+  TBusSw = record
+    Name: string[24];
+    Act: Byte;
+    Value: Single;
+  end;
+
   TBusPage = record
     Valid: Boolean;
     Tags: array of string;
@@ -52,6 +59,8 @@ type
     NEqs: Integer;
     Cmds: array of TBusCmd;
     NCmds: Integer;
+    Sws: array of TBusSw;
+    NSws: Integer;
   end;
 
 var
@@ -74,6 +83,10 @@ function BusCommand(const Name: string; out C: TBusCmd): Boolean;
 { the i-th analog name / equipment published by another page, '' after the last }
 function BusSigName(i: Integer): string;
 function BusEqIndex(i: Integer; out E: TBusEq): Boolean;
+procedure BusClearSws(p: Integer);
+procedure BusAddSw(const Name: string; Act: Integer; Value: Single);
+{ the i-th switch command from another page }
+function BusSwIndex(i: Integer; out S: TBusSw): Boolean;
 
 implementation
 
@@ -91,6 +104,7 @@ begin
     BusPages[p].NSigs := 0;
     BusPages[p].NEqs := 0;
     BusPages[p].NCmds := 0;
+    BusPages[p].NSws := 0;
   end;
 end;
 
@@ -265,6 +279,43 @@ begin
         Exit(True);
       end;
       Dec(i, BusPages[p].NEqs);
+    end;
+end;
+
+procedure BusClearSws(p: Integer);
+begin
+  if (p >= 0) and (p < BUS_PAGES) then BusPages[p].NSws := 0;
+end;
+
+procedure BusAddSw(const Name: string; Act: Integer; Value: Single);
+begin
+  if (BusPage < 0) or (BusPage >= BUS_PAGES) or (Name = '') then Exit;
+  with BusPages[BusPage] do
+  begin
+    if NSws >= Length(Sws) then SetLength(Sws, NSws + 16);
+    Sws[NSws].Name := Name;
+    Sws[NSws].Act := Act;
+    Sws[NSws].Value := Value;
+    Inc(NSws);
+  end;
+end;
+
+function BusSwIndex(i: Integer; out S: TBusSw): Boolean;
+var
+  p: Integer;
+begin
+  Result := False;
+  FillChar(S, SizeOf(S), 0);
+  if i < 0 then Exit;
+  for p := 0 to BUS_PAGES - 1 do
+    if (p <> BusPage) and BusPages[p].Valid then
+    begin
+      if i < BusPages[p].NSws then
+      begin
+        S := BusPages[p].Sws[i];
+        Exit(True);
+      end;
+      Dec(i, BusPages[p].NSws);
     end;
 end;
 

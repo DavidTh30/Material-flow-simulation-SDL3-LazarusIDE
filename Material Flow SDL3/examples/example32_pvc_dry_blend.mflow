@@ -1,0 +1,326 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)
+# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)
+MFLOW 2
+NAME PVC dry blend plant
+POPUP 1 2 2 How it works
+POPUPTEXT 1 AUTO on (page 3): the flow chart opens V7.56,\nV7.57, V7.58 in turn until WI7.50 holds 6, 10,\n15 %. Then the Mixing timeline: V7.53 into T3,\nadditives V8.03, VT3 to T4, VT4 up to H9.3.\nXM9.03 feeds the extruder unless H9.3 is low.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Page 3: watch the yellow path pick the valve;\nswitch AUTO off: every valve shuts. Change a\ndecision's value (the set point). Theme >\nBackground picks another background.
+
+PAGE Mixing plant
+LAYERS 3 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+GRAVITY 1.00
+BACKGROUND 3
+ON 1
+CELL 2 3 pipe ES 3 E 1 0.00
+CELL 3 3 pipe EW 3 E 1 0.00
+CELL 4 3 pipe EW 3 E 1 0.00
+CELL 5 3 pipe ESW 3 E 1 0.00
+CELL 6 3 pipe EW 3 E 1 0.00
+CELL 7 3 pipe EW 3 E 1 0.00
+CELL 8 3 pipe ESW 3 E 1 0.00
+CELL 9 3 pipe EW 3 E 1 0.00
+CELL 10 3 pipe EW 3 E 1 0.00
+CELL 11 3 blower EW 3 E 1 60.00
+CELL 12 3 pipe EW 3 E 1 0.00
+CELL 13 3 pipe EW 3 E 1 0.00
+CELL 14 3 pipe SW 3 E 1 0.00
+CELL 2 4 pipe SN 3 E 1 0.00
+CELL 5 4 pipe SN 3 E 1 0.00
+CELL 8 4 pipe SN 3 E 1 0.00
+CELL 14 4 pipe SN 3 E 1 0.00
+CELL 30 4 pipe ES 3 E 1 0.00
+CELL 31 4 pipe EW 3 E 1 0.00
+CELL 32 4 pipe EW 3 E 1 0.00
+CELL 33 4 pipe EW 3 E 1 0.00
+CELL 34 4 pipe EW 3 E 1 0.00
+CELL 35 4 pipe EW 3 E 1 0.00
+CELL 36 4 pipe SW 3 E 1 0.00
+CELL 2 5 pipe SN 3 E 1 0.00
+CELL 5 5 pipe SN 3 E 1 0.00
+CELL 8 5 pipe SN 3 E 1 0.00
+CELL 14 5 drop N 3 S 1 100.00
+CELL 30 5 pipe SN 3 E 1 0.00
+CELL 36 5 pipe SN 3 E 1 0.00
+CELL 2 6 pipe SN 3 E 1 0.00
+CELL 5 6 pipe SN 3 E 1 0.00
+CELL 8 6 pipe SN 3 E 1 0.00
+CELL 30 6 pipe SN 3 E 1 0.00
+CELL 36 6 pipe SN 3 E 1 0.00
+CELL 2 7 pipe SN 3 E 1 0.00
+CELL 5 7 pipe SN 3 E 1 0.00
+CELL 8 7 pipe SN 3 E 1 0.00
+CELL 30 7 pipe SN 3 E 1 0.00
+CELL 36 7 pipe SN 3 E 1 0.00
+CELL 2 8 pipe SN 3 E 1 0.00
+CELL 5 8 pipe SN 3 E 1 0.00
+CELL 8 8 pipe SN 3 E 1 0.00
+CELL 30 8 pipe SN 3 E 1 0.00
+CELL 36 8 pipe SN 3 E 1 0.00
+CELL 2 9 pipe SN 3 E 1 0.00
+CELL 5 9 pipe SN 3 E 1 0.00
+CELL 8 9 pipe SN 3 E 1 0.00
+CELL 30 9 pipe SN 3 E 1 0.00
+CELL 36 9 pipe SN 3 E 1 0.00
+CELL 2 10 pipe SN 3 E 1 0.00
+CELL 5 10 pipe SN 3 E 1 0.00
+CELL 8 10 pipe SN 3 E 1 0.00
+CELL 14 10 silo S 3 E 1 0.00
+STOCK 14 10 0.00 0.00 0.00 0.00 0.00 100.00
+CELL 30 10 pipe SN 3 E 1 0.00
+CELL 36 10 pipe SN 3 E 1 0.00
+CELL 2 11 pipe SN 3 E 1 0.00
+CELL 5 11 pipe SN 3 E 1 0.00
+CELL 8 11 pipe SN 3 E 1 0.00
+CELL 14 11 check SN 3 S 1 0.00
+CELL 30 11 pipe SN 3 E 1 0.00
+CELL 36 11 drop N 3 S 1 100.00
+CELL 2 12 pipe SN 3 E 1 0.00
+CELL 5 12 pipe SN 3 E 1 0.00
+CELL 8 12 pipe SN 3 E 1 0.00
+CELL 14 12 pipe ESN 3 E 1 0.00
+CELL 15 12 pipe EW 3 E 1 0.00
+CELL 16 12 pipe EW 3 E 1 0.00
+CELL 17 12 pipe EW 3 E 1 0.00
+CELL 18 12 pipe EW 3 E 1 0.00
+CELL 19 12 pipe EW 3 E 1 0.00
+CELL 20 12 pipe EW 3 E 1 0.00
+CELL 21 12 pipe EW 3 E 1 0.00
+CELL 22 12 pipe EW 3 E 1 0.00
+CELL 23 12 pipe EW 3 E 1 0.00
+CELL 24 12 blower EW 3 W 1 50.00
+CELL 25 12 pipe EW 3 E 1 0.00
+CELL 26 12 feeder W 4 E 1 0.00
+STOCK 26 12 0.00 1200.00 0.00 0.00 0.00 60.00
+CELL 30 12 pipe SN 3 E 1 0.00
+CELL 2 13 pipe SN 3 E 1 0.00
+CELL 5 13 pipe SN 3 E 1 0.00
+CELL 8 13 pipe SN 3 E 1 0.00
+CELL 14 13 drop N 3 S 1 100.00
+CELL 30 13 pipe SN 3 E 1 0.00
+CELL 2 14 blower SN 3 N 1 80.00
+CELL 5 14 blower SN 3 N 1 80.00
+CELL 8 14 blower SN 3 N 1 80.00
+CELL 30 14 pipe SN 3 E 1 0.00
+CELL 2 15 pipe SN 3 E 1 0.00
+CELL 5 15 pipe SN 3 E 1 0.00
+CELL 8 15 pipe SN 3 E 1 0.00
+CELL 30 15 pipe SN 3 E 1 0.00
+CELL 2 16 feeder N 4 E 1 0.00
+STOCK 2 16 0.00 0.00 0.00 3000.00 10.00 90.00
+CELL 5 16 feeder N 4 E 1 0.00
+STOCK 5 16 0.00 0.00 1500.00 1500.00 10.00 90.00
+CELL 8 16 feeder N 4 E 1 0.00
+STOCK 8 16 0.00 0.00 3000.00 0.00 10.00 90.00
+CELL 30 16 pipe SN 3 E 1 0.00
+CELL 36 16 silo S 3 E 1 0.00
+STOCK 36 16 0.00 0.00 0.00 0.00 0.00 100.00
+CELL 30 17 pipe SN 3 E 1 0.00
+CELL 36 17 pipe SN 3 E 1 0.00
+CELL 30 18 pipe SN 3 E 1 0.00
+CELL 36 18 pipe SN 3 E 1 0.00
+CELL 30 19 pipe SN 3 E 1 0.00
+CELL 36 19 pipe SN 3 E 1 0.00
+CELL 14 20 silo S 3 E 1 0.00
+STOCK 14 20 0.00 0.00 0.00 0.00 0.00 100.00
+CELL 30 20 pipe SN 3 E 1 0.00
+CELL 36 20 pipe SN 3 E 1 0.00
+CELL 14 21 pipe SN 3 E 1 0.00
+CELL 30 21 pipe SN 3 E 1 0.00
+CELL 36 21 pipe SN 3 E 1 0.00
+CELL 14 22 pipe EN 3 E 1 0.00
+CELL 15 22 pipe EW 3 E 1 0.00
+CELL 16 22 blower EW 3 E 1 60.00
+CELL 17 22 pipe EW 3 E 1 0.00
+CELL 18 22 pipe EW 3 E 1 0.00
+CELL 19 22 pipe SW 3 E 1 0.00
+CELL 30 22 pipe SN 3 E 1 0.00
+CELL 36 22 pipe SN 3 E 1 0.00
+CELL 19 23 pipe SN 3 E 1 0.00
+CELL 30 23 pipe SN 3 E 1 0.00
+CELL 36 23 pipe SN 3 E 1 0.00
+CELL 19 24 pipe SN 3 E 1 0.00
+CELL 30 24 pipe SN 3 E 1 0.00
+CELL 36 24 pipe SN 3 E 1 0.00
+CELL 19 25 drop N 3 S 1 100.00
+CELL 30 25 pipe SN 3 E 1 0.00
+CELL 36 25 pipe EN 3 E 1 0.00
+CELL 37 25 pipe EW 3 E 1 0.00
+CELL 38 25 blower EW 3 E 1 70.00
+CELL 39 25 pipe EW 3 E 1 0.00
+CELL 40 25 pipe EW 3 E 1 0.00
+CELL 41 25 pipe SW 3 E 1 0.00
+CELL 30 26 pipe SN 3 E 1 0.00
+CELL 41 26 pipe SN 3 E 1 0.00
+CELL 30 27 pipe SN 3 E 1 0.00
+CELL 41 27 drop N 3 S 1 100.00
+CELL 30 28 pipe SN 3 E 1 0.00
+CELL 30 29 pipe SN 3 E 1 0.00
+CELL 19 30 silo S 3 E 1 0.00
+STOCK 19 30 0.00 0.00 0.00 0.00 0.00 100.00
+CELL 30 30 pipe SN 3 E 1 0.00
+CELL 19 31 pipe EN 3 E 1 0.00
+CELL 20 31 pipe EW 3 E 1 0.00
+CELL 21 31 pipe EW 3 E 1 0.00
+CELL 22 31 blower EW 3 E 1 95.00
+CELL 23 31 pipe EW 3 E 1 0.00
+CELL 24 31 pipe EW 3 E 1 0.00
+CELL 25 31 pipe EW 3 E 1 0.00
+CELL 26 31 pipe EW 3 E 1 0.00
+CELL 27 31 pipe EW 3 E 1 0.00
+CELL 28 31 pipe EW 3 E 1 0.00
+CELL 29 31 pipe EW 3 E 1 0.00
+CELL 30 31 pipe WN 3 E 1 0.00
+BUCKET 940.00 676.00 110.00 130.00
+ON 2
+FRAME 418.00 24.00 292.00 204.00 1 0 1 1 WI7.50 - weigh panel
+LABEL 62.00 186.00 CaCO3
+LABEL 134.00 220.00 REGRIND
+LABEL 206.00 254.00 PVC +\nADDITIVES
+LABEL 560.00 230.00 PRE WEIGHED ADDITIVES
+LABEL 220.00 560.00 HOT & COOL\nMIXERS
+LABEL 944.00 160.00 H9.3\nsilo
+LABEL 900.00 560.00 TO EXTRUDER
+LABEL 8.00 640.00 Set point 15 %: CaCO3 to 6 %,\nregrind to 10 %, PVC to 15 %.\nSwitch AUTO on page 3.
+LINK 8.00 720.00 2 page 3 Batch control
+LINK 140.00 720.00 3 page 4 Trends
+LINK 8.00 560.00 1 page 2 About
+LINK 8.00 582.00 2 popup 1 How it works
+LINK 8.00 604.00 3 popup 2 Try this
+ON 3
+EQUIP slide 42.00 424.00 36.00 36.00 stop 0 2 16 50.00 V7.56
+EQUIP slide 114.00 480.00 36.00 36.00 stop 0 5 16 50.00 V7.57
+EQUIP slide 186.00 536.00 36.00 36.00 stop 0 8 16 50.00 V7.58
+EQUIP blower 212.00 100.00 80.00 72.00 run 0 11 3 50.00 XM7.14
+EQUIP silo 290.00 128.00 92.00 150.00 stop 0 14 10 50.00 WI7.50
+EQUIP slide 380.00 252.00 36.00 30.00 stop 0 14 10 50.00 V7.53
+EQUIP screw 600.00 330.00 170.00 34.00 run 0 24 12 50.00 XM8.03
+EQUIP slide 664.00 252.00 36.00 30.00 stop 0 26 12 50.00 V8.03
+EQUIP silo 286.00 372.00 100.00 128.00 stop 0 14 20 50.00 T3
+EQUIP motor 206.00 440.00 70.00 44.00 stop 0 14 20 50.00 T3 motor
+EQUIP slide 380.00 500.00 36.00 30.00 stop 0 14 20 50.00 VT3
+EQUIP silo 404.00 612.00 112.00 124.00 stop 0 19 30 50.00 T4
+EQUIP motor 324.00 684.00 70.00 44.00 stop 0 19 30 50.00 T4 motor
+EQUIP slide 500.00 736.00 36.00 30.00 stop 0 19 30 50.00 VT4
+EQUIP blower 556.00 680.00 84.00 76.00 run 0 22 31 50.00 XM9.01
+EQUIP silo 816.00 150.00 120.00 258.00 stop 0 36 16 50.00 H9.3
+EQUIP motor 770.00 420.00 60.00 40.00 stop 0 36 16 50.00 XM9.03
+EQUIP blower 852.00 640.00 72.00 66.00 run 0 38 25 50.00 XM9.13
+EQUIP digital 428.00 64.00 132.00 52.00 stop 0 -1 -1 50.00 GROSS WEIGHT %
+EQSRC 0.00 100.00 WI7.50
+EQUIP digital 570.00 64.00 132.00 52.00 stop 0 -1 -1 50.00 T3 BATCH %
+EQSRC 0.00 100.00 T3
+EQUIP digital 428.00 152.00 132.00 52.00 stop 0 -1 -1 50.00 H9.3 LEVEL %
+EQSRC 0.00 100.00 H9.3
+EQUIP digital 570.00 152.00 132.00 52.00 stop 0 -1 -1 50.00 MIXING s
+EQSRC 0.00 60.00 Mixing
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+BACKGROUND 3
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 32 - PVC DRY BLEND PLANT\nAn HMI screen: three raw material lines, a\nweigh hopper, hot and cool mixers, a storage\nsilo and the conveying line to the extruder,\nrun by a dosing flow chart and a timeline.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this
+
+PAGE Batch control
+LAYERS 4 1
+LAYER 1 1 0 Flow chart
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Timeline
+LAYER 4 1 0 Electrical
+GRAVITY 1.00
+BACKGROUND 3
+ON 1
+FLOW 1 start 35.00 16.00 120.00 30.00 0 0 2 0 0.00 - - Dosing
+FLOW 2 decision 20.00 64.00 150.00 56.00 6 0 3 8 0.00 AUTO - AUTO on?
+FLOW 3 decision 20.00 136.00 150.00 56.00 7 0 4 8 0.00 Mixing - Mixing idle?
+FLOW 4 decision 20.00 208.00 150.00 56.00 1 0 5 8 85.00 H9.3 - H9.3 room?
+FLOW 5 decision 20.00 280.00 150.00 56.00 2 0 6 12 6.00 WI7.50 - CaCO3 in?
+FLOW 6 decision 20.00 352.00 150.00 56.00 2 0 7 16 10.00 WI7.50 - Regrind in?
+FLOW 7 decision 20.00 424.00 150.00 56.00 2 0 24 20 15.00 WI7.50 - PVC in? (SP)
+FLOW 8 action 760.00 64.00 120.00 36.00 0 1 9 0 0.00 - V7.56 Close V7.56
+FLOW 9 action 760.00 120.00 120.00 36.00 0 1 10 0 0.00 - V7.57 Close V7.57
+FLOW 10 action 760.00 176.00 120.00 36.00 0 1 11 0 0.00 - V7.58 Close V7.58
+FLOW 11 end 780.00 230.00 80.00 28.00 0 0 0 0 0.00 - - End
+FLOW 12 action 200.00 290.00 120.00 36.00 0 0 13 0 0.00 - V7.56 Open V7.56
+FLOW 13 action 340.00 290.00 120.00 36.00 0 1 14 0 0.00 - V7.57 Close V7.57
+FLOW 14 action 480.00 290.00 120.00 36.00 0 1 15 0 0.00 - V7.58 Close V7.58
+FLOW 15 end 620.00 294.00 80.00 28.00 0 0 0 0 0.00 - - End
+FLOW 16 action 200.00 362.00 120.00 36.00 0 1 17 0 0.00 - V7.56 Close V7.56
+FLOW 17 action 340.00 362.00 120.00 36.00 0 0 18 0 0.00 - V7.57 Open V7.57
+FLOW 18 action 480.00 362.00 120.00 36.00 0 1 19 0 0.00 - V7.58 Close V7.58
+FLOW 19 end 620.00 366.00 80.00 28.00 0 0 0 0 0.00 - - End
+FLOW 20 action 200.00 434.00 120.00 36.00 0 1 21 0 0.00 - V7.56 Close V7.56
+FLOW 21 action 340.00 434.00 120.00 36.00 0 1 22 0 0.00 - V7.57 Close V7.57
+FLOW 22 action 480.00 434.00 120.00 36.00 0 0 23 0 0.00 - V7.58 Open V7.58
+FLOW 23 end 620.00 438.00 80.00 28.00 0 0 0 0 0.00 - - End
+FLOW 24 action 20.00 500.00 150.00 36.00 0 4 8 0 0.00 - BATCH_READY Batch ready
+FLOW 25 start 35.00 572.00 120.00 30.00 0 0 26 0 0.00 - - Silo out
+FLOW 26 decision 20.00 616.00 150.00 56.00 0 0 27 28 3.00 H9.3 - H9.3 not low?
+FLOW 27 action 20.00 690.00 120.00 36.00 0 0 29 0 0.00 - XM9.03 Run XM9.03
+FLOW 28 action 200.00 626.00 120.00 36.00 0 1 30 0 0.00 - XM9.03 Stop XM9.03
+FLOW 29 end 35.00 746.00 80.00 28.00 0 0 0 0 0.00 - - End
+FLOW 30 end 340.00 630.00 80.00 28.00 0 0 0 0 0.00 - - End
+FLOW 31 display 880.00 290.00 160.00 52.00 2 0 0 0 85.00 H9.3 - LSH9.03 (85 %)
+FLOW 32 display 880.00 356.00 160.00 52.00 3 0 0 0 3.00 H9.3 - LSL9.03 (3 %)
+FLOW 33 display 880.00 422.00 160.00 52.00 2 0 0 0 15.00 WI7.50 - WI7.50 %
+ON 2
+LABEL 900.00 84.00 AUTO (click):\nthe plant runs\nbatches.
+LABEL 200.00 490.00 DOSING (flow chart, every scan):\nthe valve of the material that is\nshort opens; at the set point the\nbatch is ready and starts Mixing.
+LABEL 470.00 700.00 MIXING (timeline, one cycle per batch): V7.53 empties\nWI7.50 into T3, V8.03 adds the additives, VT3 sends\nthe hot batch to T4, VT4 blows it to silo H9.3.
+LINK 880.00 500.00 1 page 1 Mixing plant
+LINK 880.00 524.00 3 page 4 Trends
+ON 3
+EQUIP timeline 470.00 560.00 570.00 130.00 stop 0 -1 -1 50.00 Mixing
+EQX 0 0 40.00 -1 -1
+EQSRC 0.00 100.00 BATCH_READY
+EQPENS - - -
+TLPIN 1 fix 0.00 12.00 - 1 0.00 V7.53 1 1.00 V7.53 1 0.00 V7.53
+TLPIN 2 fix 0.00 30.00 - 1 0.00 T3\smotor 1 1.00 T3\smotor 1 0.00 T3\smotor
+TLPIN 3 fix 10.00 4.00 - 1 0.00 V8.03 1 1.00 V8.03 1 0.00 V8.03
+TLPIN 4 fix 20.00 10.00 - 1 0.00 VT3 1 1.00 VT3 1 0.00 VT3
+TLPIN 5 fix 20.00 20.00 - 1 0.00 T4\smotor 1 1.00 T4\smotor 1 0.00 T4\smotor
+TLPIN 6 fix 30.00 10.00 - 1 0.00 VT4 1 1.00 VT4 1 0.00 VT4
+TLPIN 7 in 12.00 1.00 WI7.50 0 0.00 - 2 0.00 - 3 0.00 LEFT_IN_WI
+ON 4
+ECELL 40 2 switch EW 0 0 0 0 1 0 0.00 0.00 AUTO - - 0.00
+
+PAGE Trends
+LAYERS 1 1
+LAYER 1 1 0 Trends
+GRAVITY 1.00
+BACKGROUND 3
+ON 1
+LABEL 700.00 60.00 TRENDS (page 4)\nLevels: weigh hopper, hot and\ncool mixer, silo H9.3.\nDosing valves: open = 100.
+LINK 700.00 160.00 1 page 1 Mixing plant
+LINK 700.00 184.00 2 page 3 Batch control
+EQUIP trend 24.00 40.00 640.00 300.00 stop 0 -1 -1 50.00 Levels
+EQX 0 0 240.00 -1 -1
+EQSRC 0.00 0.00 WI7.50
+EQPENS T3 T4 H9.3
+EQUIP trend 24.00 380.00 640.00 220.00 stop 0 -1 -1 50.00 Dosing valves
+EQX 0 0 240.00 -1 -1
+EQSRC 0.00 0.00 V7.56
+EQPENS V7.57 V7.58 V7.53

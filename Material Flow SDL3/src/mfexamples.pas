@@ -20,7 +20,7 @@ unit mfexamples;
 interface
 
 const
-  EXAMPLE_COUNT = 26;
+  EXAMPLE_COUNT = 35;
   ExampleTitles: array[1..EXAMPLE_COUNT] of string = (
     'Gravity merge/overflow',
     'Pneumatic conveyor',
@@ -47,7 +47,16 @@ const
     'Sensors & PID control',
     'Every page at once',
     'Heat exchanger & humidity',
-    'Cooling tower, chiller & pH');
+    'Cooling tower, chiller & pH',
+    'Flow chart control',
+    'Flow chart: switches & random',
+    'Trend charts',
+    'Timelines',
+    'Rotary dryer system',
+    'PVC dry blend plant',
+    'Belt conveyor system',
+    'Bottles, boxes & toys',
+    'Shipping dock & order pickers');
   ExampleFiles: array[1..EXAMPLE_COUNT] of string = (
     'example1_gravity_merge.mflow',
     'example2_pneumatic_conveyor.mflow',
@@ -74,22 +83,32 @@ const
     'example23_sensors_pid_control.mflow',
     'example24_every_page_at_once.mflow',
     'example25_heat_exchanger_humidity.mflow',
-    'example26_cooling_tower_chiller_ph.mflow');
+    'example26_cooling_tower_chiller_ph.mflow',
+    'example27_flow_chart_control.mflow',
+    'example28_flow_chart_switches_random.mflow',
+    'example29_trend_charts.mflow',
+    'example30_timelines.mflow',
+    'example31_rotary_dryer.mflow',
+    'example32_pvc_dry_blend.mflow',
+    'example33_belt_conveyor.mflow',
+    'example34_bottles_boxes_toys.mflow',
+    'example35_shipping_dock.mflow');
 
 const
   { the Examples menu: one sub-menu per category, examples CatFirst..CatLast }
-  EXAMPLE_CATS = 6;
+  EXAMPLE_CATS = 7;
   CatNames: array[1..EXAMPLE_CATS] of string = ('Pipes & air flow', 'Storage & equipment',
-    'Electrical circuits', 'Pneumatic systems', 'Hydraulic systems', 'Control & sensors');
-  CatFirst: array[1..EXAMPLE_CATS] of Integer = (1, 5, 10, 15, 19, 22);
-  CatLast: array[1..EXAMPLE_CATS] of Integer = (4, 9, 14, 18, 21, 26);
+    'Electrical circuits', 'Pneumatic systems', 'Hydraulic systems', 'Control & sensors',
+    'Plant systems');
+  CatFirst: array[1..EXAMPLE_CATS] of Integer = (1, 5, 10, 15, 19, 22, 31);
+  CatLast: array[1..EXAMPLE_CATS] of Integer = (4, 9, 14, 18, 21, 30, 35);
 
 procedure BuildExample(n: Integer);
 
 implementation
 
 uses
-  simcore, mfpages, elec, fluid;
+  simcore, mfpages, elec, fluid, flowchart, mftheme, piecesim;
 
 const
   LAYER_PROCESS = 0;
@@ -174,11 +193,11 @@ const
     'of cylinder A; FC1 / FC2 throttle the air.'#10 +
     'V2 (3/2, push button) fills single-acting'#10 +
     'cylinder B; its spring brings it back.',
-    'K1 runs the cycle: with A in (A0) Y1 sends'#10 +
-    'it out; it opens Gate01 and the hopper'#10 +
-    'empties. At A1 timer T1 counts 2 s, then'#10 +
-    'Y2 brings it back. The valve keeps its'#10 +
-    'position between the pulses.',
+    'Click SB1: K1 latches on and runs the cycle;'#10 +
+    'the feed gate lets sand into the hopper.'#10 +
+    'With A in (A0) Y1 sends it out: Gate01 opens'#10 +
+    'and sand falls into the bin. At A1 timer T1'#10 +
+    'counts 2 s, then Y2 brings A back. SB0 stops.',
     'The AND valve passes air only when both S1'#10 +
     'and S2 give it; the shuttle valve passes'#10 +
     'whichever of S3 / S4 does.',
@@ -217,7 +236,52 @@ const
     'cools its tube water and gets it back (a loop).'#10 +
     'TIC1 (PID, reverse) sets the fan (drive U1)'#10 +
     'to hold stream 1 at 40 C. Chiller01 sends 7 C'#10 +
-    'water through HX02 to cool stream 2 (30 C).');
+    'water through HX02 to cool stream 2 (30 C).',
+    'Every frame the chart starts at Start: it'#10 +
+    'reads Pool01 and Well01 (page 3). A dry well'#10 +
+    'stops Pump01 and turns the DRY tag on; a low'#10 +
+    'pool starts it, a full pool stops it. The'#10 +
+    'yellow path is the one the scan takes.',
+    'COIN (a random boolean, every 2 s) turns'#10 +
+    'switch S1 and air valve V1 on or off. LOAD'#10 +
+    '(a random byte) over 235 trips OL1; after 3 s'#10 +
+    'the chart resets it. DICE (1..3) sets the'#10 +
+    'position of selector SA1 (H3 in position 3).',
+    'Trend01 records four pens: TT1 (Heater01''s'#10 +
+    'temperature), TIC1.SP (its set point), relay'#10 +
+    'K1 (flasher T1: ON / OFF events, the strip at'#10 +
+    'the bottom) and DEMAND (a random value from'#10 +
+    'the flow chart). Trend02 / 03: mini, curve.',
+    'Timeline01 runs 0..20 s over and over (auto'#10 +
+    'start). Fix Pin 1 sends S1 0 / 1 / 0 (Pump01'#10 +
+    'runs 2-10 s), Fix Pin 2 sends RV1 30 / 100 /'#10 +
+    '30 (Pump02''s speed). Input Pin 1 keeps Pool01'#10 +
+    'at 10 s and sends it to POOL10 (a display).',
+    'Wet sand drops into the hopper; the loading'#10 +
+    'feeder pushes it into the drum. The blow fan'#10 +
+    'drives furnace air in; hot zones boil the'#10 +
+    'water off. Dry sand falls out of the hood,'#10 +
+    'the exhaust fan draws dust to the collector.',
+    'AUTO on (page 3): the flow chart opens V7.56,'#10 +
+    'V7.57, V7.58 in turn until WI7.50 holds 6, 10,'#10 +
+    '15 %. Then the Mixing timeline: V7.53 into T3,'#10 +
+    'additives V8.03, VT3 to T4, VT4 up to H9.3.'#10 +
+    'XM9.03 feeds the extruder unless H9.3 is low.',
+    'Click SB1: KM1 runs drive U1 and BC-01 runs;'#10 +
+    'the feed gate opens, sand drops through the'#10 +
+    'hopper onto the tail end and rides 15 deg up'#10 +
+    'to the head, where it falls into the bin.'#10 +
+    'SB0 / ES1 stop it; the gate shuts with it.',
+    'Item feeders drop whole pieces. Click SB1:'#10 +
+    'bottles ride Belt01 into the crate; PE1 counts'#10 +
+    'each one (CNT1). At 12 the line stops and H1'#10 +
+    'lights. Line 2 carries glasses, boxes and'#10 +
+    'dolls up a 12 deg belt into the bin.',
+    'Three order pickers take boxes from their'#10 +
+    'racks and put them on the roller conveyor.'#10 +
+    'Click SB1: it carries them to the dock; the'#10 +
+    'dock worker lifts each one into the box van.'#10 +
+    'PE1 counts what is shipped.');
 
   { "Try this" popup text }
   TryText: array[1..EXAMPLE_COUNT] of string = (
@@ -276,8 +340,10 @@ const
     'Turn FC1 down (wheel): A goes out slower.'#10 +
     'Switch C1 off (click it): R1 runs down.'#10 +
     'Focus Properties on R1 (right-click).',
-    'Hold SB0 to stop the cycle. Change T1.'#10 +
-    'Click V1 in Ctrl: see its solenoids Y1 / Y2.',
+    'Watch the flow chart: its yellow path is the'#10 +
+    'step now; the Timing chart shows the gate'#10 +
+    'and Y1 / A1 / Y2. Set T1 longer (select it):'#10 +
+    'the gate stays open longer. SB0 stops.',
     'Switch S1 and S2: only both move A.'#10 +
     'Switch S3 or S4: either moves B.',
     'Turn FC1 up: the belt speeds up and the'#10 +
@@ -303,7 +369,39 @@ const
     'Add more water to the feeder: MT2 goes up.',
     'Set TIC1 to 30 C: the fan runs flat out.'#10 +
     'Switch S2 off: the chiller stops, HX02 warms.'#10 +
-    'Physics lab: set sand''s pH and watch PH1.');
+    'Physics lab: set sand''s pH and watch PH1.',
+    'Right-click Pool low? > Go to Pool01, then'#10 +
+    'right-click > Back to flow chart.'#10 +
+    'Change Pool low''s value (Properties).',
+    'Set COIN''s True % (Properties) to 100.'#10 +
+    'Change Overload?''s value: fewer trips.'#10 +
+    'Point Speed > 50? at another name.',
+    'Select Trend01: pick or type its pens (< >),'#10 +
+    'change its style and time window. Set TIC1''s'#10 +
+    'set point (faceplate) and watch the curve.',
+    'Press SB1: Timeline02 runs once. Right-click'#10 +
+    'a timeline: add a pin there. Drag a pin along'#10 +
+    'it. Double-click a timeline: start / stop.',
+    'Control panel (page 3): press SB1 and watch'#10 +
+    'the start-up, SB2 for the shut-down. Stop'#10 +
+    'the burner (S4): the moisture (Monitor) goes'#10 +
+    'up. Set TIC1 lower on its faceplate.',
+    'Page 3: watch the yellow path pick the valve;'#10 +
+    'switch AUTO off: every valve shuts. Change a'#10 +
+    'decision''s value (the set point). Theme >'#10 +
+    'Background picks another background.',
+    'Turn RV1 (wheel): faster or slower belt.'#10 +
+    'Select BC-01: change its Incline (-35..35).'#10 +
+    'Fault BC-01 (Properties): it stops on the'#10 +
+    'slope and the feed gate shuts.',
+    'Click SB2: the count starts again. Select'#10 +
+    'Bottles: pick what it feeds and how often,'#10 +
+    'give it a stock. Add an Item feeder from'#10 +
+    'the Equip tab anywhere.',
+    'Click SB0: the line stops and the boxes wait'#10 +
+    'at the pickers. Select a picker: Every s,'#10 +
+    'what it loads. Make the dock worker a slow'#10 +
+    'one (Carry s): the line backs up.');
 
   { the About page: what the example is for }
   AboutText: array[1..EXAMPLE_COUNT] of string = (
@@ -400,7 +498,47 @@ const
     'EXAMPLE 26 - COOLING TOWER, CHILLER & PH'#10 +
     'A cooling water loop with a tower under PID'#10 +
     'fan control, a chilled water loop, pH sensors'#10 +
-    'and the humidity of the tower''s plume.');
+    'and the humidity of the tower''s plume.',
+    'EXAMPLE 27 - FLOW CHART CONTROL'#10 +
+    'A flow chart reads the well and the pool on'#10 +
+    'another page, decides, and runs the pump;'#10 +
+    'its tags light lamps, its displays show values.',
+    'EXAMPLE 28 - FLOW CHART: SWITCHES & RANDOM'#10 +
+    'Random boolean, byte, integer and float values'#10 +
+    'switch S1, an air valve, an overload and a'#10 +
+    'selector through Switch ON / OFF / Position.',
+    'EXAMPLE 29 - TREND CHARTS'#10 +
+    'Charts record values and ON / OFF events over'#10 +
+    'time: a full chart with axes, legend and an'#10 +
+    'event strip, a mini chart and just a curve.',
+    'EXAMPLE 30 - TIMELINES'#10 +
+    'Timelines run in a loop or one cycle and send'#10 +
+    'fixed or kept input values to switches, pots'#10 +
+    'and names before, at and after each pin.',
+    'EXAMPLE 31 - ROTARY DRYER SYSTEM'#10 +
+    'A dryer drum, oil furnace, blow, combustion'#10 +
+    'and exhaust fans and a dust collector on'#10 +
+    'page 1; the control panel with start-up and'#10 +
+    'shut-down timelines on page 3; trends and'#10 +
+    'meters on page 4.',
+    'EXAMPLE 32 - PVC DRY BLEND PLANT'#10 +
+    'An HMI screen: three raw material lines, a'#10 +
+    'weigh hopper, hot and cool mixers, a storage'#10 +
+    'silo and the conveying line to the extruder,'#10 +
+    'run by a dosing flow chart and a timeline.',
+    'EXAMPLE 33 - BELT CONVEYOR SYSTEM'#10 +
+    'An inclined belt conveyor from a technical'#10 +
+    'drawing: feed hopper at the tail, gear motor'#10 +
+    'at the head, start / stop with E-stop and'#10 +
+    'overload, a VFD for its speed.',
+    'EXAMPLE 34 - BOTTLES, BOXES & TOYS'#10 +
+    'Item feeders drop whole pieces (bottles,'#10 +
+    'glasses, boxes, dolls) onto conveyors; a'#10 +
+    'photo sensor and a counter fill a crate.',
+    'EXAMPLE 35 - SHIPPING DOCK'#10 +
+    'Workers (order pickers) load boxes from'#10 +
+    'standard racks onto a roller conveyor; a dock'#10 +
+    'worker loads them into the box van.');
 
 procedure Feeder(x, y: Integer; Water, Oil, Fluff, Sand, Air, Feed: Single);
 begin
@@ -458,6 +596,7 @@ begin
   PagesReset;
   ClearAll;
   GravityScale := 1.0;
+  LayoutBg := -1;
   Pages[PAGE_PLANT].Name := 'Plant';
   Pages[PAGE_PLANT].NLayers := 2;
   Pages[PAGE_PLANT].Layers[LAYER_PROCESS].Name := 'Process';
@@ -1405,14 +1544,31 @@ begin
 end;
 
 { 16. Electro-pneumatic gate: cylinder A on a double-solenoid 5/2 valve opens a
-      hopper gate; Y1 out when A0, timer T1 holds it open, Y2 in. }
+      hopper gate; Y1 out when A0, timer T1 holds it open, Y2 in. The feed
+      gate lets sand in only while the system is on (K1). A flow chart shows
+      the step the cycle is in, a trend chart its timing. }
 procedure Example16;
 var
   e: Integer;
+  n: array[0..9] of Integer;
+
+  { a flow chart node that only reads (sized to fit) }
+  function FNode(Kind: Integer; X, Y, W, H: Single; const Caption, Src: string; Op: Integer; Value: Single): Integer;
+  begin
+    Result := FlowAdd(Kind, X, Y);
+    FlowNodes[Result].W := W;
+    FlowNodes[Result].H := H;
+    FlowNodes[Result].Caption := Caption;
+    FlowNodes[Result].Src := Src;
+    FlowNodes[Result].Op := Op;
+    FlowNodes[Result].Value := Value;
+  end;
+
 begin
   FluidLayers('Pneumatic', True);
+  Pages[PAGE_PLANT].Layers[2].Name := 'Equipment & chart';
   CurLayer := LAYER_PROCESS;
-  Feeder(8, 2, 0, 0, 0, 2600, 0, 70);
+  Feeder(8, 2, 0, 0, 0, 2600, 0, 40);
   PipeLine(8, 2, 8, 6, 3);
   Device(8, 6, ckDrop, 100);
   MakePipe(8, 13, 3);
@@ -1425,9 +1581,21 @@ begin
   e := Eq2(EQ_SLIDE, 172, 336, 56, 56, 'Gate01', EQS_STOP);
   Equips[e].LinkX := 8;
   Equips[e].LinkY := 13;
+  e := Eq2(EQ_SLIDE, 172, 84, 56, 44, 'FeedGate', EQS_STOP);
+  Equips[e].LinkX := 8;
+  Equips[e].LinkY := 2;
   e := Eq2(EQ_COMPRESSOR, 300, 640, 200, 112, 'Comp01', EQS_STOP);
   Equips[e].Src := 'R1';
   Equips[e].RMax := 10;
+  { the timing: how far the gate is open, the solenoids and the end switch }
+  e := Eq2(EQ_TREND, 240, 446, 330, 150, 'Timing', EQS_STOP);
+  Equips[e].Delay := 30;
+  Equips[e].RMin := 0;
+  Equips[e].RMax := 100;
+  Equips[e].Src := 'Gate01';
+  Equips[e].Src2 := 'Y1';
+  Equips[e].Src3 := 'A1';
+  Equips[e].Src4 := 'Y2';
 
   CurLayer := 3;
   AirSupply(24, 30, 42, 'Comp01');
@@ -1437,7 +1605,7 @@ begin
   FGrid[33, 26].SolB := 'Y2';
 
   CurLayer := 4;
-  Ladder(24, 42, 33, 1, 14);
+  Ladder(24, 42, 33, 1, 16);
   EP(24, 2, ekBreaker, 'Q1');
   EP(24, 3, ekFuse, 'F1');
   EWireLine(24, 5, 42, 5);
@@ -1459,11 +1627,37 @@ begin
   EWireLine(24, 14, 42, 14);
   EP(27, 14, ekNO, 'A1');
   EP(40, 14, ekLamp, 'H1');
+  { the feed gate is open while the system is on }
+  EWireLine(24, 16, 42, 16);
+  EP(27, 16, ekNO, 'K1');
+  EP(40, 16, ekMotor, 'M1', 'FeedGate');
+
+  { the cycle as a flow chart: it only reads, the yellow path is the step it is in now }
+  CurLayer := 2;
+  n[0] := FNode(FN_START, 316, 30, 100, 30, 'Cycle', '', 0, 0);
+  n[1] := FNode(FN_DECISION, 286, 76, 160, 60, 'System on?', 'K1', FOP_ON, 0);
+  n[2] := FNode(FN_DISPLAY, 462, 82, 104, 48, 'Click SB1', 'K1', FOP_OFF, 0);
+  n[3] := FNode(FN_DECISION, 286, 156, 160, 60, 'A in?', 'A0', FOP_ON, 0);
+  n[4] := FNode(FN_DISPLAY, 286, 236, 160, 48, '1 Y1: A goes out', 'Y1', FOP_ON, 0);
+  n[5] := FNode(FN_DECISION, 452, 156, 116, 60, 'A out?', 'A1', FOP_ON, 0);
+  n[6] := FNode(FN_DISPLAY, 452, 236, 116, 48, '2 Gate open', 'Gate01', FOP_GT, 50);
+  n[7] := FNode(FN_DISPLAY, 452, 300, 116, 48, '3 T1 counts', 'T1', FOP_GE, 0);
+  n[8] := FNode(FN_DISPLAY, 452, 364, 116, 48, '4 Y2: A in', 'Y2', FOP_ON, 0);
+  n[9] := FNode(FN_DISPLAY, 286, 300, 160, 48, 'A moving', 'Gate01', FOP_GT, 0);
+  FlowConnect(n[0], n[1], False);
+  FlowConnect(n[1], n[3], False);
+  FlowConnect(n[1], n[2], True);
+  FlowConnect(n[3], n[4], False);
+  FlowConnect(n[3], n[5], True);
+  FlowConnect(n[5], n[6], False);
+  FlowConnect(n[5], n[9], True);
+  FlowConnect(n[6], n[7], False);
+  FlowConnect(n[7], n[8], False);
 
   Notes;
-  AddLabel(24, 470, 'ELECTRO-PNEUMATIC GATE'#10'Hold SB1: K1 runs the cycle. Retracted'#10 +
-    '(A0) gives Y1: A goes out and opens'#10'Gate01; at A1 T1 counts 2 s, then Y2'#10 +
-    'brings A back. Again and again until SB0.');
+  AddLabel(8, 470, 'HOW TO USE'#10'1 Click SB1: K1'#10'  on, feed opens'#10'2 Y1 pushes A'#10'  out: Gate01'#10 +
+    '  opens, sand'#10'  falls in the bin'#10'3 At A1 T1'#10'  counts 2 s'#10'4 Y2 brings A'#10 +
+    '  back; again'#10'5 Click SB0:'#10'  stop'#10'Chart: yellow'#10'path = step now');
 end;
 
 { 17. Pneumatic logic: S1 AND S2 drive cylinder A, S3 OR S4 drive cylinder B. }
@@ -2151,6 +2345,1234 @@ begin
     'PH1 / PH2: pH in the buckets.');
 end;
 
+{ a flow chart node on the live page }
+function FN(Kind: Integer; X, Y: Single; const Caption: string): Integer;
+begin
+  Result := FlowAdd(Kind, X, Y);
+  FlowNodes[Result].Caption := Caption;
+end;
+
+procedure FNRead(i: Integer; const Src: string; Op: Integer; Value: Single);
+begin
+  FlowNodes[i].Src := Src;
+  FlowNodes[i].Op := Op;
+  FlowNodes[i].Value := Value;
+end;
+
+procedure FNAct(i, Act: Integer; const Target: string; Value: Single = 0);
+begin
+  FlowNodes[i].Act := Act;
+  FlowNodes[i].Target := Target;
+  FlowNodes[i].Value := Value;
+end;
+
+{ 27. A flow chart on page 1 runs the pump house on page 3: it reads the well and
+      the pool, decides, and starts / stops Pump01 there; a Delay and two Tag ON
+      actions light lamps through contacts; Displays show the values live. }
+procedure Example27;
+var
+  n: array[0..17] of Integer;
+begin
+  Pages[PAGE_PLANT].NLayers := 4;
+  Pages[PAGE_PLANT].Layers[2].Name := 'Flow chart';
+  Pages[PAGE_PLANT].Layers[3].Name := 'Electrical';
+  CurLayer := 2;
+  n[0] := FN(FN_START, 112, 40, 'Start');
+  n[1] := FN(FN_INPUT, 100, 110, 'Pool level');
+  FNRead(n[1], 'Pool01', FOP_GT, 0);
+  n[2] := FN(FN_DECISION, 88, 190, 'Well dry?');
+  FNRead(n[2], 'Well01', FOP_LT, 15);
+  n[3] := FN(FN_ACTION, 100, 310, 'Protect pump');
+  FNAct(n[3], FA_STOP, 'Pump01');
+  n[4] := FN(FN_ACTION, 100, 390, 'Dry alarm');
+  FNAct(n[4], FA_TAG, 'DRY');
+  n[5] := FN(FN_END, 112, 470, 'End');
+  n[6] := FN(FN_DECISION, 330, 190, 'Pool low?');
+  FNRead(n[6], 'Pool01', FOP_LT, 40);
+  n[7] := FN(FN_ACTION, 342, 310, 'Start pump');
+  FNAct(n[7], FA_RUN, 'Pump01');
+  n[8] := FN(FN_DELAY, 354, 390, 'Settle');
+  FlowNodes[n[8]].Value := 2;
+  n[9] := FN(FN_ACTION, 342, 470, 'Filling lamp');
+  FNAct(n[9], FA_TAG, 'FILLING');
+  n[10] := FN(FN_END, 354, 550, 'End');
+  n[11] := FN(FN_DECISION, 570, 190, 'Pool full?');
+  FNRead(n[11], 'Pool01', FOP_GT, 80);
+  n[12] := FN(FN_ACTION, 582, 310, 'Stop pump');
+  FNAct(n[12], FA_STOP, 'Pump01');
+  n[13] := FN(FN_END, 594, 390, 'End');
+  n[14] := FN(FN_END, 790, 210, 'End');
+  n[15] := FN(FN_DISPLAY, 100, 640, 'Pump01');
+  FNRead(n[15], 'Pump01', FOP_ON, 0);
+  n[16] := FN(FN_DISPLAY, 300, 640, 'Well01 level');
+  FNRead(n[16], 'Well01', FOP_GE, 15);
+  n[17] := FN(FN_DISPLAY, 500, 640, 'Pool01 level');
+  FNRead(n[17], 'Pool01', FOP_GE, 40);
+  FlowConnect(n[0], n[1], False);
+  FlowConnect(n[1], n[2], False);
+  FlowConnect(n[2], n[3], False);
+  FlowConnect(n[2], n[6], True);
+  FlowConnect(n[3], n[4], False);
+  FlowConnect(n[4], n[5], False);
+  FlowConnect(n[6], n[7], False);
+  FlowConnect(n[6], n[11], True);
+  FlowConnect(n[7], n[8], False);
+  FlowConnect(n[8], n[9], False);
+  FlowConnect(n[9], n[10], False);
+  FlowConnect(n[11], n[12], False);
+  FlowConnect(n[11], n[14], True);
+  FlowConnect(n[12], n[13], False);
+
+  { two lamps follow the chart's tags }
+  CurLayer := 3;
+  Ladder(30, 42, 36, 24, 28);
+  EWireLine(30, 26, 42, 26);
+  EP(33, 26, ekNO, 'FILLING');
+  EP(39, 26, ekLamp, 'H1');
+  EWireLine(30, 28, 42, 28);
+  EP(33, 28, ekNO, 'DRY');
+  EP(39, 28, ekLamp, 'H2');
+  EGrid[39, 28].Pos := 1;
+
+  Notes;
+  AddLabel(760, 290, 'FLOW CHART CONTROL'#10'Runs every frame and works the'#10'pump house on page 3.'#10 +
+    'Right-click a node that reads or'#10'works something: Go to it. Then'#10'right-click > Back to flow chart.');
+  Link(760, 400, 'Pump house', False, 2, 2);
+end;
+
+{ page 3 of example 27: the pump house the chart works }
+procedure Example27Pages;
+var
+  p, e: Integer;
+begin
+  ParkPage(PAGE_PLANT);
+  p := AddPage('Pump house');
+  CurPage := p;
+  UnparkPage(p);
+  Pages[p].NLayers := 2;
+  Pages[p].Layers[0].Name := 'Process';
+  Pages[p].Layers[1].Name := 'Notes';
+  CurLayer := 0;
+  PipeLine(8, 31, 8, 8, 3);
+  PipeLine(8, 8, 16, 8, 3);
+  PipeLine(16, 8, 16, 10, 3);
+  Device(8, 29, ckBlower, 95, 3);
+  Device(16, 10, ckDrop, 100);
+  PipeLine(22, 31, 22, 22, 3);
+  PipeLine(22, 22, 34, 22, 3);
+  PipeLine(34, 22, 34, 24, 3);
+  Device(22, 29, ckBlower, 95, 3);
+  Device(34, 24, ckDrop, 100);
+  e := Eq2(EQ_WELL, 24, 600, 104, 200, 'Well01', EQS_STOP);
+  Equips[e].Level := 90;
+  e := Eq2(EQ_PUMP, 132, 744, 104, 56, 'Pump01', EQS_STOP);
+  Equips[e].LinkX := 8;
+  Equips[e].LinkY := 29;
+  Equips[e].Level := 100;
+  e := Eq2(EQ_POOL, 300, 716, 210, 96, 'Pool01', EQS_STOP);
+  Equips[e].Level := 30;
+  e := Eq2(EQ_PUMP, 516, 744, 104, 56, 'Pump02', EQS_RUN);
+  Equips[e].LinkX := 22;
+  Equips[e].LinkY := 29;
+  Equips[e].Level := 30;
+  e := Eq2(EQ_POND, 760, 720, 264, 90, 'Pond01', EQS_STOP);
+  Equips[e].Level := 10;
+  CurLayer := 1;
+  AddLabel(400, 120, 'PUMP HOUSE (page 3)'#10'No circuit here: the flow chart on page 1'#10 +
+    'starts and stops Pump01 over the plant bus.'#10'Pump02 drains the pool all the time.');
+  Link(400, 210, 'Flow chart', False, PAGE_PLANT, 1);
+  CurLayer := 0;
+  ParkPage(p);
+  CurPage := PAGE_PLANT;
+  UnparkPage(PAGE_PLANT);
+end;
+
+{ 28. A flow chart works switches: a random coin turns switch S1 and the air
+      valve V1 on or off; a random load trips overload OL1, which is reset after
+      a cool-down; a random dice sets selector SA1; a random speed is shown. }
+procedure Example28;
+var
+  n: array[0..19] of Integer;
+begin
+  Pages[PAGE_PLANT].NLayers := 5;
+  Pages[PAGE_PLANT].Layers[2].Name := 'Flow chart';
+  Pages[PAGE_PLANT].Layers[3].Name := 'Electrical';
+  Pages[PAGE_PLANT].Layers[4].Name := 'Pneumatic';
+  CurLayer := 2;
+  n[0] := FN(FN_START, 40, 30, 'Start');
+  n[1] := FN(FN_RANDOM, 28, 96, 'Coin');
+  FlowNodes[n[1]].RType := FR_BOOL;
+  FlowNodes[n[1]].Value := 50;
+  FlowNodes[n[1]].Period := 2;
+  FlowNodes[n[1]].Target := 'COIN';
+  n[2] := FN(FN_ACTION, 28, 180, 'S1 on');
+  FNAct(n[2], FA_ON, 'S1');
+  n[3] := FN(FN_ACTION, 28, 250, 'V1 open');
+  FNAct(n[3], FA_ON, 'V1');
+  n[4] := FN(FN_ACTION, 232, 180, 'S1 off');
+  FNAct(n[4], FA_OFF, 'S1');
+  n[5] := FN(FN_ACTION, 232, 250, 'V1 shut');
+  FNAct(n[5], FA_OFF, 'V1');
+  n[6] := FN(FN_RANDOM, 28, 330, 'Load');
+  FlowNodes[n[6]].RType := FR_BYTE;
+  FlowNodes[n[6]].Value2 := 0;
+  FlowNodes[n[6]].Value := 255;
+  FlowNodes[n[6]].Period := 1;
+  FlowNodes[n[6]].Target := 'LOAD';
+  n[7] := FN(FN_DECISION, 16, 410, 'Overload?');
+  FNRead(n[7], 'LOAD', FOP_GT, 235);
+  n[8] := FN(FN_ACTION, 28, 530, 'Trip OL1');
+  FNAct(n[8], FA_OFF, 'OL1');
+  n[9] := FN(FN_END, 40, 610, 'End');
+  n[10] := FN(FN_DECISION, 220, 410, 'OL1 tripped?');
+  FNRead(n[10], 'OL1', FOP_ON, 0);
+  n[11] := FN(FN_DELAY, 244, 530, 'Cool down');
+  FlowNodes[n[11]].Value := 3;
+  n[12] := FN(FN_ACTION, 232, 610, 'Reset OL1');
+  FNAct(n[12], FA_RESET, 'OL1');
+  n[13] := FN(FN_RANDOM, 430, 430, 'Dice');
+  FlowNodes[n[13]].RType := FR_INT;
+  FlowNodes[n[13]].Value2 := 1;
+  FlowNodes[n[13]].Value := 3;
+  FlowNodes[n[13]].Period := 3;
+  FlowNodes[n[13]].Target := 'DICE';
+  n[14] := FN(FN_ACTION, 430, 530, 'SA1 = dice');
+  FNAct(n[14], FA_POS, 'SA1');
+  FlowNodes[n[14]].Src := 'DICE';
+  n[15] := FN(FN_END, 442, 610, 'End');
+  n[16] := FN(FN_RANDOM, 430, 96, 'Speed');
+  FlowNodes[n[16]].RType := FR_FLOAT;
+  FlowNodes[n[16]].Value2 := 0;
+  FlowNodes[n[16]].Value := 100;
+  FlowNodes[n[16]].Period := 2;
+  FlowNodes[n[16]].Target := 'SPEED';
+  n[17] := FN(FN_DISPLAY, 418, 180, 'Speed > 50?');
+  FNRead(n[17], 'SPEED', FOP_GT, 50);
+  n[18] := FN(FN_DISPLAY, 418, 260, 'Coin');
+  FNRead(n[18], 'COIN', FOP_ON, 0);
+  FlowConnect(n[0], n[1], False);
+  FlowConnect(n[1], n[2], False);
+  FlowConnect(n[1], n[4], True);
+  FlowConnect(n[2], n[3], False);
+  FlowConnect(n[4], n[5], False);
+  FlowConnect(n[3], n[6], False);
+  FlowConnect(n[5], n[6], False);
+  FlowConnect(n[6], n[7], False);
+  FlowConnect(n[7], n[8], False);
+  FlowConnect(n[7], n[10], True);
+  FlowConnect(n[8], n[9], False);
+  FlowConnect(n[10], n[11], False);
+  FlowConnect(n[10], n[13], True);
+  FlowConnect(n[11], n[12], False);
+  FlowConnect(n[13], n[14], False);
+  FlowConnect(n[14], n[15], False);
+
+  { the circuit the chart works }
+  CurLayer := 3;
+  Ladder(26, 43, 34, 1, 9);
+  EWireLine(26, 3, 43, 3);
+  EP(28, 3, ekBreaker, 'Q1');
+  EP(31, 3, ekSwitch, 'S1');
+  EP(35, 3, ekOL, 'OL1');
+  EP(40, 3, ekLamp, 'H1');
+  EWireLine(26, 5, 43, 5);
+  EP(32, 5, ekNO, 'OL1');
+  EP(40, 5, ekLamp, 'H2');
+  EGrid[40, 5].Pos := 1;
+  EWireLine(26, 7, 43, 7);
+  EP(32, 7, ekSelector, 'SA1');
+  EGrid[32, 7].NPos := 3;
+  EGrid[32, 7].Pos := 3;
+  EP(40, 7, ekLamp, 'H3');
+  EGrid[40, 7].Pos := 2;
+  EWireLine(26, 9, 43, 9);
+  EP(32, 9, ekNO, 'COIN');
+  EP(40, 9, ekLamp, 'H4');
+  EGrid[40, 9].Pos := 4;
+  { the air circuit: a manual 3/2 valve and a single-acting cylinder }
+  CurLayer := 4;
+  AirSupply(26, 30, 42, '');
+  FLineRun(39, 27, 39, 30);
+  FLineRun(38, 26, 37, 26);
+  FLineRun(37, 26, 37, 19);
+  FP(39, 25, fkSilencer, '');
+  FP(39, 26, fkV32, 'V1');
+  FP(37, 18, fkCylSA, 'B', 3, '');
+
+  Notes;
+  AddLabel(640, 260, 'FLOW CHART: SWITCHES & RANDOM'#10'COIN (random boolean) turns S1 and'#10 +
+    'valve V1 on / off; LOAD (random byte)'#10'trips OL1, reset after a cool-down;'#10 +
+    'DICE (random integer) sets SA1.');
+end;
+
+{ 29. Trend charts: a heater under on / off control (TT1, TIC1) and a flasher
+      (T1, relay K1) with a random demand (a flow chart) recorded on three
+      charts: Trend01 full (values, set point, events), Trend02 mini (the
+      temperature), Trend03 just the demand curve. }
+procedure Example29;
+var
+  e: Integer;
+  n: array[0..2] of Integer;
+begin
+  ElecLayers;
+  Pages[PAGE_PLANT].NLayers := 5;
+  Pages[PAGE_PLANT].Layers[4].Name := 'Flow chart';
+  CurLayer := 2;
+  e := Eq2(EQ_TREND, 24, 84, 560, 260, 'Trend01', EQS_STOP);
+  Equips[e].Mode := 0;
+  Equips[e].Delay := 60;
+  Equips[e].Src := 'TT1';
+  Equips[e].Src2 := 'TIC1.SP';
+  Equips[e].Src3 := 'K1';
+  Equips[e].Src4 := 'DEMAND';
+  e := Eq2(EQ_TREND, 24, 370, 272, 100, 'Trend02', EQS_STOP);
+  Equips[e].Mode := 1;
+  Equips[e].Delay := 30;
+  Equips[e].Src := 'TT1';
+  e := Eq2(EQ_TREND, 312, 370, 272, 100, 'Trend03', EQS_STOP);
+  Equips[e].Mode := 2;
+  Equips[e].Delay := 30;
+  Equips[e].Src := 'DEMAND';
+  e := Eq2(EQ_HEATER, 60, 640, 120, 56, 'Heater01', EQS_STOP);
+  e := Eq2(EQ_CONTROLLER, 640, 300, 168, 112, 'Heater control', EQS_STOP);
+  Equips[e].Src := 'TIC1';
+  e := Eq2(EQ_DIGITAL, 830, 300, 150, 52, 'Demand', EQS_STOP);
+  Equips[e].Src := 'DEMAND';
+  Equips[e].RMax := 100;
+
+  CurLayer := 3;
+  Ladder(26, 43, 34, 1, 9);
+  { TIC1: on / off, holds Heater01 at 80 C }
+  EWireLine(26, 3, 43, 3);
+  EP(29, 3, ekSwitch, 'S1');
+  EGrid[29, 3].On := True;
+  EP(40, 3, ekController, 'TIC1');
+  EGrid[40, 3].Pos := 0;
+  EGrid[40, 3].P1 := 80;
+  EGrid[40, 3].P2 := 10;
+  EGrid[40, 3].Src := 'TT1';
+  EWireLine(26, 5, 43, 5);
+  EP(32, 5, ekNO, 'TIC1');
+  EP(40, 5, ekMotor, 'M3', 'Heater01');
+  { T1 flashes (2 s on, 3 s off): relay K1 and lamp H1 }
+  EWireLine(26, 7, 43, 7);
+  EP(29, 7, ekSwitch, 'S2');
+  EGrid[29, 7].On := True;
+  EP(40, 7, ekTimer, 'T1');
+  EGrid[40, 7].Pos := 3;
+  EGrid[40, 7].P1 := 2;
+  EGrid[40, 7].P2 := 3;
+  EWireLine(26, 9, 43, 9);
+  EP(32, 9, ekNO, 'T1');
+  EP(40, 9, ekRelay, 'K1');
+  EP(6, 25, ekTempTx, 'TT1', 'Heater01');
+
+  { a random demand, 0..100 every second }
+  CurLayer := 4;
+  n[0] := FN(FN_START, 932, 470, 'Start');
+  n[1] := FN(FN_RANDOM, 920, 540, 'Demand');
+  FlowNodes[n[1]].RType := FR_FLOAT;
+  FlowNodes[n[1]].Value2 := 0;
+  FlowNodes[n[1]].Value := 100;
+  FlowNodes[n[1]].Period := 1;
+  FlowNodes[n[1]].Target := 'DEMAND';
+  n[2] := FN(FN_END, 932, 620, 'End');
+  FlowConnect(n[0], n[1], False);
+  FlowConnect(n[1], n[2], False);
+
+  Notes;
+  AddLabel(624, 470, 'TREND CHARTS'#10'Trend01 (Full): TT1, its set point,'#10 +
+    'relay K1 as events, DEMAND.'#10'Trend02 (Mini): TT1 and its value.'#10 +
+    'Trend03 (Curve): just the line.');
+end;
+
+{ a pin on timeline e: its time, how long "at" it lasts, values and targets before / at / after }
+procedure TLPin(e, Kind: Integer; T, W: Single; const Src: string; m0: Integer; v0: Single; const d0: string;
+  m1: Integer; v1: Single; const d1: string; m2: Integer; v2: Single; const d2: string);
+var
+  k: Integer;
+begin
+  k := TLAddPin(e, Kind, T);
+  if k < 0 then Exit;
+  Equips[e].Pins[k].W := W;
+  Equips[e].Pins[k].Src := Src;
+  Equips[e].Pins[k].VMode[0] := m0;
+  Equips[e].Pins[k].V[0] := v0;
+  Equips[e].Pins[k].Dest[0] := d0;
+  Equips[e].Pins[k].VMode[1] := m1;
+  Equips[e].Pins[k].V[1] := v1;
+  Equips[e].Pins[k].Dest[1] := d1;
+  Equips[e].Pins[k].VMode[2] := m2;
+  Equips[e].Pins[k].V[2] := v2;
+  Equips[e].Pins[k].Dest[2] := d2;
+end;
+
+{ 30. Timelines: Timeline01 (loop, auto start, 20 s) runs Pump01 through switch
+      S1 from 2 to 10 s, drives Pump02 at full speed (pot RV1) from 12 to 16 s,
+      and keeps Pool01's level at 10 s (Input Pin 1) as POOL10. Timeline02 (one
+      cycle) is started by push button SB1 and sounds BUZZ (a tag of its own)
+      for 3 s. }
+procedure Example30;
+var
+  e: Integer;
+begin
+  ElecLayers;
+  CurLayer := LAYER_PROCESS;
+  { Pump01: well -> pool }
+  PipeLine(8, 31, 8, 8, 3);
+  PipeLine(8, 8, 16, 8, 3);
+  PipeLine(16, 8, 16, 10, 3);
+  Device(8, 29, ckBlower, 95, 3);
+  Device(16, 10, ckDrop, 100);
+  { Pump02: pool -> pond }
+  PipeLine(22, 31, 22, 22, 3);
+  PipeLine(22, 22, 34, 22, 3);
+  PipeLine(34, 22, 34, 24, 3);
+  Device(22, 29, ckBlower, 95, 3);
+  Device(34, 24, ckDrop, 100);
+
+  CurLayer := 2;
+  e := Eq2(EQ_WELL, 24, 600, 104, 200, 'Well01', EQS_STOP);
+  Equips[e].Level := 90;
+  e := Eq2(EQ_PUMP, 132, 744, 104, 56, 'Pump01', EQS_STOP);
+  Equips[e].LinkX := 8;
+  Equips[e].LinkY := 29;
+  e := Eq2(EQ_POOL, 300, 716, 210, 96, 'Pool01', EQS_STOP);
+  Equips[e].Level := 30;
+  e := Eq2(EQ_PUMP, 516, 744, 104, 56, 'Pump02', EQS_STOP);
+  Equips[e].LinkX := 22;
+  Equips[e].LinkY := 29;
+  e := Eq2(EQ_POND, 760, 720, 264, 90, 'Pond01', EQS_STOP);
+  Equips[e].Level := 10;
+  e := Eq2(EQ_TIMELINE, 420, 272, 600, 130, 'Timeline01', EQS_STOP);
+  Equips[e].Delay := 20;
+  Equips[e].Mode := TL_LOOP or TL_AUTO;
+  TLPin(e, TLP_FIX, 2, 8, '', TLV_FIX, 0, 'S1', TLV_FIX, 1, 'S1', TLV_FIX, 0, 'S1');
+  TLPin(e, TLP_FIX, 12, 4, '', TLV_FIX, 30, 'RV1', TLV_FIX, 100, 'RV1', TLV_FIX, 30, 'RV1');
+  TLPin(e, TLP_INPUT, 10, 1, 'Pool01', TLV_NONE, 0, '', TLV_LIVE, 0, '', TLV_HELD, 0, 'POOL10');
+  e := Eq2(EQ_TIMELINE, 420, 428, 380, 96, 'Timeline02', EQS_STOP);
+  Equips[e].Delay := 6;
+  Equips[e].Src := 'SB1';
+  TLPin(e, TLP_FIX, 1, 3, '', TLV_FIX, 0, 'BUZZ', TLV_FIX, 1, 'BUZZ', TLV_FIX, 0, 'BUZZ');
+  e := Eq2(EQ_DIGITAL, 820, 440, 200, 52, 'Pool at 10 s', EQS_STOP);
+  Equips[e].Src := 'POOL10';
+
+  CurLayer := 3;
+  Ladder(26, 43, 34, 1, 9);
+  { S1 runs Pump01: Fix Pin 1 switches it }
+  EWireLine(26, 3, 43, 3);
+  EP(29, 3, ekSwitch, 'S1');
+  EP(40, 3, ekMotor, 'M1', 'Pump01');
+  { drive U1 runs Pump02 at the speed of RV1: Fix Pin 2 turns it }
+  EWireLine(26, 5, 43, 5);
+  EP(29, 5, ekSwitch, 'S2');
+  EGrid[29, 5].On := True;
+  EP(40, 5, ekDrive, 'U1', 'Pump02');
+  EGrid[40, 5].Src := 'RV1';
+  EP(28, 10, ekPot, 'RV1');
+  EGrid[28, 10].P1 := 30;
+  { Timeline02's tag BUZZ lights H2; SB1 starts Timeline02 (and lights H3) }
+  EWireLine(26, 7, 43, 7);
+  EP(32, 7, ekNO, 'BUZZ');
+  EP(40, 7, ekLamp, 'H2');
+  EGrid[40, 7].Pos := 1;
+  EWireLine(26, 9, 43, 9);
+  EP(29, 9, ekPBNO, 'SB1');
+  EP(40, 9, ekLamp, 'H3');
+  EGrid[40, 9].Pos := 2;
+
+  Notes;
+  AddLabel(220, 24, 'TIMELINES'#10'Timeline01: loop, auto start, 20 s.'#10 +
+    'Fix Pin 1 switches S1 (Pump01) 2-10 s,'#10'Fix Pin 2 sets RV1 (Pump02) 12-16 s,'#10 +
+    'Input Pin 1 keeps Pool01 at 10 s.'#10'Press SB1: Timeline02 sounds BUZZ.');
+end;
+
+{ 31. A rotary dryer system, as in a dryer maker's flow sheet. Page 1 "Dryer":
+      wet sand with fines drops into the raw material hopper; the loading feeder
+      pushes it into the dryer drum (Dryer01, turned by its drive). Outside air
+      is heated in the oil furnace and the blow fan drives it into the drum;
+      two hot zones in the drum boil the water off. Dried sand falls out of the
+      discharge hood into the product bin; the exhaust fan draws the air, steam
+      and fines up to the dust collector, which drops the dust into its bin and
+      lets the air go to the outside. Page 3 "Control": the motor circuits and
+      the burner controller TIC1, worked by start-up and shut-down timelines.
+      Page 4 "Monitor": trend chart, faceplate and displays. }
+procedure Example31;
+var
+  e, x: Integer;
+begin
+  ElecLayers;
+  Pages[PAGE_PLANT].Name := 'Dryer';
+  Pages[PAGE_PLANT].Layers[3].Name := 'Instruments';
+  CurLayer := LAYER_PROCESS;
+  { raw material: wet sand with fines, into the hopper }
+  Feeder(4, 2, 1600, 0, 350, 3000, 10, 55);
+  PipeLine(4, 2, 4, 5, 3);
+  Device(4, 5, ckDrop, 100);
+  MakePipe(4, 10, 3);
+  SetKind(4, 10, ckHopper);
+  { the loading feeder pushes it down into the drum; a one-way pipe keeps the hot air out of the hopper }
+  PipeLine(4, 10, 4, 16, 3);
+  Device(4, 13, ckBlower, 60, 1);
+  PipeLine(4, 16, 28, 16, 3);
+  Device(6, 16, ckCheck, -1, 0);
+  { the drum: wide, its flights move the load along }
+  for x := 9 to 26 do Grid[x, 16].Dia := 5;
+  Device(10, 16, ckBlower, 25, 0);
+  { hot air: outside air -> oil furnace -> blow fan -> into the drum }
+  PipeLine(20, 27, 8, 27, 3);
+  Device(20, 27, ckSuction, 20);
+  Device(12, 27, ckBlower, 45, 2);
+  PipeLine(8, 27, 8, 16, 3);
+  { discharge hood: the dried product falls out of the drum into its bin; beside the falling
+    stream the exhaust intake draws the fines (light) and the air away, hardly the sand (heavy) }
+  PipeLine(28, 16, 28, 18, 3);
+  Device(28, 18, ckDrop, 100);
+  FloorBucket(28, 150, 100);
+  PipeLine(30, 21, 34, 21, 3);
+  Device(30, 21, ckSuction, 45);
+  PipeLine(34, 21, 34, 22, 3);
+  PipeLine(34, 21, 34, 5, 3);
+  Device(34, 12, ckBlower, 60, 3);
+  PipeLine(34, 5, 36, 5, 3);
+  PipeLine(36, 5, 36, 10, 3);
+  Device(36, 10, ckDrop, 100);
+  { the dust collector drops the dust into its funnel and bin; the air goes outside }
+  MakePipe(36, 14, 3);
+  SetKind(36, 14, ckHopper);
+  PipeLine(36, 14, 36, 22, 3);
+  Device(36, 22, ckDrop, 100);
+  FloorBucket(36, 110, 80);
+
+  CurLayer := 2;
+  e := Eq2(EQ_DRYER, 84, 356, 600, 96, 'Dryer01', EQS_STOP);
+  Equips[e].LinkX := 10;
+  Equips[e].LinkY := 16;
+  e := Eq2(EQ_MOTOR, 128, 296, 64, 40, 'LoadFeeder', EQS_STOP);
+  Equips[e].LinkX := 4;
+  Equips[e].LinkY := 13;
+  e := Eq2(EQ_HEATER, 300, 300, 72, 40, 'Zone1', EQS_STOP);
+  Equips[e].LinkX := 14;
+  Equips[e].LinkY := 16;
+  e := Eq2(EQ_HEATER, 468, 470, 72, 40, 'Zone2', EQS_STOP);
+  Equips[e].LinkX := 21;
+  Equips[e].LinkY := 16;
+  e := Eq2(EQ_HEATER, 360, 690, 110, 56, 'Furnace01', EQS_STOP);
+  Equips[e].LinkX := 16;
+  Equips[e].LinkY := 27;
+  e := Eq2(EQ_BLOWER, 480, 712, 84, 80, 'CombFan01', EQS_STOP);
+  Equips[e].Flip := True;
+  e := Eq2(EQ_BLOWER, 236, 690, 110, 100, 'BlowFan01', EQS_STOP);
+  Equips[e].LinkX := 12;
+  Equips[e].LinkY := 27;
+  e := Eq2(EQ_BLOWER, 712, 236, 104, 96, 'ExhaustFan01', EQS_STOP);
+  Equips[e].LinkX := 34;
+  Equips[e].LinkY := 12;
+  e := Eq2(EQ_CYCLONE, 848, 150, 56, 112, 'DustCol01', EQS_STOP);
+
+  { the instruments: furnace temperature, the product's moisture and weight, the dust's weight }
+  CurLayer := 3;
+  EP(20, 29, ekTempTx, 'TT1', 'Furnace01');
+  EP(28, 33, ekHumidTx, 'MT1');
+  EGrid[28, 33].Pos := 1;
+  EP(30, 33, ekWeightTx, 'WT1');
+  EP(36, 33, ekWeightTx, 'WT2');
+
+  Notes;
+  AddLabel(140, 40, 'RAW MATERIAL INLET'#10'wet sand + fines');
+  AddLabel(140, 236, 'LOADING FEEDER');
+  AddLabel(300, 256, 'DRYER MAIN UNIT - hot zones');
+  AddLabel(24, 560, 'HOT AIR'#10'outside air -> oil furnace'#10'-> blow fan -> drum');
+  AddLabel(700, 200, 'EXHAUST FAN');
+  AddLabel(912, 150, 'DUST'#10'COLLECTOR');
+  AddLabel(912, 200, 'exhaust air'#10'to outside');
+  AddLabel(530, 480, 'DRIED PRODUCT'#10'OUTLET');
+  AddLabel(780, 560, 'exhaust intake:'#10'fines + air');
+  Link(24, 470, 'Control panel', False, 2, 2);
+  Link(24, 494, 'Monitor', False, 3, 3);
+end;
+
+{ pages 3 and 4 of example 31, after its About page }
+procedure Example31Pages;
+var
+  p, e: Integer;
+
+  { a rung on row y: up to three contacts, then the load at column 23 }
+  procedure Rung(y: Integer; K1: TEKind; const T1: string; K2: TEKind; const T2: string; K3: TEKind;
+    const T3: string; Load: TEKind; const LT, LRef: string);
+  begin
+    EWireLine(2, y, 26, y);
+    if T1 <> '' then EP(5, y, K1, T1);
+    if T2 <> '' then EP(9, y, K2, T2);
+    if T3 <> '' then EP(13, y, K3, T3);
+    EP(23, y, Load, LT, LRef);
+  end;
+
+begin
+  ParkPage(PAGE_PLANT);
+  { page 3: the control panel }
+  p := AddPage('Control');
+  CurPage := p;
+  UnparkPage(p);
+  Pages[p].NLayers := 3;
+  Pages[p].Layers[0].Name := 'Electrical';
+  Pages[p].Layers[1].Name := 'Notes';
+  Pages[p].Layers[2].Name := 'Sequence';
+  CurLayer := 0;
+  Ladder(2, 26, 14, 1, 33);
+  Rung(3, ekEStop, 'ES1', ekNone, '', ekNone, '', ekRelay, 'K0', '');
+  Rung(5, ekNO, 'K0', ekSwitch, 'S1', ekNone, '', ekContactor, 'KM1', '');
+  Rung(7, ekNO, 'KM1', ekSwitch, 'S2', ekNone, '', ekContactor, 'KM2', '');
+  Rung(9, ekNO, 'KM2', ekSwitch, 'S3', ekNone, '', ekContactor, 'KM3', '');
+  Rung(11, ekNO, 'K0', ekNone, '', ekNone, '', ekController, 'TIC1', '');
+  EGrid[23, 11].Pos := 0;
+  EGrid[23, 11].P1 := 180;
+  EGrid[23, 11].P2 := 20;
+  EGrid[23, 11].Src := 'TT1';
+  Rung(13, ekNO, 'KM3', ekSwitch, 'S4', ekNO, 'TIC1', ekContactor, 'KM4', '');
+  Rung(15, ekNO, 'K0', ekSwitch, 'S5', ekNone, '', ekContactor, 'KM5', '');
+  Rung(17, ekNO, 'KM5', ekNO, 'KM2', ekSwitch, 'S6', ekContactor, 'KM6', '');
+  Rung(19, ekNO, 'KM1', ekNone, '', ekNone, '', ekMotor, 'M1', 'ExhaustFan01');
+  Rung(21, ekNO, 'KM2', ekNone, '', ekNone, '', ekMotor, 'M2', 'BlowFan01');
+  Rung(23, ekNO, 'KM3', ekNone, '', ekNone, '', ekMotor, 'M3', 'CombFan01');
+  Rung(25, ekNO, 'KM4', ekNone, '', ekNone, '', ekMotor, 'M4', 'Furnace01');
+  Rung(27, ekNO, 'KM4', ekNone, '', ekNone, '', ekMotor, 'M5', 'Zone1');
+  Rung(29, ekNO, 'KM4', ekNone, '', ekNone, '', ekMotor, 'M6', 'Zone2');
+  Rung(31, ekNO, 'KM5', ekNone, '', ekNone, '', ekMotor, 'M7', 'Dryer01');
+  Rung(33, ekNO, 'KM6', ekNone, '', ekNone, '', ekMotor, 'M8', 'LoadFeeder');
+  { the start and stop buttons: they start the two timelines }
+  EP(31, 18, ekPBNO, 'SB1');
+  EP(37, 18, ekPBNO, 'SB2');
+
+  CurLayer := 2;
+  e := Eq2(EQ_TIMELINE, 680, 40, 360, 130, 'Startup', EQS_STOP);
+  Equips[e].Delay := 12;
+  Equips[e].Src := 'SB1';
+  TLPin(e, TLP_FIX, 0.5, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 1, 'S1', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 2, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 1, 'S2', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 4, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 1, 'S3', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 6, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 1, 'S4', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 8, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 1, 'S5', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 10.5, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 1, 'S6', TLV_NONE, 0, '');
+  e := Eq2(EQ_TIMELINE, 680, 210, 360, 130, 'Shutdown', EQS_STOP);
+  Equips[e].Delay := 14;
+  Equips[e].Src := 'SB2';
+  TLPin(e, TLP_FIX, 0.5, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 0, 'S6', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 2.5, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 0, 'S4', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 6, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 0, 'S3', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 8.5, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 0, 'S5', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 11, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 0, 'S2', TLV_NONE, 0, '');
+  TLPin(e, TLP_FIX, 13, 0.5, '', TLV_NONE, 0, '', TLV_FIX, 0, 'S1', TLV_NONE, 0, '');
+
+  CurLayer := 1;
+  AddLabel(700, 470, 'CONTROL PANEL (page 3)'#10'SB1: start-up - exhaust fan, blow fan,'#10 +
+    'combustion fan, burner, drum, feeder.'#10'SB2: shut-down in the other order; the'#10 +
+    'fans run on to purge and cool.'#10'TIC1 holds the furnace at 180 C (TT1).'#10 +
+    'ES1 (E-stop) drops everything.');
+  AddLabel(700, 400, 'SB1 start      SB2 stop');
+  Link(700, 660, 'Dryer', False, PAGE_PLANT, 1);
+  Link(800, 660, 'Monitor', False, 3, 3);
+  CurLayer := 0;
+  ParkPage(p);
+
+  { page 4: the monitor }
+  p := AddPage('Monitor');
+  CurPage := p;
+  UnparkPage(p);
+  Pages[p].Layers[0].Name := 'Meters';
+  CurLayer := 0;
+  e := Eq2(EQ_TREND, 24, 40, 640, 300, 'Dryer trend', EQS_STOP);
+  Equips[e].Delay := 120;
+  Equips[e].Src := 'TT1';
+  Equips[e].Src2 := 'MT1';
+  Equips[e].Src3 := 'KM4';
+  Equips[e].Src4 := 'KM6';
+  e := Eq2(EQ_TREND, 24, 380, 300, 110, 'Product', EQS_STOP);
+  Equips[e].Mode := 1;
+  Equips[e].Delay := 120;
+  Equips[e].Src := 'WT1';
+  e := Eq2(EQ_TREND, 364, 380, 300, 110, 'Dust', EQS_STOP);
+  Equips[e].Mode := 1;
+  Equips[e].Delay := 120;
+  Equips[e].Src := 'WT2';
+  e := Eq2(EQ_CONTROLLER, 720, 40, 196, 128, 'Burner TIC1', EQS_STOP);
+  Equips[e].Src := 'TIC1';
+  e := Eq2(EQ_DIGITAL, 720, 200, 196, 56, 'Furnace C', EQS_STOP);
+  Equips[e].Src := 'TT1';
+  Equips[e].RMax := 300;
+  e := Eq2(EQ_DIGITAL, 720, 296, 196, 56, 'Product moisture %', EQS_STOP);
+  Equips[e].Src := 'MT1';
+  e := Eq2(EQ_DIGITAL, 720, 392, 196, 56, 'Product kg', EQS_STOP);
+  Equips[e].Src := 'WT1';
+  Equips[e].RMax := 200;
+  e := Eq2(EQ_DIGITAL, 720, 488, 196, 56, 'Dust kg', EQS_STOP);
+  Equips[e].Src := 'WT2';
+  Equips[e].RMax := 200;
+  AddLabel(24, 540, 'MONITOR (page 4)'#10'The furnace temperature, the moisture of the'#10 +
+    'dried product, the burner (KM4) and the feeder'#10'(KM6) as events, and what the bins hold.');
+  Link(24, 640, 'Dryer', False, PAGE_PLANT, 1);
+  Link(124, 640, 'Control panel', False, 2, 2);
+  ParkPage(p);
+  CurPage := PAGE_PLANT;
+  UnparkPage(PAGE_PLANT);
+end;
+
+{ 32. A PVC dry blend plant, as on a mixing plant's HMI screen. Page 1 "Mixing
+      plant": three raw material lines (CaCO3, regrind, PVC + additives) are
+      conveyed (XM7.14) into weigh hopper WI7.50; it empties through V7.53 into
+      the hot mixer T3, which also takes the pre-weighed additives (XM8.03,
+      V8.03); T3 empties through VT3 into the cool mixer T4; its batch is blown
+      (XM9.01) up to silo H9.3, whose rotary valve XM9.03 feeds the conveying
+      line (XM9.13) to the extruder. Page 3 "Batch control": the dosing flow
+      chart, the mixing timeline, the AUTO switch and the level switches. Page 4
+      "Trends". The layout comes with the HMI blue background. }
+procedure Example32;
+var
+  e, k: Integer;
+const
+  RawX: array[0..2] of Integer = (2, 5, 8);
+  RawName: array[0..2] of string = ('V7.56', 'V7.57', 'V7.58');
+  RawLabel: array[0..2] of string = ('CaCO3', 'REGRIND', 'PVC +'#10'ADDITIVES');
+begin
+  Pages[PAGE_PLANT].Name := 'Mixing plant';
+  Pages[PAGE_PLANT].NLayers := 3;
+  Pages[PAGE_PLANT].Layers[2].Name := 'Equipment';
+  LayoutBg := 3;
+  CurLayer := LAYER_PROCESS;
+  { the raw material lines: CaCO3 (sand), regrind (sand + fluff), PVC + additives (fluff) }
+  Feeder(2, 16, 0, 0, 0, 3000, 10, 90);
+  Feeder(5, 16, 0, 0, 1500, 1500, 10, 90);
+  Feeder(8, 16, 0, 0, 3000, 0, 10, 90);
+  for k := 0 to 2 do
+  begin
+    PipeLine(RawX[k], 16, RawX[k], 3, 3);
+    Device(RawX[k], 14, ckBlower, 80, 3);
+  end;
+  { the conveying header into the weigh hopper }
+  PipeLine(2, 3, 14, 3, 3);
+  Device(11, 3, ckBlower, 60, 0);
+  PipeLine(14, 3, 14, 5, 3);
+  Device(14, 5, ckDrop, 100);
+  { weigh hopper WI7.50 (a silo), its outlet one-way down to the hot mixer }
+  MakePipe(14, 10, 3);
+  SetKind(14, 10, ckSilo);
+  Grid[14, 10].Feed := 100;
+  PipeLine(14, 10, 14, 13, 3);
+  Device(14, 11, ckCheck, -1, 1);
+  Device(14, 13, ckDrop, 100);
+  { the pre-weighed additives (oil) join the drop into T3 }
+  Feeder(26, 12, 0, 1200, 0, 0, 0, 60);
+  PipeLine(26, 12, 14, 12, 3);
+  Device(24, 12, ckBlower, 50, 2);
+  { hot mixer T3, then over to the cool mixer T4 }
+  MakePipe(14, 20, 3);
+  SetKind(14, 20, ckSilo);
+  Grid[14, 20].Feed := 100;
+  PipeLine(14, 20, 14, 22, 3);
+  PipeLine(14, 22, 19, 22, 3);
+  Device(16, 22, ckBlower, 60, 0);
+  PipeLine(19, 22, 19, 25, 3);
+  Device(19, 25, ckDrop, 100);
+  MakePipe(19, 30, 3);
+  SetKind(19, 30, ckSilo);
+  Grid[19, 30].Feed := 100;
+  { the transport line up to silo H9.3 }
+  PipeLine(19, 30, 19, 31, 3);
+  PipeLine(19, 31, 30, 31, 3);
+  Device(22, 31, ckBlower, 95, 0);
+  PipeLine(30, 31, 30, 4, 3);
+  PipeLine(30, 4, 36, 4, 3);
+  PipeLine(36, 4, 36, 11, 3);
+  Device(36, 11, ckDrop, 100);
+  MakePipe(36, 16, 3);
+  SetKind(36, 16, ckSilo);
+  Grid[36, 16].Feed := 100;
+  { rotary valve and conveying line to the extruder }
+  PipeLine(36, 16, 36, 25, 3);
+  PipeLine(36, 25, 41, 25, 3);
+  Device(38, 25, ckBlower, 70, 0);
+  PipeLine(41, 25, 41, 27, 3);
+  Device(41, 27, ckDrop, 100);
+  FloorBucket(41, 110, 130);
+
+  CurLayer := 2;
+  for k := 0 to 2 do
+  begin
+    e := Eq2(EQ_SLIDE, RawX[k] * CELL - 6, 424 + k * 56, 36, 36, RawName[k], EQS_STOP);
+    Equips[e].LinkX := RawX[k];
+    Equips[e].LinkY := 16;
+  end;
+  e := Eq2(EQ_BLOWER, 212, 100, 80, 72, 'XM7.14', EQS_RUN);
+  Equips[e].LinkX := 11;
+  Equips[e].LinkY := 3;
+  e := Eq2(EQ_SILO, 290, 128, 92, 150, 'WI7.50', EQS_STOP);
+  Equips[e].LinkX := 14;
+  Equips[e].LinkY := 10;
+  e := Eq2(EQ_SLIDE, 380, 252, 36, 30, 'V7.53', EQS_STOP);
+  Equips[e].LinkX := 14;
+  Equips[e].LinkY := 10;
+  e := Eq2(EQ_SCREW, 600, 330, 170, 34, 'XM8.03', EQS_RUN);
+  Equips[e].LinkX := 24;
+  Equips[e].LinkY := 12;
+  e := Eq2(EQ_SLIDE, 664, 252, 36, 30, 'V8.03', EQS_STOP);
+  Equips[e].LinkX := 26;
+  Equips[e].LinkY := 12;
+  e := Eq2(EQ_SILO, 286, 372, 100, 128, 'T3', EQS_STOP);
+  Equips[e].LinkX := 14;
+  Equips[e].LinkY := 20;
+  e := Eq2(EQ_MOTOR, 206, 440, 70, 44, 'T3 motor', EQS_STOP);
+  Equips[e].LinkX := 14;
+  Equips[e].LinkY := 20;
+  e := Eq2(EQ_SLIDE, 380, 500, 36, 30, 'VT3', EQS_STOP);
+  Equips[e].LinkX := 14;
+  Equips[e].LinkY := 20;
+  e := Eq2(EQ_SILO, 404, 612, 112, 124, 'T4', EQS_STOP);
+  Equips[e].LinkX := 19;
+  Equips[e].LinkY := 30;
+  e := Eq2(EQ_MOTOR, 324, 684, 70, 44, 'T4 motor', EQS_STOP);
+  Equips[e].LinkX := 19;
+  Equips[e].LinkY := 30;
+  e := Eq2(EQ_SLIDE, 500, 736, 36, 30, 'VT4', EQS_STOP);
+  Equips[e].LinkX := 19;
+  Equips[e].LinkY := 30;
+  e := Eq2(EQ_BLOWER, 556, 680, 84, 76, 'XM9.01', EQS_RUN);
+  Equips[e].LinkX := 22;
+  Equips[e].LinkY := 31;
+  e := Eq2(EQ_SILO, 816, 150, 120, 258, 'H9.3', EQS_STOP);
+  Equips[e].LinkX := 36;
+  Equips[e].LinkY := 16;
+  e := Eq2(EQ_MOTOR, 770, 420, 60, 40, 'XM9.03', EQS_STOP);
+  Equips[e].LinkX := 36;
+  Equips[e].LinkY := 16;
+  e := Eq2(EQ_BLOWER, 852, 640, 72, 66, 'XM9.13', EQS_RUN);
+  Equips[e].LinkX := 38;
+  Equips[e].LinkY := 25;
+  { the weigh panel }
+  e := Eq2(EQ_DIGITAL, 428, 64, 132, 52, 'GROSS WEIGHT %', EQS_STOP);
+  Equips[e].Src := 'WI7.50';
+  Equips[e].RMax := 100;
+  e := Eq2(EQ_DIGITAL, 570, 64, 132, 52, 'T3 BATCH %', EQS_STOP);
+  Equips[e].Src := 'T3';
+  Equips[e].RMax := 100;
+  e := Eq2(EQ_DIGITAL, 428, 152, 132, 52, 'H9.3 LEVEL %', EQS_STOP);
+  Equips[e].Src := 'H9.3';
+  Equips[e].RMax := 100;
+  e := Eq2(EQ_DIGITAL, 570, 152, 132, 52, 'MIXING s', EQS_STOP);
+  Equips[e].Src := 'Mixing';
+  Equips[e].RMax := 60;
+
+  Notes;
+  AddFrame(418, 24, 292, 204, 'WI7.50 - weigh panel');
+  Frames[0].Color := 1;
+  for k := 0 to 2 do AddLabel(RawX[k] * CELL + 14, 186 + k * 34, RawLabel[k]);
+  AddLabel(560, 230, 'PRE WEIGHED ADDITIVES');
+  AddLabel(220, 560, 'HOT & COOL'#10'MIXERS');
+  AddLabel(944, 160, 'H9.3'#10'silo');
+  AddLabel(900, 560, 'TO EXTRUDER');
+  AddLabel(8, 640, 'Set point 15 %: CaCO3 to 6 %,'#10'regrind to 10 %, PVC to 15 %.'#10 +
+    'Switch AUTO on page 3.');
+  Link(8, 720, 'Batch control', False, 2, 2);
+  Link(140, 720, 'Trends', False, 3, 3);
+end;
+
+{ pages 3 and 4 of example 32, after its About page }
+procedure Example32Pages;
+var
+  p, e, k: Integer;
+  d: array[1..6] of Integer;
+  s: array[0..3] of Integer;
+  a: array[0..9] of Integer;
+
+  function Node(Kind: Integer; X, Y, W, H: Single; const Caption: string): Integer;
+  begin
+    Result := FlowAdd(Kind, X, Y);
+    FlowNodes[Result].W := W;
+    FlowNodes[Result].H := H;
+    FlowNodes[Result].Caption := Caption;
+  end;
+
+  function Act(X, Y: Single; Run: Boolean; const Target: string): Integer;
+  begin
+    if Run then Result := Node(FN_ACTION, X, Y, 120, 36, 'Open ' + Target)
+    else Result := Node(FN_ACTION, X, Y, 120, 36, 'Close ' + Target);
+    if Run then FNAct(Result, FA_RUN, Target) else FNAct(Result, FA_STOP, Target);
+  end;
+
+  { a row of three valve actions (one open), then End }
+  procedure Row(Y: Single; Open: Integer; From: Integer; No: Boolean);
+  var
+    j, prev, n: Integer;
+  begin
+    prev := From;
+    for j := 0 to 2 do
+    begin
+      n := Act(200 + j * 140, Y, j = Open, 'V7.5' + Chr(Ord('6') + j));
+      FlowConnect(prev, n, No and (j = 0));
+      prev := n;
+    end;
+    n := Node(FN_END, 620, Y + 4, 80, 28, 'End');
+    FlowConnect(prev, n, False);
+  end;
+
+begin
+  ParkPage(PAGE_PLANT);
+  { page 3: batch control }
+  p := AddPage('Batch control');
+  CurPage := p;
+  UnparkPage(p);
+  Pages[p].NLayers := 4;
+  Pages[p].Layers[0].Name := 'Flow chart';
+  Pages[p].Layers[1].Name := 'Notes';
+  Pages[p].Layers[2].Name := 'Timeline';
+  Pages[p].Layers[3].Name := 'Electrical';
+  CurLayer := 0;
+  { dosing: weigh in CaCO3, regrind and PVC one after another, then start the mixing timeline }
+  k := Node(FN_START, 35, 16, 120, 30, 'Dosing');
+  d[1] := Node(FN_DECISION, 20, 64, 150, 56, 'AUTO on?');
+  FNRead(d[1], 'AUTO', FOP_ON, 0);
+  d[2] := Node(FN_DECISION, 20, 136, 150, 56, 'Mixing idle?');
+  FNRead(d[2], 'Mixing', FOP_OFF, 0);
+  d[3] := Node(FN_DECISION, 20, 208, 150, 56, 'H9.3 room?');
+  FNRead(d[3], 'H9.3', FOP_LT, 85);
+  d[4] := Node(FN_DECISION, 20, 280, 150, 56, 'CaCO3 in?');
+  FNRead(d[4], 'WI7.50', FOP_GE, 6);
+  d[5] := Node(FN_DECISION, 20, 352, 150, 56, 'Regrind in?');
+  FNRead(d[5], 'WI7.50', FOP_GE, 10);
+  d[6] := Node(FN_DECISION, 20, 424, 150, 56, 'PVC in? (SP)');
+  FNRead(d[6], 'WI7.50', FOP_GE, 15);
+  FlowConnect(k, d[1], False);
+  for k := 1 to 5 do FlowConnect(d[k], d[k + 1], False);
+  { the valves shut: not on, mixing, silo full, or the batch is weighed }
+  s[0] := Act(760, 64, False, 'V7.56');
+  s[1] := Act(760, 120, False, 'V7.57');
+  s[2] := Act(760, 176, False, 'V7.58');
+  s[3] := Node(FN_END, 780, 230, 80, 28, 'End');
+  FlowConnect(s[0], s[1], False);
+  FlowConnect(s[1], s[2], False);
+  FlowConnect(s[2], s[3], False);
+  FlowConnect(d[1], s[0], True);
+  FlowConnect(d[2], s[0], True);
+  FlowConnect(d[3], s[0], True);
+  { dose the one that is short }
+  Row(290, 0, d[4], True);
+  Row(362, 1, d[5], True);
+  Row(434, 2, d[6], True);
+  a[0] := Node(FN_ACTION, 20, 500, 150, 36, 'Batch ready');
+  FNAct(a[0], FA_TAG, 'BATCH_READY');
+  FlowConnect(d[6], a[0], False);
+  FlowConnect(a[0], s[0], False);
+  { the silo's rotary valve: stop it when H9.3 runs low (LSL9.03) }
+  a[1] := Node(FN_START, 35, 572, 120, 30, 'Silo out');
+  a[2] := Node(FN_DECISION, 20, 616, 150, 56, 'H9.3 not low?');
+  FNRead(a[2], 'H9.3', FOP_GT, 3);
+  a[3] := Act(20, 690, True, 'XM9.03');
+  FlowNodes[a[3]].Caption := 'Run XM9.03';
+  a[4] := Act(200, 626, False, 'XM9.03');
+  FlowNodes[a[4]].Caption := 'Stop XM9.03';
+  a[5] := Node(FN_END, 35, 746, 80, 28, 'End');
+  a[6] := Node(FN_END, 340, 630, 80, 28, 'End');
+  FlowConnect(a[1], a[2], False);
+  FlowConnect(a[2], a[3], False);
+  FlowConnect(a[2], a[4], True);
+  FlowConnect(a[3], a[5], False);
+  FlowConnect(a[4], a[6], False);
+  { the level switches and the weight }
+  a[7] := Node(FN_DISPLAY, 880, 290, 160, 52, 'LSH9.03 (85 %)');
+  FNRead(a[7], 'H9.3', FOP_GE, 85);
+  a[8] := Node(FN_DISPLAY, 880, 356, 160, 52, 'LSL9.03 (3 %)');
+  FNRead(a[8], 'H9.3', FOP_LE, 3);
+  a[9] := Node(FN_DISPLAY, 880, 422, 160, 52, 'WI7.50 %');
+  FNRead(a[9], 'WI7.50', FOP_GE, 15);
+
+  { the mixing cycle: started by the weighed batch }
+  CurLayer := 2;
+  e := Eq2(EQ_TIMELINE, 470, 560, 570, 130, 'Mixing', EQS_STOP);
+  Equips[e].Delay := 40;
+  Equips[e].Src := 'BATCH_READY';
+  TLPin(e, TLP_FIX, 0, 12, '', TLV_FIX, 0, 'V7.53', TLV_FIX, 1, 'V7.53', TLV_FIX, 0, 'V7.53');
+  TLPin(e, TLP_FIX, 0, 30, '', TLV_FIX, 0, 'T3 motor', TLV_FIX, 1, 'T3 motor', TLV_FIX, 0, 'T3 motor');
+  TLPin(e, TLP_FIX, 10, 4, '', TLV_FIX, 0, 'V8.03', TLV_FIX, 1, 'V8.03', TLV_FIX, 0, 'V8.03');
+  TLPin(e, TLP_FIX, 20, 10, '', TLV_FIX, 0, 'VT3', TLV_FIX, 1, 'VT3', TLV_FIX, 0, 'VT3');
+  TLPin(e, TLP_FIX, 20, 20, '', TLV_FIX, 0, 'T4 motor', TLV_FIX, 1, 'T4 motor', TLV_FIX, 0, 'T4 motor');
+  TLPin(e, TLP_FIX, 30, 10, '', TLV_FIX, 0, 'VT4', TLV_FIX, 1, 'VT4', TLV_FIX, 0, 'VT4');
+  TLPin(e, TLP_INPUT, 12, 1, 'WI7.50', TLV_NONE, 0, '', TLV_LIVE, 0, '', TLV_HELD, 0, 'LEFT_IN_WI');
+
+  CurLayer := 3;
+  EP(40, 2, ekSwitch, 'AUTO');
+  EGrid[40, 2].On := True;
+
+  CurLayer := 1;
+  AddLabel(900, 84, 'AUTO (click):'#10'the plant runs'#10'batches.');
+  AddLabel(200, 490, 'DOSING (flow chart, every scan):'#10'the valve of the material that is'#10 +
+    'short opens; at the set point the'#10'batch is ready and starts Mixing.');
+  AddLabel(470, 700, 'MIXING (timeline, one cycle per batch): V7.53 empties'#10 +
+    'WI7.50 into T3, V8.03 adds the additives, VT3 sends'#10'the hot batch to T4, VT4 blows it to silo H9.3.');
+  Link(880, 500, 'Mixing plant', False, PAGE_PLANT, 1);
+  Link(880, 524, 'Trends', False, 3, 3);
+  CurLayer := 0;
+  ParkPage(p);
+
+  { page 4: trends }
+  p := AddPage('Trends');
+  CurPage := p;
+  UnparkPage(p);
+  Pages[p].Layers[0].Name := 'Trends';
+  CurLayer := 0;
+  e := Eq2(EQ_TREND, 24, 40, 640, 300, 'Levels', EQS_STOP);
+  Equips[e].Delay := 240;
+  Equips[e].Src := 'WI7.50';
+  Equips[e].Src2 := 'T3';
+  Equips[e].Src3 := 'T4';
+  Equips[e].Src4 := 'H9.3';
+  e := Eq2(EQ_TREND, 24, 380, 640, 220, 'Dosing valves', EQS_STOP);
+  Equips[e].Delay := 240;
+  Equips[e].Src := 'V7.56';
+  Equips[e].Src2 := 'V7.57';
+  Equips[e].Src3 := 'V7.58';
+  Equips[e].Src4 := 'V7.53';
+  AddLabel(700, 60, 'TRENDS (page 4)'#10'Levels: weigh hopper, hot and'#10'cool mixer, silo H9.3.'#10 +
+    'Dosing valves: open = 100.');
+  Link(700, 160, 'Mixing plant', False, PAGE_PLANT, 1);
+  Link(700, 184, 'Batch control', False, 2, 2);
+  ParkPage(p);
+  CurPage := PAGE_PLANT;
+  UnparkPage(PAGE_PLANT);
+end;
+
+{ 33. A belt conveyor system, as on a technical drawing (side elevation): an
+      inclined (15 deg) belt conveyor BC-01, 6620 mm long, its feed hopper over
+      the tail end and the drive (gear motor) at the head end, which drops the
+      material into a bin. A start / stop circuit with E-stop and overload
+      runs drive U1 (speed from RV1); the feed gate opens only while the belt
+      runs, so nothing piles on a stopped belt. }
+procedure Example33;
+var
+  e: Integer;
+begin
+  ElecLayers;
+  CurLayer := LAYER_PROCESS;
+  { the material and the feed hopper (14) over the tail end }
+  Feeder(30, 13, 0, 0, 200, 3000, 0, 45);
+  PipeLine(30, 13, 30, 19, 3);
+  Device(30, 19, ckDrop, 100);
+  MakePipe(30, 24, 3);
+  SetKind(30, 24, ckHopper);
+  PipeLine(30, 24, 30, 26, 3);
+  Device(30, 26, ckDrop, 100);
+  { the bin under the head end }
+  FloorBucket(3, 150, 110);
+
+  CurLayer := 2;
+  { the conveyor: 15 deg, rising to the left, where the drive is (the belt runs to the left) }
+  e := Eq2(EQ_BELT, 150, 470, 640, 240, 'BC-01', EQS_STOP);
+  Equips[e].RMin := -15;
+  Equips[e].Flip := True;
+  Equips[e].Level := 70;
+  e := Eq2(EQ_SLIDE, 742, 300, 40, 36, 'FeedGate', EQS_STOP);
+  Equips[e].LinkX := 30;
+  Equips[e].LinkY := 13;
+  e := Eq2(EQ_DIGITAL, 330, 300, 150, 52, 'Belt speed %', EQS_STOP);
+  Equips[e].Src := 'U1';
+  e := Eq2(EQ_DIGITAL, 330, 384, 150, 52, 'Delivered kg', EQS_STOP);
+  Equips[e].Src := 'WT1';
+  Equips[e].RMax := 200;
+
+  CurLayer := 3;
+  Ladder(26, 43, 34, 1, 10);
+  { start / stop with seal-in, E-stop and the overload's contact }
+  EWireLine(26, 3, 43, 3);
+  EP(28, 3, ekEStop, 'ES1');
+  EP(30, 3, ekPBNC, 'SB0');
+  EP(32, 3, ekPBNO, 'SB1');
+  SealIn(32, 32, 3, 'KM1');
+  EP(36, 3, ekNC, 'OL1');
+  EP(40, 3, ekContactor, 'KM1');
+  { the drive (VFD) of the belt, its overload, speed from RV1 }
+  EWireLine(26, 6, 43, 6);
+  EP(30, 6, ekNO, 'KM1');
+  EP(35, 6, ekOL, 'OL1');
+  EP(40, 6, ekDrive, 'U1', 'BC-01');
+  EGrid[40, 6].Src := 'RV1';
+  { the feed gate opens only while the belt runs }
+  EWireLine(26, 8, 43, 8);
+  EP(30, 8, ekNO, 'KM1');
+  EP(40, 8, ekMotor, 'M2', 'FeedGate');
+  EWireLine(26, 10, 43, 10);
+  EP(30, 10, ekNO, 'KM1');
+  EP(40, 10, ekLamp, 'H1');
+  EP(28, 12, ekPot, 'RV1');
+  EGrid[28, 12].P1 := 70;
+  EP(3, 33, ekWeightTx, 'WT1');
+
+  Notes;
+  AddLabel(8, 24, 'COMPONENTS'#10' 1 Drive pulley'#10' 2 Gear motor'#10' 7 Conveyor belt'#10' 8 Tail pulley'#10 +
+    '10 Upper roller set'#10'11 Troughing idlers'#10'12 Lower return rollers'#10'14 Feed hopper'#10 +
+    '16 Support legs');
+  AddLabel(196, 24, 'KEY FEATURES'#10'Belt width       650 mm'#10'Hopper top  2400 x 1200'#10 +
+    'Hopper bottom    380 mm'#10'Length (horiz.) 6620 mm'#10'Inclination     15 deg'#10 +
+    'Head end height 2337 mm'#10'Tail end height 2035 mm');
+  AddLabel(470, 440, 'head (drive) <-  BC-01, 15 deg');
+  AddLabel(8, 176, 'HOW TO USE'#10'Click SB1: the belt runs,'#10'the feed gate opens.'#10 +
+    'RV1 (wheel): belt speed.'#10'SB0 or ES1: stop.');
+  AddLabel(760, 400, 'FEED HOPPER (14)'#10'tail end');
+end;
+
+{ 34. Pieces: item feeders drop whole objects. Line 1: bottles onto a flat belt,
+      photo sensor PE1 counts each one (CNT1) as it goes into the crate; at 12
+      the crate is full: the feeder and the belt stop and H1 lights; SB2 resets
+      the count. Line 2: glasses, boxes and dolls (mixed) up an inclined belt
+      into the bin. }
+procedure Example34;
+var
+  e: Integer;
+begin
+  ElecLayers;
+  CurLayer := LAYER_PROCESS;
+  { the crate at the end of line 1, the bin at the end of line 2 }
+  AddBucket(500, 330, 110, 80);
+  FloorBucket(40, 156, 110);
+
+  CurLayer := 2;
+  e := Eq2(EQ_ITEMFEEDER, 48, 60, 64, 104, 'Bottles', EQS_STOP);
+  Equips[e].Mode := PK_BOTTLE;
+  Equips[e].RMin := 2;
+  e := Eq2(EQ_BELT, 20, 220, 420, 50, 'Belt01', EQS_STOP);
+  Equips[e].Level := 50;
+  e := Eq2(EQ_ITEMFEEDER, 600, 300, 64, 104, 'Mixed', EQS_STOP);
+  Equips[e].Mode := PK_MIXED;
+  Equips[e].RMin := 3.5;
+  e := Eq2(EQ_BELT, 580, 500, 380, 200, 'Belt02', EQS_STOP);
+  Equips[e].RMin := 12;
+  Equips[e].Level := 60;
+  e := Eq2(EQ_DIGITAL, 760, 110, 160, 52, 'Bottles counted', EQS_STOP);
+  Equips[e].Src := 'CNT1';
+  Equips[e].RMax := 12;
+  e := Eq2(EQ_DIGITAL, 760, 190, 160, 52, 'Crate kg', EQS_STOP);
+  Equips[e].Src := 'WT1';
+  Equips[e].RMax := 20;
+  e := Eq2(EQ_DIGITAL, 760, 270, 160, 52, 'Bin kg', EQS_STOP);
+  Equips[e].Src := 'WT2';
+  Equips[e].RMax := 50;
+
+  CurLayer := 3;
+  Ladder(1, 22, 11, 17, 33);
+  { SB1 starts, SB0 stops: K1 }
+  EWireLine(1, 19, 22, 19);
+  EP(3, 19, ekPBNC, 'SB0');
+  EP(5, 19, ekPBNO, 'SB1');
+  SealIn(5, 5, 19, 'K1');
+  EP(19, 19, ekRelay, 'K1');
+  { line 1 runs until the crate is full (CNT1) }
+  EWireLine(1, 21, 22, 21);
+  EP(3, 21, ekNO, 'K1');
+  EP(7, 21, ekNC, 'CNT1');
+  EP(19, 21, ekMotor, 'M1', 'Belt01');
+  EWireLine(1, 23, 22, 23);
+  EP(3, 23, ekNO, 'K1');
+  EP(7, 23, ekNC, 'CNT1');
+  EP(19, 23, ekMotor, 'M2', 'Bottles');
+  { each bottle through PE1 counts one; SB2 resets }
+  EWireLine(1, 25, 22, 25);
+  EP(3, 25, ekNO, 'PE1');
+  EP(19, 25, ekCounter, 'CNT1');
+  EGrid[19, 25].P1 := 12;
+  EGrid[19, 25].Src := 'SB2';
+  EWireLine(1, 27, 22, 27);
+  EP(3, 27, ekNO, 'CNT1');
+  EP(19, 27, ekLamp, 'H1');
+  { line 2: S2 switches it (K2) }
+  EWireLine(1, 29, 22, 29);
+  EP(3, 29, ekNO, 'K1');
+  EP(7, 29, ekSwitch, 'S2');
+  EGrid[7, 29].On := True;
+  EP(19, 29, ekRelay, 'K2');
+  EWireLine(1, 31, 22, 31);
+  EP(3, 31, ekNO, 'K2');
+  EP(19, 31, ekMotor, 'M3', 'Belt02');
+  EWireLine(1, 33, 22, 33);
+  EP(3, 33, ekNO, 'K2');
+  EP(19, 33, ekMotor, 'M4', 'Mixed');
+  EP(14, 15, ekPBNO, 'SB2');
+  { the sensors }
+  EP(17, 8, ekPhoto, 'PE1');
+  EP(21, 18, ekWeightTx, 'WT1');
+  EP(40, 33, ekWeightTx, 'WT2');
+
+  Notes;
+  AddLabel(140, 70, 'LINE 1: BOTTLES'#10'PE1 counts each bottle'#10'into the crate; at 12'#10 +
+    'the line stops, H1 on.'#10'SB2 resets the count.');
+  AddLabel(700, 380, 'LINE 2: MIXED'#10'glasses, boxes, dolls'#10'up the 12 deg belt.');
+  AddLabel(560, 460, 'HOW TO USE: click SB1 (start), SB0 (stop);'#10'S2 switches line 2.');
+end;
+
+{ 35. A shipping dock, after a warehouse plan, seen from the side: three order
+      pickers take boxes from their standard racks and put them on the roller
+      conveyor, which carries them to the box van at the dock door; the dock
+      worker lifts each one off the end of the line into the van. PE1 counts
+      what is shipped; SB1 / SB0 start and stop the conveyor. }
+procedure Example35;
+var
+  e, k: Integer;
+const
+  RackX: array[0..2] of Integer = (470, 680, 890);
+  PickKind: array[0..2] of Integer = (PK_BOX, PK_MIXED, PK_BOX);
+begin
+  ElecLayers;
+  CurLayer := LAYER_PROCESS;
+  { the van's cargo floor: what the dock worker puts in it }
+  AddBucket(196, 596, 176, 164);
+
+  CurLayer := 2;
+  e := Eq2(EQ_VAN, 6, 560, 312, 250, 'Box van', EQS_STOP);
+  for k := 0 to 2 do
+  begin
+    e := Eq2(EQ_RACK, RackX[k], 470, 110, 342, 'Rack' + Chr(Ord('1') + k), EQS_STOP);
+    e := Eq2(EQ_WORKER, RackX[k] + 30, 662, 56, 150, 'Picker' + Chr(Ord('1') + k), EQS_RUN);
+    Equips[e].Mode := 0;
+    Equips[e].Level := PickKind[k];
+    Equips[e].RMin := 4.5 + k * 0.7;
+    Equips[e].RMax := 25;
+  end;
+  e := Eq2(EQ_CONVEYOR, 380, 690, 650, 122, 'Conveyor01', EQS_STOP);
+  Equips[e].Flip := True;
+  Equips[e].Level := 40;
+  e := Eq2(EQ_WORKER, 318, 662, 56, 150, 'DockWorker', EQS_RUN);
+  Equips[e].Mode := 1;
+  Equips[e].Level := PK_MIXED;
+  Equips[e].RMin := 0.7;
+  e := Eq2(EQ_DIGITAL, 470, 200, 160, 52, 'Shipped', EQS_STOP);
+  Equips[e].Src := 'CNT1';
+  Equips[e].RMax := 99;
+  e := Eq2(EQ_DIGITAL, 650, 200, 160, 52, 'In the van kg', EQS_STOP);
+  Equips[e].Src := 'WT1';
+  Equips[e].RMax := 100;
+
+  CurLayer := 3;
+  Ladder(26, 43, 34, 1, 7);
+  EWireLine(26, 3, 43, 3);
+  EP(29, 3, ekPBNC, 'SB0');
+  EP(31, 3, ekPBNO, 'SB1');
+  SealIn(31, 31, 3, 'KM1');
+  EP(40, 3, ekContactor, 'KM1');
+  EWireLine(26, 6, 43, 6);
+  EP(30, 6, ekNO, 'KM1');
+  EP(40, 6, ekMotor, 'M1', 'Conveyor01');
+  EWireLine(26, 7, 43, 7);
+  EP(30, 7, ekNO, 'PE1');
+  EP(40, 7, ekCounter, 'CNT1');
+  EGrid[40, 7].P1 := 999;
+  EP(16, 28, ekPhoto, 'PE1');
+  EP(8, 33, ekWeightTx, 'WT1');
+
+  Notes;
+  AddLabel(24, 470, 'BOX VAN'#10'at the dock door');
+  AddLabel(200, 120, 'SHIPPING DOCK'#10'Order pickers put boxes from the racks'#10 +
+    'on the roller conveyor; the dock worker'#10'loads each one into the box van.'#10 +
+    'Click SB1: the conveyor runs. SB0 stops it.');
+  AddLabel(840, 430, 'STANDARD RACKS');
+  AddLabel(450, 440, 'ORDER PICKERS AT THE RACKS  ->  ROLLER CONVEYOR  ->  DOCK');
+end;
+
 procedure BuildExample(n: Integer);
 begin
   if (n < 1) or (n > EXAMPLE_COUNT) then Exit;
@@ -2182,13 +3604,33 @@ begin
     24: Example24;
     25: Example25;
     26: Example26;
+    27: Example27;
+    28: Example28;
+    29: Example29;
+    30: Example30;
+    31: Example31;
+    32: Example32;
+    33: Example33;
+    34: Example34;
+    35: Example35;
   end;
   if n = 7 then PlantLinks(24, 660)
+  else if n = 27 then PlantLinks(900, 450)
+  else if n = 28 then PlantLinks(780, 360)
+  else if n = 29 then PlantLinks(624, 580)
+  else if n = 31 then PlantLinks
+  else if n = 32 then PlantLinks(8, 560)
+  else if n = 33 then PlantLinks(230, 740)
+  else if n = 34 then PlantLinks
+  else if n = 35 then PlantLinks(24, 24)
   else if n >= 14 then PlantLinks(24, 24)
   else if n >= 10 then PlantLinks(920, 690)
   else PlantLinks;
   AddAboutPage(n);
   if n = 24 then Example24Pages;
+  if n = 27 then Example27Pages;
+  if n = 31 then Example31Pages;
+  if n = 32 then Example32Pages;
   { new parts the user draws go on the Process layer }
   SetActiveLayer(LAYER_PROCESS);
 end;

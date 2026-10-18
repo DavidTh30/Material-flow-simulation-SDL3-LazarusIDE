@@ -26,8 +26,9 @@ This is an interactive 2D simulator for moving water, oil, fluff and sand throug
 | `src/physics.pas` | Physics settings: load / save `.mfphys`, the Physics Lab test scenes |
 | `src/shapes.pas` | Custom equipment shapes: load / save `.mfshape` |
 | `src/plantbus.pas` | The plant bus: what the pages tell each other while they all run |
-| `src/mfexamples.pas` | The 26 built-in example layouts |
-| `examples/*.mflow` | The same 26 examples, plus the original demo, as files you can open |
+| `src/flowchart.pas` | Flow charts: nodes, the live scan, actions |
+| `src/mfexamples.pas` | The 28 built-in example layouts |
+| `examples/*.mflow` | The same 35 examples, plus the original demo, as files you can open |
 
 ## Pages, layers, links and frame popups
 
@@ -60,6 +61,8 @@ A layout is a small set of screens, like an HMI / SCADA project.
 - A frame popup is a small window that opens over the canvas: notes, instructions or an alarm text.
 - It has a title, text, a colour and, optionally, a **Go to: page** button.
 - It opens from a link (or the panel's **Show** button). It closes with **x**, **Close**, **Esc**, or a click beside it.
+
+- **Move and size:** drag a frame popup by its title bar to move it, and by its bottom-right corner (the grip) to size it; its text, title and buttons grow and shrink with it, the text wraps to the width, and what does not fit is cut. A double-click on the title puts it back in the middle at its own size. Each popup keeps its place and size, saved with the layout (`POPUPBOX` line).
 
 ### Page & Layer panel (F6)
 
@@ -95,7 +98,7 @@ A layout is a small set of screens, like an HMI / SCADA project.
 
 ## Plant equipment
 
-The Tool panel has five tabs: **Pipes** (the pipe tools), **Equip** (34 kinds), **Elec.** (the electrical parts), **Fluid** (pneumatic and hydraulic parts) and **Ctrl** (counter, sensors and controller). The Equip tab places drawn plant equipment on the canvas:
+The Tool panel has six tabs: **Pipes** (the pipe tools), **Equip** (34 kinds), **Elec.** (the electrical parts), **Fluid** (pneumatic and hydraulic parts), **Ctrl** (counter, sensors and controller) and **Flow** (flow charts). The Equip tab places drawn plant equipment on the canvas:
 
 | Tool | What it is |
 |---|---|
@@ -198,6 +201,7 @@ The Sequence box runs the start-up and shut-down of a page:
 - **Speed %** sets how fast it goes, and **Flip** reverses it.
 - A conveyor has the six states and a sequence step, and an electrical motor or drive can run it.
 
+- **Incline:** in Properties, **Incline** (-35..35 degrees, + the right end higher) tilts a belt or roller conveyor: its deck becomes a solid slope that carries what lands on it up (or down) the slope, and it is drawn as an inclined conveyor - steel frame on legs, troughing idlers, return belt, tail and head pulleys and the gear motor at the head (the end it runs to). Saved with the layout.
 ## Electrical circuits
 
 The **Electric** tab of the Tool panel draws real control circuits.
@@ -319,6 +323,75 @@ They cool water. Each takes its water **from** another piece (**Water from** / *
 - **Chiller:** while it runs it chills the return water to its **Set point C** (7 C), by at most 20 C at its **Capacity** %; it shows the chilled water temperature on its panel, the cooling and the power it takes (cooling / 4). Its condenser water leaves at 30 C + 0.6 x the cooling, and a cooling tower can take its water from the chiller's condenser. Without a source, the water comes back at **Return C**.
 - **Values by name:** `Tower01` / `Chiller01` is the water it sends (C), `.IN` the water it gets, `.KW` its duty; `Chiller01.HOT` its condenser water.
 
+## Flow charts
+
+The **Flow** tab of the Tool panel draws flow charts on the canvas. A chart is worked out live, every frame, like a PLC scan: it starts at every **Start** node and follows the arrows. The path the scan takes is drawn in yellow.
+
+| Node | Shape | What it does |
+|---|---|---|
+| Start | rounded | every scan begins here |
+| Input | parallelogram | reads a value and shows it, then goes on |
+| Decision | diamond | tests what it reads (**>, <, >=, <=, =, <>** a value, or **is ON / is OFF**); **Yes** leaves at the bottom, **No** at the right; green for Yes, red for No |
+| Action | box with side bars | **Run** or **Stop** equipment; **Set %** (equipment level / speed, a pot, a drive, a pneumatic / hydraulic setting); **Set SP** (a controller's set point); **Tag ON** (the tag is on while the scan reaches the node: NO / NC contacts follow it, here and on other pages); **Reset** (a circuit breaker, overload, fuse, counter, or a fault); **Switch ON / Switch OFF** (switches, push buttons, push on / off, 2-way / 3-way switches, E-Stops, supplies, circuit breakers, air / oil valves, compressors and pumps; an overload: OFF trips it, ON resets it); **Position** (a selector, a 2-way / 3-way switch or a valve to position n). Set %, Set SP and Position take their value from **From** (any name, e.g. a random value) or a fixed value |
+| Display | box with a screen | shows what it reads, green / red by its test, even off any path |
+| Delay | D shape | lets the scan through only after it has been reached for its time; it starts again from 0 when the scan stops reaching it |
+| End | rounded | a path ends here |
+| Random | box with a die | a random value under its own **Name**, new every **Every s** (0: every scan): **Boolean** (true **True %** of the time; Yes / No ways like a decision, and a tag while true), **Byte** (0..255), **Integer** or **Float** (from **Lowest** to **Highest**). Decisions, displays, gauges, controllers, actions (**From**) and contacts read it by its name, on any page |
+
+- **Drawing:** click with a node's tool to place it; with the **Arrow** tool drag from a node to the next one. Start an arrow on the right part of a decision for its **No** way. In Properties a node has its text, what it reads (**Reads**) or works (**Works**) - pick it with **< >** or **Type** any name - its test or action and value, and where it goes next (**Clear**, **Swap Yes / No**). Drag a node with the Select tool to move it; double-click it to type its text.
+- **What it reads:** any equipment (running or not, and its level, speed or temperature), any tag (relays, timers, counters, switches, sensors, flow chart tags), any value by name (sensors, controllers, meters, pressures), **on this page or another one**. **What it works** can be on another page too: Run / Stop / Set % reach equipment on other pages, and Switch ON / OFF, Position and Reset reach switches, breakers, overloads and valves on other pages, over the plant bus.
+- **Layers:** nodes sit on layers like everything else; a hidden layer's chart keeps running.
+- **A loop** in a chart ends the scan where it comes back, so it never hangs.
+- **Jumping:** right-click a node that reads or works something: **Go to <name> (pN)** shows that item on its page, selected and blinking. Right-click anywhere then (or click the **< Back to flow chart** button at the top of the canvas) to come back to the node. The node's Properties have a **Go to** button too.
+- **Saved** with the layout (`FLOW` lines) and part of undo; a node's Focus Properties window follows it.
+## Trend charts
+
+**Trend chart** (Equip tab, after the chiller) records values and events over time. Each chart has up to four pens; in Properties pick a pen's name with **< >**, **Type** any name, or clear it with **x**. A pen can be any value by name (a sensor, a controller and its **.PV / .SP**, a meter, equipment's level or temperature, a heat exchanger's **.HOT / .IN / .KW**, a random value from a flow chart), on this page or another one; a tag (a relay, contactor, timer, switch, lamp) is an **event** pen: ON / OFF.
+
+| Style | What it shows |
+|---|---|
+| **Full** | dark plot with a grid, the value axis, the time axis (seconds back from now), each value pen as a coloured line, the ON / OFF pens as bars in an event strip below, a legend with every pen's value now and the last event |
+| **Mini** | a small framed plot with the first pen's value now in large text |
+| **Curve** | just the lines, no frame or text: put it over anything |
+
+- **Time s** is the window the chart holds (5 to 3600 s, 240 samples across it). **Auto range** fits the value axis to the values; switch it off for a fixed **Min / Max**.
+- **Events:** each time an event pen turns ON or OFF while the simulation runs it is logged with its time; Properties lists the latest ones, newest first, and the full chart shows the last one in its title.
+- **Clear the record** starts the chart afresh; changing a pen does too. Charts on every page keep recording while another page is on screen. The pens, the style, the range and the window are saved with the layout (EQSRC, EQPENS lines); the records are not.
+## Timelines
+
+**Timeline** (Equip tab, after the trend chart) is a clock that runs from 0 to its **Length** (s) along a line, with up to 8 **pins** standing at times on it.
+
+- **Start / stop:** by hand (**Start**, **Stop**, **Reset** in Properties, or double-click the timeline); by another device: **Start by** / **Stop by** a name (a switch, button, coil, timer, sensor contact, flow chart tag, another timeline's pin...) the moment it turns ON; a flow chart **Run / Stop**, a motor or drive whose equipment is the timeline, or a run command from another page; **Auto start** starts it when the simulation runs.
+- **Loop cycle** starts again from 0 at the end; **One cycle** stops at the end (**DONE**). A run request still held at the end does not start it again; the next one starts it from 0. **Stop** pauses it; **Start** goes on from there. **Reset** puts it back at 0.
+- **Pins:** right-click the timeline: **Input pin at ... s** / **Fix pin at ... s** where you clicked, or **Delete** the pin there; or **+ Input pin / + Fix pin** in Properties. Drag a pin along the line to move it. Input pins stand above the line, Fix pins below; a pin is grey before its time, yellow at it, green after it.
+  - **Input Pin #** reads a name (**Reads**: any value or event, on any page) and keeps what it is when the clock reaches the pin (each cycle).
+  - **Fix Pin #** has fixed values.
+- **Before / At / After:** for each of the three a pin has a value - **-** (nothing), **Fixed** (type it), and for an Input pin **Input** (what it reads now) or **Kept** (what it kept at its time) - and **Send to**: where that value goes. **At** lasts **At for s** from the pin's time. A value goes to equipment (ON / OFF = run / stop, above 1 also its speed or setting), a switch, push button, breaker, overload, fuse, 2 / 3-way switch, selector (its position), potentiometer, drive, controller set point (**TAG.SP**), air / oil valve (ON / OFF, 2 and more a position), compressor or pump, on this page or another one. A name that is no part becomes a value and tag of its own (ON from 0.5): displays, gauges, trend charts, flow charts and contacts read it. **Same target x3** gives all three the same target.
+- A pin's value is also read by its own name: **Timeline01.IN1**, **Timeline01.FIX2**; the timeline's name reads its clock (s). A timeline sends only once it has started, and goes on sending (also when paused or done) until it is reset.
+- Saved with the layout (EQX mode and length, EQSRC / EQPENS start by / stop by, TLPIN lines), part of undo and copy / paste.
+## Rotary dryer
+
+**Rotary dryer** (Equip tab, after the timeline) draws a rotary drum: feed housing, shell on two tyres and trunnion rollers, girth gear with its drive motor, and the discharge hood. Put it on a blower inside a pipe (its link): while it runs the lifting flights and the gear turn; stopped, it halts what moves through the drum. It has the six states, the start sequence and Run / Stop like a motor, so a motor coil, a flow chart or a timeline runs it. Duct heaters linked to cells of the drum pipe boil the water off the material passing through (steam), which is how a dryer is built in example 31.
+## Item feeder and pieces
+
+**Item feeder** (Equip tab, after the rotary dryer) drops whole pieces, much bigger than the material particles: **Bottle**, **Glass**, **Box**, **Doll** (a teddy bear) or **Mixed** (any of them). In Properties: what it feeds, **Every s** (how often), **Stock** (how many, 0: no end), **Refill**, and **Clear items**. It has the six states, a sequence step and Run / Stop like a motor, so a motor coil, a flow chart or a timeline runs it.
+
+- A piece stands upright: it falls, lands on pipes, bucket walls, the floor, conveyor decks (flat or inclined) and other pieces, so they stack; a running conveyor carries it.
+- Pieces in a bucket show on its label (**+N items**); a weight sensor adds their mass (bottle 0.6 kg, glass 0.3, box 1.5, doll 0.4); a photo sensor sees a piece in its cell, so a counter can count them.
+- Pieces belong to their page and are not saved; **Clear flow** clears them.
+## Workers, box van and racks
+
+- **Worker** (Equip tab): an order picker in a hard hat and hi-vis vest. A **Loader** takes pieces from its stock (the rack behind it) and puts them down in front of it, on a conveyor: what it loads (Bottle, Glass, Box, Doll, Mixed), **Every s**, **Stock**. A **Picker** lifts the pieces in reach in front of it - off the end of a belt or from the floor - and puts them down behind it, on top of what is there already (into a van, a cart): what it picks (or **Any**) and **Carry s**. **Flip** turns it round. It runs and stops like a motor (six states, a motor coil, a flow chart or a timeline); its arms move while it works and it carries what it holds.
+- **Box van**: a truck with its cab and an open cargo box; put a bucket in the cargo box for its load.
+- **Standard rack**: shelving with boxes on its shelves.
+- A photo sensor stays closed only while a piece is in its beam (material keeps it closed 1 s more), so a counter counts pieces one by one.
+## IPC network (server and client)
+
+The program talks to other programs (an HMI, a PLC gateway, another Material Flow) over TCP: as a **server for many clients** and as a **client of many servers**, both at the same time. Both are **off** by default.
+
+- **IPC network** panel (F10, a floating window of its own): **Server ON / OFF**, its name, **This PC only** (127.0.0.1) or **All networks**, its port (5020), the most clients it takes, and the clients connected now (name, address, values in / out). **Client ON / OFF**, its name, and the servers it connects to (each with its name, address, port, on / off and its state: connected, connecting, retrying). A lost connection is made again by itself. Saved in **ipc_network.ini**, its own file next to the program.
+- **IPC inputs / outputs** panel (F11, its own window): the points of the server and of the client. An **OUT** point reads a part of the layout (its **Link**: a tag, sensor, meter, equipment, controller value - on any page) and sends it under its **Name**; an **IN** point takes the value sent under its Name and works the part called Link: a switch, push button, selector, breaker, potentiometer, drive, controller set point (**TAG.SP**), equipment (run / stop, above 1 its speed) - on this page or another one. A Link that is no part becomes a value and tag of its own that displays, gauges, trend charts, flow charts and contacts read. An empty Link is the point's Name; **Peer** limits a point to one client (by its HELLO name) or one server (by its name in the list). **Auto map** adds an OUT point for every name in the layout and an IN point for every part a value can work. Saved in **ipc_io.ini**, its own file.
+- The wire is text, one message per line: `HELLO <name>`, `SET <name> <value>` (a number; ON / OFF too), `PING` / `PONG`. A new connection gets every output at once, then what changes (and all of them once a second). Every socket is non-blocking: the program never waits on the network.
 ## Every page at once (the plant bus)
 
 All pages run at the same time, every frame, not only the page on screen. A pump on page 3 keeps pumping while you look at page 1, and all pages run on the same clock.
@@ -506,7 +579,7 @@ The grid size itself is fixed: one cell is one pipe segment.
 | Shape editor | F9 | Shows or hides the Shape Editor (see below). |
 | Dock all panels | | Shows the seven main panels and embeds each one back in its column (left or right). The Physics lab and Shape editor stay floating. |
 
-**Larger panels:** drag the corner grip (bottom right) of the floating Physics lab or Shape editor to make it larger or smaller (80 % to 300 %). Its text, buttons and drawings grow with it and keep working; the size is saved in `materialflow.ini`. When the content is taller than the panel, a scrollbar appears on its right: drag it, click above or below it, or turn the mouse wheel over the panel. Docking a panel puts it back to its normal size.
+**Larger panels:** drag the corner grip (bottom right) of any floating panel - Properties, Physics lab, Shape editor, the others - or of a Focus Properties window to make it larger or smaller (80 % to 300 %). Its text, buttons and drawings grow with it and keep working; the size is saved in `materialflow.ini`. When the content is taller than the panel (or the Focus Properties window), a scrollbar appears on its right: drag it, click above or below it, or turn the mouse wheel over it. A Focus Properties window keeps its size in the layout file. Docking a panel puts it back to its normal size.
 
 ### Panels
 
@@ -526,7 +599,7 @@ The grid size itself is fixed: one cell is one pipe segment.
 
 **Saved between runs:** the theme and each panel's state (shown or hidden, left or right, embedded or floating, and its floating position) are written to `materialflow.ini` next to the exe. The file is updated whenever a panel moves, and again on exit. Test runs (`--shot`, `--selftest`) never touch it.
 
-**Tool panel:** five tabs: **Pipes** (pipes, parts, buckets, labels, frames and links; the default is **Select**), **Equip** (the plant equipment), **Elec.** (the electrical parts), **Fluid** (the pneumatic and hydraulic parts) and **Ctrl** (counter, sensors, controller), plus the tool hint and the pipe size brush.
+**Tool panel:** six tabs: **Pipes** (pipes, parts, buckets, labels, frames and links; the default is **Select**), **Equip** (the plant equipment), **Elec.** (the electrical parts), **Fluid** (the pneumatic and hydraulic parts) and **Ctrl** (counter, sensors, controller) and **Flow** (flow charts), plus the tool hint and the pipe size brush.
 
 **Simulation panel:**
 - Run/Pause, Pressure colours and Air dots
@@ -546,7 +619,7 @@ The grid size itself is fixed: one cell is one pipe segment.
 
 **Status panel:** particle count, frame rate, run state, zoom, and what is under the mouse (part, size, pressure, air speed, or label).
 
-**Help panel:** eight pages of short tips (Basics, Select & move, Edit, View & panels, Files & labels, Pages & links, Lab & shapes, Control). Use the **<** and **>** buttons to turn the pages.
+**Help panel:** nine pages of short tips (Basics, Select & move, Edit, View & panels, Files & labels, Pages & links, Lab & shapes, Control, Flow chart). Use the **<** and **>** buttons to turn the pages.
 
 ### Zoom and pan
 
@@ -557,7 +630,15 @@ The grid size itself is fixed: one cell is one pipe segment.
 
 ### Theme
 
-**Default, Dark, Daylight, Warm white, Red, Green, Blue.** The theme recolours the canvas, pipes, buckets, panel and menus. Pale materials (fluff, air dots) get darker colours on the light themes so they stay visible. Your choice is saved in `materialflow.ini` next to the exe.
+23 themes in three groups, each shown in the menu by its colours (canvas, panel, accent, text, pipes):
+
+- **Default, Dark, Daylight, Warm white, Red, Green, Blue**
+- dark: **Midnight, Ocean, Forest, Sunset, Purple, Amber HMI, Terminal, Slate, High contrast, Nord, Dracula**
+- light: **Paper, Mint, Sky, Rose, Solarized**
+
+**Theme > Background >** (the last item) picks the canvas background, apart from the theme, each shown by a small view: **Theme colour**, **Soft gradient** and **Vignette** follow the theme; **HMI blue**, **Steel**, **Brushed metal**, **Night sky**, **Ocean deep**, **Sunset**, **Forest mist**, **Warm paper** and **Carbon** are gradients (some with fine lines). A layout can come with its own background (saved as a BACKGROUND line, like example 32); picking one from the menu shows it instead. The choice is saved in `materialflow.ini`.
+
+The theme recolours the canvas, pipes, buckets, panel and menus. Pale materials (fluff, air dots) get darker colours on the light themes so they stay visible. Your choice is saved in `materialflow.ini` next to the exe.
 
 ## Physics Lab (F8)
 
@@ -606,7 +687,7 @@ The **File** menu has:
 
 ### Examples menu
 
-**Original demo**, then the examples in six sub-menus by subject: **Pipes & air flow** (1-4), **Storage & equipment** (5-9), **Electrical circuits** (10-14), **Pneumatic systems** (15-18), **Hydraulic systems** (19-21) and **Control & sensors** (22-26). Hover over a subject to open its list. The same layouts are also files in `examples\` (the demo is `demo_original.mflow`), and **Load demo** in the Simulation panel loads the demo too.
+**Original demo**, then the examples in seven sub-menus by subject: **Pipes & air flow** (1-4), **Storage & equipment** (5-9), **Electrical circuits** (10-14), **Pneumatic systems** (15-18), **Hydraulic systems** (19-21) and **Control & sensors** (22-30) and **Plant systems** (31-35). Hover over a subject to open its list. The same layouts are also files in `examples\` (the demo is `demo_original.mflow`), and **Load demo** in the Simulation panel loads the demo too.
 
 Every menu and sub-menu is as wide as its longest item, so no text is cut off.
 
@@ -642,7 +723,7 @@ PAGE About
 
 ### Examples
 
-Twenty-six examples are in the **Examples** menu and in `examples\`, along with the original demo (`demo_original.mflow`).
+Twenty-eight examples are in the **Examples** menu and in `examples\`, along with the original demo (`demo_original.mflow`).
 
 All of them are built the same way:
 - **Page 1 "Plant"** is the working process. Layer 1 **Process** holds the pipes, feeders, devices and buckets; layer 2 **Notes** holds the labels, frames and link buttons. Hide Notes to see the bare process, or lock Process to protect it.
@@ -681,7 +762,7 @@ The examples:
     - Displays show the pump speed, the pool level and the supply voltage.
     - OL2 is a thermal overload set to 12 A.
 15. **Pneumatic: cylinders & valves**: compressor C1, receiver R1 and FRL1 (6 bar) supply a manual 5/2 valve that drives double-acting cylinder A through two flow controls, and a push-button 3/2 valve for single-acting cylinder B.
-16. **Electro-pneumatic gate**: a double-solenoid 5/2 valve, limit switches A0 / A1 and timer T1 open a hopper gate batch after batch; SB1 starts the cycle.
+16. **Electro-pneumatic gate**: a double-solenoid 5/2 valve, limit switches A0 / A1 and timer T1 open a hopper gate batch after batch. **Click SB1** to start (K1 latches; the feed gate lets sand into the hopper only while the system is on), SB0 stops. A numbered HOW TO USE note, a flow chart whose yellow path shows the step the cycle is in now (A in -> Y1 -> gate open -> T1 counts -> Y2), and a Timing trend chart (gate opening, Y1, A1, Y2) explain it.
 17. **Pneumatic logic: AND / OR**: a two-pressure valve moves A only when S1 and S2 both give air; a shuttle valve moves B from S3 or S4.
 18. **Compressor control & air motor**: pressure switch PS1 runs the compressor between 6 and 8 bar; an air motor with a flow control drives a belt.
 19. **Hydraulic: power unit & 4/3**: pump P1, relief valve RV1 (100 bar) and a tandem-centre 4/3 valve lift and lower a cylinder; in the centre the pump unloads to the tank.
@@ -695,6 +776,15 @@ The examples:
 24. **Every page at once**: page 1 "Control room" holds the circuit and controller LIC1, page 3 "Pump house" the well, pumps and pool, page 4 "Monitor" the meters. KM1 on page 1 runs Pump01 on page 3; LT1 on page 1 reads Pool01 on page 3; every meter on page 4 shows a value from another page.
 25. **Heat exchanger & humidity**: a blower pushes wet sand through the shell of HX01; hot water at 160 C runs through its tubes. PID controller TIC1 sets the hot flow (drive U1) to hold the shell outlet at 80 C, read by TT1. Humidity sensor MT1 measures the air by the falling stream, MT2 the moisture of the sand in the bucket.
 26. **Cooling tower, chiller & pH**: a hot (90 C) stream of wet sand is cooled in HX01 by water from Tower01, which gets HX01's tube water back (a loop); PID controller TIC1 (reverse) sets the tower fan through drive U1 to hold the stream at 40 C. Chiller01 sends 7 C water through HX02 to cool a second stream (30 C). PH1 and PH2 read the pH in the buckets, MT1 the humidity of the tower's plume.
+27. **Flow chart control**: a flow chart on page 1 reads Well01 and Pool01 on page 3 and decides: a dry well stops Pump01 and turns the DRY tag on (lamp H2); a low pool starts Pump01, waits 2 s (Delay) and turns the FILLING tag on (lamp H1); a full pool stops it. Displays show the pump, well and pool live. Right-click **Pool low?** > **Go to Pool01**, then right-click > **Back to flow chart**.
+28. **Flow chart: switches & random**: COIN (a random boolean, every 2 s) switches S1 and air valve V1 on or off; LOAD (a random byte) over 235 switches overload OL1 off (trips it), and after a 3 s Delay the chart resets it; DICE (a random integer 1..3) sets selector SA1's position; SPEED (a random float) shows on a display.
+29. **Trend charts**: Trend01 (Full) records Heater01's temperature TT1, TIC1's set point TIC1.SP, relay K1 (pulsed by flasher T1: ON / OFF events in the strip) and DEMAND (a random float from a flow chart); Trend02 (Mini) shows TT1 with its value, Trend03 (Curve) just DEMAND's line.
+30. **Timelines**: Timeline01 (loop, auto start, 20 s): Fix Pin 1 switches S1 (Pump01) on from 2 to 10 s, Fix Pin 2 sets potentiometer RV1 (the speed of Pump02) to 100 from 12 to 16 s and to 30 otherwise, Input Pin 1 keeps Pool01's level at 10 s and sends it to POOL10, shown on a display. Push button SB1 starts Timeline02 (one cycle), whose Fix Pin 1 turns its own tag BUZZ on for 3 s: lamp H2.
+31. **Rotary dryer system**, built from a dryer maker's flow sheet and grouped on pages: page 1 **Dryer** - wet sand with fines drops into the raw material hopper, the loading feeder pushes it into the drum (Dryer01); outside air goes through the oil furnace and the blow fan into the drum, where two hot zones boil the water off; the dried product falls out of the discharge hood into its bin while the exhaust intake beside the falling stream draws the light fines and the air (hardly the heavy sand) up through the exhaust fan to the dust collector, which drops the dust into its bin and lets the air out. Page 3 **Control** - E-stop, the motor circuits with interlocks (blow fan only after the exhaust fan, burner only with the combustion fan, feeder only with the drum and air), burner controller TIC1 (180 C on TT1), and two timelines: **Startup** (SB1: exhaust fan, blow fan, combustion fan, burner, drum, feeder) and **Shutdown** (SB2: feeder and burner off first, fans last). Page 4 **Monitor** - a trend chart of the furnace temperature, the product's moisture (MT1) and the burner / feeder events, the TIC1 faceplate and displays of the product and dust weights.
+32. **PVC dry blend plant**, after a mixing plant's HMI screen, on the HMI blue background: page 1 **Mixing plant** - three raw material lines (CaCO3, regrind, PVC + additives, each with its feed valve V7.56 / V7.57 / V7.58) are conveyed (XM7.14) into weigh hopper WI7.50 (its weigh panel shows the gross weight, T3's batch, H9.3's level and the mixing clock); V7.53 empties it into hot mixer T3, which also takes the pre-weighed additives (screw XM8.03, gate V8.03); VT3 drops the hot batch into cool mixer T4, VT4 lets XM9.01 blow it up to storage silo H9.3, whose rotary valve XM9.03 feeds the conveying line (XM9.13) to the extruder. Page 3 **Batch control** - the AUTO switch; the dosing flow chart (every scan: the valve of the material that is short opens - CaCO3 to 6 %, regrind to 10 %, PVC to the 15 % set point - then it tags BATCH_READY), the **Mixing** timeline it starts (one cycle per batch: V7.53, T3 motor, V8.03, VT3, T4 motor, VT4, and an input pin that keeps what was left in WI7.50), the silo-out chart (XM9.03 stops when H9.3 is low) and the level switch displays LSH9.03 / LSL9.03. Page 4 **Trends** - the levels and the dosing valves.
+33. **Belt conveyor system**, after a technical drawing: belt conveyor BC-01 inclined 15 deg, 6620 mm long, with its feed hopper over the tail end and the gear motor at the head end, which drops the sand into a bin (WT1 weighs it). Click SB1: KM1 runs drive U1 (speed from potentiometer RV1) and opens the feed gate, which is shut whenever the belt is not running; SB0, E-stop ES1 or overload OL1 stop it. Labels list the components and the key dimensions of the drawing.
+34. **Bottles, boxes & toys**: item feeders. Line 1: bottles drop onto Belt01 and into the crate; photo sensor PE1 counts each one (CNT1) - at 12 the crate is full, the feeder and the belt stop and H1 lights; SB2 resets the count. Line 2 (switch S2): glasses, boxes and dolls ride a 12 deg belt up into the bin. WT1 / WT2 weigh the crate and the bin.
+35. **Shipping dock & order pickers**, after a warehouse plan, seen from the side: three order pickers take boxes (one of them mixed pieces) from their standard racks and put them on the roller conveyor; click SB1 and it carries them to the dock, where the dock worker lifts each one into the box van, on top of the load. PE1 / CNT1 count what is shipped, WT1 weighs the van's load.
 
 ## What it covers
 
@@ -731,4 +821,4 @@ The examples:
 - **Material in pipes:** the air drags particles along. They also feel gravity and wall friction, so sand needs enough suction to be lifted up a riser. At tees, particles split in proportion to the flow in each branch.
 - **Free material:** gravity, air drag, suction pull and nozzle jets act on it. Particle contacts use position-based dynamics, so piles and liquid levels stay stable. Buckets and the floor are solid.
 
-For a verification run without user input, `MaterialFlow.exe --shot <frames> out.bmp [layout.mflow]` simulates the demo, or the given layout (every page of it), for that many frames. It then saves a screenshot and a stats file (`out.bmp.txt`). `MaterialFlow.exe --export-examples examples` rewrites the example files and `demo_original.mflow` from the built-in versions. `MaterialFlow.exe --selftest report.txt` runs the automated checks (undo/redo, cut/copy/paste, panels, pages, layers, links, frame popups, equipment, the six states, the sequence, valves, heaters, rain, fire, wells, pools, ponds, pumps, electrical circuits, conveyors, potentiometers, current transformers, gauges, Focus Properties windows, pneumatic and hydraulic circuits, the virtual feeder, the menus, the Physics Lab, the Shape Editor, resizable panels, timers, counters, sensors, controllers, every page running at once, humidity sensors, heat exchangers, cooling towers, chillers, pH sensors, scrolling panels, the examples and the themes; 576 checks). Test runs never load `physics.mfphys` or `shapes.mfshape`.
+For a verification run without user input, `MaterialFlow.exe --shot <frames> out.bmp [layout.mflow]` simulates the demo, or the given layout (every page of it), for that many frames. It then saves a screenshot and a stats file (`out.bmp.txt`). `MaterialFlow.exe --export-examples examples` rewrites the example files and `demo_original.mflow` from the built-in versions. `MaterialFlow.exe --selftest report.txt` runs the automated checks (undo/redo, cut/copy/paste, panels, pages, layers, links, frame popups, equipment, the six states, the sequence, valves, heaters, rain, fire, wells, pools, ponds, pumps, electrical circuits, conveyors, potentiometers, current transformers, gauges, Focus Properties windows, pneumatic and hydraulic circuits, the virtual feeder, the menus, the Physics Lab, the Shape Editor, resizable panels, timers, counters, sensors, controllers, every page running at once, humidity sensors, heat exchangers, cooling towers, chillers, pH sensors, scrolling panels, flow charts and their jumps, switching and random values, resizable Properties and Focus Properties, trend charts, timelines, the examples, the themes and their contrast, the rotary dryer, the gate cycle chart, backgrounds, the PVC plant, moving and sizing frame popups, inclined conveyors, item feeders and pieces, the IPC server and client, workers; 849 checks). Test runs never load `physics.mfphys` or `shapes.mfshape`.

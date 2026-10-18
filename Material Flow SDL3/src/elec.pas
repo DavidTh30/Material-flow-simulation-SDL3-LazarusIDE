@@ -96,6 +96,13 @@ var
   { a pneumatic / hydraulic tag exists on this page; the i-th one that is on now ('' after the last) }
   ExtTagDefined: function(const Tag: string): Boolean = nil;
   ExtActiveTag: function(i: Integer): string = nil;
+  { set by the flow chart unit: a Tag ON action reached in this scan; such a tag on this page; the i-th one on }
+  ExtFlowTag: function(const Tag: string): Boolean = nil;
+  ExtFlowTagDefined: function(const Tag: string): Boolean = nil;
+  ExtFlowTagName: function(i: Integer): string = nil;
+  { set by the flow chart unit: a Random node's value by its name; the i-th name }
+  ExtFlowValue: function(const Name: string; out V: Single): Boolean = nil;
+  ExtFlowSigName: function(i: Integer): string = nil;
 
 function EIsLoad(K: TEKind): Boolean;
 { the Select tool works it: switches, buttons, breakers ... }
@@ -135,6 +142,8 @@ function AnalogValue(const Src: string; out Value: Single; out UnitS: string): B
 function NextAnalogSource(const Cur: string; Dir: Integer): string;
 { a drive's speed now: its own setting or its potentiometer }
 function DriveSpeed(x, y: Integer): Single;
+{ a part with this tag is on this page (or a fluid power switch, a flow chart tag), or another page has it on }
+function ETagKnown(const Tag: string): Boolean;
 { the part of kind K with this tag; False when there is none }
 function ECellByTag(const Tag: string; K: TEKind; out x, y: Integer): Boolean;
 { the unit of a sensor's reading }
@@ -151,7 +160,7 @@ procedure ElecPublish(Page: Integer);
 implementation
 
 uses
-  SysUtils, Math, plantbus;
+  SysUtils, Math, plantbus, piecesim;
 
 var
   Par: array of Integer;
@@ -457,6 +466,19 @@ begin
       if (EGrid[x, y].Kind in [ekRelay, ekContactor, ekTimer, ekOL, ekSolenoid, ekCounter, ekController, ekPhoto]) and
         SameText(EGrid[x, y].Tag, Tag) then Exit(True);
   if Assigned(ExtTagDefined) then Result := ExtTagDefined(Tag);
+  if (not Result) and Assigned(ExtFlowTagDefined) then Result := ExtFlowTagDefined(Tag);
+end;
+
+function ETagKnown(const Tag: string): Boolean;
+var
+  x, y: Integer;
+begin
+  Result := False;
+  if Tag = '' then Exit;
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+      if (EGrid[x, y].Kind <> ekNone) and SameText(EGrid[x, y].Tag, Tag) then Exit(True);
+  Result := LocalTagDefined(Tag) or BusTagActive(Tag);
 end;
 
 function TagActive(const Tag: string): Boolean;
@@ -468,6 +490,7 @@ begin
   for i := 0 to NActiveTags - 1 do
     if SameText(ActiveTags[i], Tag) then Exit(True);
   if Assigned(ExtTagActive) then Result := ExtTagActive(Tag);
+  if (not Result) and Assigned(ExtFlowTag) then Result := ExtFlowTag(Tag);
   { a coil on another page, when this page has no part with that tag }
   if (not Result) and BusTagActive(Tag) and not LocalTagDefined(Tag) then Result := True;
 end;
@@ -740,6 +763,11 @@ begin
         end;
       end;
   if Assigned(ExtAnalog) and ExtAnalog(Src, Value, UnitS) then Exit(True);
+  if Assigned(ExtFlowValue) and ExtFlowValue(Src, Value) then
+  begin
+    UnitS := '';
+    Exit(True);
+  end;
   if k > 1 then
   begin
     i := EquipByName(Copy(Src, 1, k - 1));
@@ -813,7 +841,7 @@ begin
   end;
   for i := 0 to MAX_EQUIP - 1 do
     if Equips[i].Active and not (Equips[i].Kind in [EQ_LEGEND, EQ_SEQUENCE, EQ_STAND, EQ_CYCLONE, EQ_PANEL, EQ_LAMP,
-      EQ_GAUGE, EQ_DIGITAL, EQ_CONTROLLER]) then
+      EQ_GAUGE, EQ_DIGITAL, EQ_CONTROLLER, EQ_TREND]) then
     begin
       SetLength(names, n + 1);
       names[n] := Equips[i].Name;
@@ -827,6 +855,18 @@ begin
         Inc(n, 3);
       end;
     end;
+  { a flow chart's random values }
+  if Assigned(ExtFlowSigName) then
+  begin
+    i := 0;
+    while ExtFlowSigName(i) <> '' do
+    begin
+      SetLength(names, n + 1);
+      names[n] := ExtFlowSigName(i);
+      Inc(n);
+      Inc(i);
+    end;
+  end;
   { and what the other pages have }
   i := 0;
   while BusSigName(i) <> '' do
@@ -1093,7 +1133,7 @@ var
   be: TBusEq;
   c: PECell;
   i, k, b, n, m: Integer;
-  v, best, cx, cy, wat, tot, d2: Single;
+  v, best, cx, cy, wat, tot, d2, pm: Single;
   mm: array[TMat] of Single;
   mt: TMat;
   u: string;
@@ -1136,6 +1176,12 @@ begin
             p := @Parts[k];
             if (p^.Life > 0) and (p^.Bucket = b) and (p^.Mat <> mAir) then v := v + MatP[p^.Mat].Mass * 0.05;
           end;
+        { and the pieces in it }
+        if b >= 0 then
+        begin
+          PiecesInBucket(b, pm);
+          v := v + pm;
+        end;
         c^.Val := v;
       end;
     ekHumidTx:
@@ -1200,8 +1246,15 @@ begin
           if (p^.Life > 0) and (p^.Mat <> mAir) and (p^.X >= x * CELL) and (p^.X < x * CELL + CELL) and
             (p^.Y >= y * CELL) and (p^.Y < y * CELL + CELL) then Inc(n);
         end;
+        { it opens again 1 s after the last material, so one batch closes it once; a piece (bottle,
+          box ...) in its beam closes it while it is there (Out: how long it stays closed after) }
+        if n > 0 then c^.Out := 1.0;
+        if PieceIn(x * CELL, y * CELL, x * CELL + CELL, y * CELL + CELL) then
+        begin
+          Inc(n);
+          if c^.Out < 0.15 then c^.Out := 0.15;
+        end;
         c^.Val := n;
-        { it opens again 1 s after the last material, so one batch closes it once }
         if n > 0 then
         begin
           c^.Latch := True;
@@ -1210,7 +1263,11 @@ begin
         else if c^.Latch then
         begin
           if Running then c^.Acc := c^.Acc + dt;
-          if c^.Acc >= 1.0 then c^.Latch := False;
+          if c^.Acc >= fmax(0.15, c^.Out) then
+          begin
+            c^.Latch := False;
+            c^.Out := 0;
+          end;
         end;
       end;
   end;
@@ -1331,6 +1388,17 @@ begin
   BusBegin(Page);
   { the tags that are on }
   for i := 0 to NActiveTags - 1 do BusAddTag(ActiveTags[i]);
+  if Assigned(ExtFlowTagName) then
+  begin
+    i := 0;
+    s := ExtFlowTagName(0);
+    while s <> '' do
+    begin
+      BusAddTag(s);
+      Inc(i);
+      s := ExtFlowTagName(i);
+    end;
+  end;
   if Assigned(ExtActiveTag) then
   begin
     i := 0;
@@ -1356,6 +1424,17 @@ begin
         BusAddSig(c^.Tag + '.SP', c^.P1, CtrlUnit(c^));
       end;
     end;
+  if Assigned(ExtFlowSigName) and Assigned(ExtFlowValue) then
+  begin
+    i := 0;
+    s := ExtFlowSigName(0);
+    while s <> '' do
+    begin
+      if ExtFlowValue(s, v) then BusAddSig(s, v, '');
+      Inc(i);
+      s := ExtFlowSigName(i);
+    end;
+  end;
   if Assigned(ExtSourceName) and Assigned(ExtAnalog) then
   begin
     i := 0;
@@ -1383,7 +1462,7 @@ begin
     e.Temp := Equips[i].Temp;
     BusAddEq(e);
     if not (Equips[i].Kind in [EQ_LEGEND, EQ_SEQUENCE, EQ_STAND, EQ_CYCLONE, EQ_PANEL, EQ_LAMP, EQ_GAUGE, EQ_DIGITAL,
-      EQ_CONTROLLER]) and AnalogValue(Equips[i].Name, v, u) then BusAddSig(Equips[i].Name, v, u);
+      EQ_CONTROLLER, EQ_TREND]) and AnalogValue(Equips[i].Name, v, u) then BusAddSig(Equips[i].Name, v, u);
     if Equips[i].Kind in ThermalKinds then
     begin
       BusAddSig(Equips[i].Name + '.IN', Equips[i].HotIn, 'C');

@@ -1,0 +1,288 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)
+# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)
+MFLOW 2
+NAME Bottles, boxes & toys
+POPUP 1 2 2 How it works
+POPUPTEXT 1 Item feeders drop whole pieces. Click SB1:\nbottles ride Belt01 into the crate; PE1 counts\neach one (CNT1). At 12 the line stops and H1\nlights. Line 2 carries glasses, boxes and\ndolls up a 12 deg belt into the bin.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Click SB2: the count starts again. Select\nBottles: pick what it feeds and how often,\ngive it a stock. Add an Item feeder from\nthe Equip tab anywhere.
+
+PAGE Plant
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 1 0 Electrical
+GRAVITY 1.00
+ON 1
+BUCKET 445.00 330.00 110.00 80.00
+BUCKET 894.00 696.00 156.00 110.00
+ON 2
+LABEL 140.00 70.00 LINE 1: BOTTLES\nPE1 counts each bottle\ninto the crate; at 12\nthe line stops, H1 on.\nSB2 resets the count.
+LABEL 700.00 380.00 LINE 2: MIXED\nglasses, boxes, dolls\nup the 12 deg belt.
+LABEL 560.00 460.00 HOW TO USE: click SB1 (start), SB0 (stop);\nS2 switches line 2.
+LINK 920.00 6.00 1 page 2 About
+LINK 920.00 28.00 2 popup 1 How it works
+LINK 920.00 50.00 3 popup 2 Try this
+ON 3
+EQUIP itemfeeder 48.00 60.00 64.00 104.00 stop 0 -1 -1 50.00 Bottles
+EQSRC 2.00 100.00 
+EQUIP belt 20.00 220.00 420.00 50.00 stop 0 -1 -1 50.00 Belt01
+EQUIP itemfeeder 600.00 300.00 64.00 104.00 stop 0 -1 -1 50.00 Mixed
+EQX 4 0 2.00 -1 -1
+EQSRC 3.50 100.00 
+EQUIP belt 580.00 500.00 380.00 200.00 stop 0 -1 -1 60.00 Belt02
+EQSRC 12.00 100.00 
+EQUIP digital 760.00 110.00 160.00 52.00 stop 0 -1 -1 50.00 Bottles counted
+EQSRC 0.00 12.00 CNT1
+EQUIP digital 760.00 190.00 160.00 52.00 stop 0 -1 -1 50.00 Crate kg
+EQSRC 0.00 20.00 WT1
+EQUIP digital 760.00 270.00 160.00 52.00 stop 0 -1 -1 50.00 Bin kg
+EQSRC 0.00 50.00 WT2
+ON 4
+ECELL 17 8 photo EW 0 0 0 0 0 0 0.00 0.00 PE1 - - 0.00
+ECELL 14 15 pbno EW 0 0 0 0 0 0 0.00 0.00 SB2 - - 0.00
+ECELL 1 17 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 17 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 12 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 17 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 18 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 18 wt EW 0 0 0 0 0 0 0.00 0.00 WT1 - - 0.00
+ECELL 22 18 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 19 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 19 pbnc EW 0 0 0 0 0 0 0.00 0.00 SB0 - - 0.00
+ECELL 4 19 wire ESW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 19 pbno EW 0 0 0 0 0 0 0.00 0.00 SB1 - - 0.00
+ECELL 6 19 wire ESW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 19 relay EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 20 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 19 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 20 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 20 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 20 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 6 20 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 20 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 21 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 21 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 4 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 21 nc EW 0 0 0 0 0 0 0.00 0.00 CNT1 - - 0.00
+ECELL 8 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 21 motor EW 0 0 0 0 0 0 5.00 0.00 M1 Belt01 - 0.00
+ECELL 20 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 21 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 22 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 22 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 23 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 23 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 4 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 23 nc EW 0 0 0 0 0 0 0.00 0.00 CNT1 - - 0.00
+ECELL 8 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 23 motor EW 0 0 0 0 0 0 5.00 0.00 M2 Bottles - 0.00
+ECELL 20 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 23 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 23 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 24 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 24 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 25 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 25 no EW 0 0 0 0 0 0 0.00 0.00 PE1 - - 0.00
+ECELL 4 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 25 counter EW 0 0 0 0 0 0 12.00 0.00 CNT1 - SB2 0.00
+ECELL 20 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 25 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 25 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 26 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 26 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 27 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 27 no EW 0 0 0 0 0 0 0.00 0.00 CNT1 - - 0.00
+ECELL 4 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 27 lamp EW 0 0 0 0 0 0 0.00 0.00 H1 - - 0.00
+ECELL 20 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 27 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 27 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 28 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 28 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 29 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 29 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 4 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 29 switch EW 0 0 0 0 1 0 0.00 0.00 S2 - - 0.00
+ECELL 8 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 29 relay EW 0 0 0 0 0 0 0.00 0.00 K2 - - 0.00
+ECELL 20 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 29 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 29 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 30 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 30 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 31 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 31 no EW 0 0 0 0 0 0 0.00 0.00 K2 - - 0.00
+ECELL 4 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 31 motor EW 0 0 0 0 0 0 5.00 0.00 M3 Belt02 - 0.00
+ECELL 20 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 31 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 31 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 32 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 32 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 1 33 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 33 no EW 0 0 0 0 0 0 0.00 0.00 K2 - - 0.00
+ECELL 4 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 33 motor EW 0 0 0 0 0 0 5.00 0.00 M4 Mixed - 0.00
+ECELL 20 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 33 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 33 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 33 wt EW 0 0 0 0 0 0 0.00 0.00 WT2 - - 0.00
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 34 - BOTTLES, BOXES & TOYS\nItem feeders drop whole pieces (bottles,\nglasses, boxes, dolls) onto conveyors; a\nphoto sensor and a counter fill a crate.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this

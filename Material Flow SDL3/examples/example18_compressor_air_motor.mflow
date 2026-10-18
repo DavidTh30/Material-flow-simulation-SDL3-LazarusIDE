@@ -10,6 +10,8 @@
 # LINK x y colour page|popup n caption
 # EQUIP kind x y w h state flip linkx linky level name
 # ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)
+# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)
 MFLOW 2
 NAME Compressor control & air motor
 POPUP 1 2 2 How it works
