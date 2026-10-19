@@ -1,0 +1,451 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)
+# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)
+MFLOW 2
+NAME examples01
+POPUP 1 0 2 How it works
+POPUPTEXT 1 Press SB1 (page 2). The vacuum pump VP01 cycles\nON/OFF, sucks pellets from the Big Bag through the\nsuction lance to the receiver, which drops them in\nthe dosing hopper. The vibrator VIB01 doses them\nout to the process.
+
+PAGE Process
+LAYERS 1 1
+LAYER 1 1 0 Main
+GRAVITY 1.00
+ON 1
+CELL 6 4 pipe ES 3 E 1 0.00
+CELL 7 4 pipe EW 3 E 1 0.00
+CELL 8 4 pipe EW 3 E 1 0.00
+CELL 9 4 pipe EW 3 E 1 0.00
+CELL 10 4 blower EW 3 E 1 80.00
+CELL 11 4 pipe EW 3 E 1 0.00
+CELL 12 4 pipe EW 3 E 1 0.00
+CELL 13 4 pipe EW 3 E 1 0.00
+CELL 14 4 pipe EW 3 E 1 0.00
+CELL 15 4 pipe EW 3 E 1 0.00
+CELL 16 4 pipe EW 3 E 1 0.00
+CELL 17 4 pipe EW 3 E 1 0.00
+CELL 18 4 pipe EW 3 E 1 0.00
+CELL 19 4 pipe EW 3 E 1 0.00
+CELL 20 4 pipe SW 3 E 1 0.00
+CELL 6 5 pipe SN 3 E 1 0.00
+CELL 20 5 pipe SN 3 E 1 0.00
+CELL 6 6 pipe SN 3 E 1 0.00
+CELL 20 6 pipe SN 3 E 1 0.00
+CELL 6 7 pipe SN 3 E 1 0.00
+CELL 20 7 drop N 3 S 1 100.00
+CELL 6 8 pipe SN 3 E 1 0.00
+CELL 6 9 pipe SN 3 E 1 0.00
+CELL 6 10 pipe SN 3 E 1 0.00
+CELL 6 11 pipe SN 3 E 1 0.00
+CELL 6 12 pipe SN 3 E 1 0.00
+CELL 6 13 pipe SN 3 E 1 0.00
+CELL 6 14 pipe SN 3 E 1 0.00
+CELL 20 14 hopper E 3 E 1 0.00
+STOCK 20 14 0.00 0.00 0.00 300.00 0.00 100.00
+CELL 21 14 pipe EW 3 E 1 0.00
+CELL 22 14 pipe EW 3 E 1 0.00
+CELL 23 14 blower EW 3 E 1 40.00
+CELL 24 14 pipe EW 3 E 1 0.00
+CELL 25 14 pipe EW 3 E 1 0.00
+CELL 26 14 pipe EW 3 E 1 0.00
+CELL 27 14 pipe EW 3 E 1 0.00
+CELL 28 14 pipe EW 3 E 1 0.00
+CELL 29 14 pipe EW 3 E 1 0.00
+CELL 30 14 pipe SW 3 E 1 0.00
+CELL 6 15 pipe SN 3 E 1 0.00
+CELL 30 15 pipe SN 3 E 1 0.00
+CELL 6 16 pipe SN 3 E 1 0.00
+CELL 30 16 pipe SN 3 E 1 0.00
+CELL 6 17 pipe SN 3 E 1 0.00
+CELL 30 17 pipe SN 3 E 1 0.00
+CELL 6 18 pipe SN 3 E 1 0.00
+CELL 30 18 pipe SN 3 E 1 0.00
+CELL 6 19 pipe SN 3 E 1 0.00
+CELL 30 19 pipe SN 3 E 1 0.00
+CELL 6 20 pipe SN 3 E 1 0.00
+CELL 30 20 pipe SN 3 E 1 0.00
+CELL 6 21 pipe SN 3 E 1 0.00
+CELL 30 21 pipe SN 3 E 1 0.00
+CELL 6 22 pipe SN 3 E 1 0.00
+CELL 30 22 pipe SN 3 E 1 0.00
+CELL 6 23 pipe SN 3 E 1 0.00
+CELL 30 23 pipe SN 3 E 1 0.00
+CELL 6 24 pipe SN 3 E 1 0.00
+CELL 30 24 pipe SN 3 E 1 0.00
+CELL 6 25 pipe SN 3 E 1 0.00
+CELL 30 25 pipe SN 3 E 1 0.00
+CELL 6 26 pipe SN 3 E 1 0.00
+CELL 30 26 drop N 3 S 1 100.00
+CELL 6 27 pipe SN 3 E 1 0.00
+CELL 3 28 feeder E 4 E 1 0.00
+STOCK 3 28 0.00 0.00 0.00 3000.00 0.00 40.00
+CELL 4 28 suction EW 3 W 1 70.00
+CELL 5 28 pipe EW 3 E 1 0.00
+CELL 6 28 pipe WN 3 E 1 0.00
+BUCKET 66.00 706.00 150.00 100.00
+BUCKET 642.00 706.00 180.00 100.00
+LABEL 24.00 6.00 DOSING VIBRATOR - PELLET LOADING BY BIG BAG SUCTION
+LABEL 180.00 300.00 BIG BAG\n(pellet source)
+LABEL 180.00 560.00 Suction lance\nin the bag outlet
+LABEL 40.00 650.00 Bag discharge
+LABEL 330.00 130.00 VACUUM RECEIVER\n(pellets drop out)
+LABEL 330.00 300.00 DOSING HOPPER
+LABEL 640.00 300.00 DOSING VIBRATOR\n(dose line)
+LABEL 640.00 600.00 TO EXTRUDER /\nMIXER (process)
+LINK 840.00 6.00 1 page 2 Circuit + Chart
+LINK 840.00 28.00 2 page 3 Flow chart
+LINK 840.00 50.00 3 page 4 Explanation
+LINK 840.00 72.00 2 popup 1 How it works
+EQUIP blower 216.00 36.00 104.00 56.00 stop 0 10 4 50.00 VP01
+EQUIP blower 520.00 380.00 104.00 56.00 stop 0 23 14 50.00 VIB01
+
+PAGE Circuit + Chart
+LAYERS 1 1
+LAYER 1 1 0 Main
+GRAVITY 1.00
+ON 1
+LABEL 690.00 230.00 SB1 START (latch K1)  SB0 STOP\nS2 dosing enable\nT1 vacuum 20 s ON / 8 s OFF
+LABEL 24.00 540.00 TREND (bottom): CT1 vacuum pump A, CT2 vibrator A   |   Right: KM1 / KM2 ON-OFF events
+LABEL 290.00 2.00 CIRCUIT: vacuum loading cycle + vibrator dosing
+EQUIP trend 24.00 576.00 1008.00 228.00 stop 0 -1 -1 50.00 Trend01 currents
+EQX 0 0 60.00 -1 -1
+EQSRC 0.00 0.00 CT1
+EQPENS CT2 - -
+EQUIP trend 690.00 330.00 340.00 200.00 stop 0 -1 -1 50.00 Trend02 events
+EQX 0 0 60.00 -1 -1
+EQSRC 0.00 0.00 KM1
+EQPENS KM2 - -
+EQUIP gauge 690.00 40.00 150.00 150.00 stop 0 -1 -1 50.00 Vac pump A
+EQSRC 0.00 100.00 CT1
+EQUIP gauge 860.00 40.00 150.00 150.00 stop 0 -1 -1 50.00 Vibrator A
+EQSRC 0.00 100.00 CT2
+ECELL 2 1 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 1 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 15 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 23 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 1 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 3 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 3 pbnc EW 0 0 0 0 0 0 0.00 0.00 SB0 - - 0.00
+ECELL 6 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 7 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 3 wire ESW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 3 pbno EW 0 0 0 0 0 0 0.00 0.00 SB1 - - 0.00
+ECELL 10 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 3 wire ESW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 3 relay EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 23 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 3 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 5 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 5 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 5 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 10 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 5 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 5 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 6 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 7 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 7 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 7 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 7 timer EW 0 3 0 0 0 0 20.00 8.00 T1 - - 0.00
+ECELL 23 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 7 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 7 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 8 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 9 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 9 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 7 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 9 no EW 0 0 0 0 0 0 0.00 0.00 T1 - - 0.00
+ECELL 11 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 9 contactor EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 23 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 9 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 9 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 10 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 11 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 11 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 7 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 11 ct EW 0 0 0 0 0 0 0.00 0.00 CT1 - - 0.00
+ECELL 13 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 11 motor EW 0 0 0 0 0 0 3.00 0.00 M1 VP01 - 0.00
+ECELL 23 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 11 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 11 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 12 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 13 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 13 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 7 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 13 switch EW 0 0 0 0 1 0 0.00 0.00 S2 - - 0.00
+ECELL 11 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 13 contactor EW 0 0 0 0 0 0 0.00 0.00 KM2 - - 0.00
+ECELL 23 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 13 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 13 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 14 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 14 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 15 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 15 no EW 0 0 0 0 0 0 0.00 0.00 KM2 - - 0.00
+ECELL 7 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 15 ct EW 0 0 0 0 0 0 0.00 0.00 CT2 - - 0.00
+ECELL 13 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 15 motor EW 0 0 0 0 0 0 1.00 0.00 M2 VIB01 - 0.00
+ECELL 23 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 15 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 15 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 16 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 16 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 17 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 17 no EW 0 0 0 0 0 0 0.00 0.00 K1 - - 0.00
+ECELL 7 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 17 lamp EW 0 0 0 0 0 0 0.00 0.00 H1 - - 0.00
+ECELL 23 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 17 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 17 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 18 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 18 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 19 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 19 no EW 0 0 0 0 0 0 0.00 0.00 KM1 - - 0.00
+ECELL 7 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 19 lamp EW 0 4 0 0 0 0 0.00 0.00 H2 - - 0.00
+ECELL 23 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 19 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 19 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 20 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 20 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 2 21 wire EN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 3 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 4 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 5 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 6 21 no EW 0 0 0 0 0 0 0.00 0.00 KM2 - - 0.00
+ECELL 7 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 8 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 9 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 10 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 11 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 12 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 13 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 14 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 15 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 16 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 18 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 19 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 20 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 21 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 22 21 lamp EW 0 1 0 0 0 0 0.00 0.00 H3 - - 0.00
+ECELL 23 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 24 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 25 21 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 26 21 wire WN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+
+PAGE Flow chart
+LAYERS 1 1
+LAYER 1 1 0 Main
+GRAVITY 1.00
+ON 1
+LABEL 520.00 40.00 FLOW CHART = realtime\nmirror of circuit (page 2)
+LABEL 520.00 110.00 Yellow = path taken now\nGreen = ON / true\nGrey = not taken
+LABEL 520.00 200.00 Events follow page 1\nthrough the circuit
+LABEL 520.00 400.00 Timeline: one vacuum cycle (starts when KM1 ON)
+EQUIP timeline 520.00 440.00 510.00 300.00 stop 0 -1 -1 50.00 Timeline01 events
+EQX 0 0 30.00 -1 -1
+EQSRC 0.00 100.00 KM1
+EQPENS KM2 - -
+FLOW 1 start 60.00 20.00 120.00 40.00 0 0 2 0 0.00 - - Start (scan)
+FLOW 2 decision 36.00 90.00 168.00 80.00 6 0 5 3 0.00 K1 - System RUN? (K1)
+FLOW 3 action 300.00 105.00 144.00 48.00 0 4 4 0 0.00 - ST_STOP SYSTEM STOPPED
+FLOW 4 end 330.00 175.00 120.00 40.00 0 0 0 0 0.00 - - End
+FLOW 5 decision 36.00 200.00 168.00 80.00 6 0 7 6 0.00 KM1 - Vacuum ON? (KM1)
+FLOW 6 action 300.00 215.00 144.00 48.00 0 4 8 0 0.00 - ST_REST REST: receiver drops
+FLOW 7 action 48.00 310.00 144.00 48.00 0 4 8 0 0.00 - ST_SUCTION SUCTION: bag to receiver
+FLOW 8 decision 36.00 390.00 168.00 80.00 6 0 10 9 0.00 KM2 - Vibrator ON? (KM2)
+FLOW 9 action 300.00 405.00 144.00 48.00 0 4 11 0 0.00 - ST_DOSEOFF DOSING OFF
+FLOW 10 action 48.00 500.00 144.00 48.00 0 4 11 0 0.00 - ST_DOSING DOSING: vibrator runs
+FLOW 11 end 60.00 585.00 120.00 40.00 0 0 0 0 0.00 - - End
+FLOW 12 display 830.00 40.00 168.00 56.00 6 0 0 0 0.00 K1 - K1 RUN
+FLOW 13 display 830.00 110.00 168.00 56.00 6 0 0 0 0.00 KM1 - KM1 Vacuum VP01
+FLOW 14 display 830.00 180.00 168.00 56.00 6 0 0 0 0.00 KM2 - KM2 Vibrator VIB01
+FLOW 15 display 830.00 250.00 168.00 56.00 2 0 0 0 30.00 CT1 - CT1 vacuum A
+FLOW 16 display 830.00 320.00 168.00 56.00 2 0 0 0 10.00 CT2 - CT2 vibrator A
+
+PAGE Explanation
+LAYERS 1 1
+LAYER 1 1 0 Main
+GRAVITY 1.00
+ON 1
+LABEL 48.00 36.00 DOSING VIBRATOR - PLASTIC PELLETS LOADED BY SUCTION FROM A BIG BAG\nExample: vacuum loading + vibrator dosing, with circuit, chart and flow chart
+LABEL 48.00 100.00 1) PROCESS (page 1)\n Big Bag (feeder, 3000 pellets) drops pellets into the bag discharge.\n Suction lance (suction head) pulls pellets up the vacuum line.\n VP01 vacuum pump (blower) carries them to the vacuum receiver.\n Receiver drop outlet: pellets fall i
+LABEL 48.00 250.00 2) CIRCUIT (page 2)\n SB1 start (latched by K1), SB0 stop (normally closed).\n K1 = system RUN relay. T1 = flasher timer: vacuum 20 s ON / 8 s OFF.\n KM1 = vacuum pump contactor -> CT1 current -> motor M1 runs VP01.\n S2 = dosing enable switch. KM2 = vibrator
+LABEL 48.00 410.00 3) FLOW CHART (page 3)\n It reads K1, KM1, KM2 and shows the path of the scan in yellow.\n Green decision = true (ON). Grey box = branch not taken.\n Tags ST_SUCTION / ST_REST / ST_DOSING / ST_DOSEOFF / ST_STOP\n show the state. The displays show KM1, KM2, CT
+LABEL 48.00 540.00 4) HOW TO RUN\n 1. Press Run. Go to page 2 and press SB1 (START).\n 2. Watch page 1: pellets travel Big Bag > receiver > hopper > process.\n 3. Watch page 2: lamps, currents and the trend. Page 3: flow chart.\n 4. Press SB0 to stop. Turn S2 off to stop only t
+LABEL 48.00 690.00 TIP: the Big Bag holds 3000 units. When the feeder is empty, reload the example.

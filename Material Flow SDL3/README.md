@@ -28,7 +28,8 @@ This is an interactive 2D simulator for moving water, oil, fluff and sand throug
 | `src/plantbus.pas` | The plant bus: what the pages tell each other while they all run |
 | `src/flowchart.pas` | Flow charts: nodes, the live scan, actions |
 | `src/mfexamples.pas` | The 28 built-in example layouts |
-| `examples/*.mflow` | The same 35 examples, plus the original demo, as files you can open |
+| `mfmcp.exe` | The MCP server that makes the program a part of Claude Code (see Claude Code (MCP)) |
+| `examples/*.mflow` | The same 36 examples, plus the original demo, as files you can open |
 
 ## Pages, layers, links and frame popups
 
@@ -385,6 +386,40 @@ The **Flow** tab of the Tool panel draws flow charts on the canvas. A chart is w
 - **Box van**: a truck with its cab and an open cargo box; put a bucket in the cargo box for its load.
 - **Standard rack**: shelving with boxes on its shelves.
 - A photo sensor stays closed only while a piece is in its beam (material keeps it closed 1 s more), so a counter counts pieces one by one.
+## Vibratory feeder
+
+**Vib. feeder** (Equip tab): a vibratory tray feeder - the trough on coil springs over its base, an out-of-balance vibrator under it. Running, the trough shakes (you see it), and the bulk material lying on it hops up and forward along the tray and falls off its open end (**Flip** turns it round). **Amplitude %** (Properties, a drive / VFD, a flow chart Set %) is how hard it shakes: the harder, the faster it carries. Stopped, the tray holds what lies on it.
+
+A drop outlet just above the tray (its inlet end) is **choke fed**, as under a real hopper: material only comes out as fast as the tray carries it away, so the tray sets the feed rate; stopped, the chute stays full and the feeder above it waits. Example 36 compares two of them.
+
+## Tables (line up parts and labels; tables of values)
+
+The **Table** tool (Pipes tab, next to Frame) draws a table: drag a box for 3 x 3 cells over it (a click gives 3 rows of 4). Its title is typed at once.
+
+- **What is in it:** equipment and labels whose centre is in a cell belong to that cell and are lined up in it - when you drop them in, and whenever the table changes. **Line up across**: Left / Centre / Right; **Line up down**: Top / Middle / Bottom (Properties).
+- **Move** it by its title tab or outline: everything in its cells goes along. **Resize** it by the corner square: the columns, rows, the cells' text and the equipment and labels in it all grow or shrink together (labels have a text size of their own for this, saved as `LSCALE`).
+- **Rows and columns:** **+ Row / - Row / + Column / - Column** (up to 16 rows x 8 columns; the last one goes), and the picked cell's column **Narrower / Wider**, row **Lower / Higher**.
+- **Cell text:** click a cell to pick it, double-click to type (**Tab**: the next cell). `{NAME}` in a cell shows the live value of NAME - a tag, sensor, meter, equipment or controller value - so a table can be a data / comparison table of the plant (e.g. `Hot out` | `{HX01.HOT}`). An unknown name shows `?`. **Heading row** tints the first row; **Text size**, **Colour**.
+- Saved with the layout (`TABLE`, `TCOLS`, `TROWS`, `TCELL`), on its page and layer, one undo step per change. The AI Chat builds them too (`{op:"table", ...}`).
+## AI Chat
+
+**AI Chat** in the menu bar (or **Ctrl+I**) opens a chat with Claude in a window of its own, apart from the program: the page `aichat\index.html` in Microsoft Edge as an app window (Chrome when there is no Edge; **Open in the default browser** opens it in a browser tab). It keeps its own profile in `aichat\profile`.
+
+- **API key:** **Add API key** / **API key** - paste your ANTHROPIC_API_KEY, change it, or **Delete** it. It is kept only in the chat window's own profile on this PC and sent only to api.anthropic.com.
+- **Model:** Claude Opus 5.5 (default), Sonnet 5.5, Haiku 5.5 or Fable 5.1; the answer streams in as it is written.
+- **Messages** are HTML: the answers' Markdown (headings, bold / italic, lists, tables, code, quotes, links) is shown formatted; what is typed is shown as it was typed (never run as HTML).
+- **Attach** BMP, PNG, TXT or PDF files (also by dropping them on the window or pasting an image): images go to Claude as images (a BMP as a PNG), a PDF as a document, a text file as text. Up to 20 MB each.
+- **Copy text** / **Copy image** copy the whole chat; each message has its own **Copy** / **Image** buttons. **Save as image** saves the chat as a PNG.
+- **Export** as **Text (.txt)**, **Bitmap (.bmp)**, **PNG image (.png)** or **PDF (.pdf)**. You pick where it goes. The PDF is a real document on A4 pages: the program prints the chat with Edge in the background, so its text stays text (selectable, searchable, Thai too) and its pictures (attachments, screenshots) stay pictures. A chat window not opened from the program has no bridge: PDF then opens the print dialog (choose **Save as PDF**).
+- **Claude works in the program.** Opened from the program, the chat is connected to it (**● Material Flow connected** at the top) through the AI bridge: a small server on this PC only (127.0.0.1, from port 5047) with a secret token that only that chat window gets. Ask it to make or change something and it does it: it reads how to build (`mf_help`), looks at the program (`mf_status`, `mf_screenshot`), reads and writes values (`mf_read` / `mf_write`), opens examples and layouts (`mf_examples`, `mf_load_example`, `mf_get_layout`, `mf_load_layout`), goes to or makes pages (`mf_page`), starts / stops the simulation (`mf_run`) and builds on the page (`mf_build`: pipes, devices, buckets, equipment, electrical parts and wires, pneumatic / hydraulic parts and lines, flow chart nodes and their arrows, labels, erase, layers). What it did shows in the chat as 🔧 lines, its screenshots as pictures. Each build is one undo step (**Ctrl+Z**); loading a layout or an example keeps the old one as a backup in `aichat\work\ai_backup.mflow` (**mf_restore_backup** takes it back).
+- **New chat** starts again. Enter sends, Shift+Enter starts a new line; **Stop** stops an answer.
+## Claude Code (MCP)
+
+The program is a part of Claude Code on this PC: **mfmcp.exe** (next to MaterialFlow.exe) is an MCP server that gives Claude Code the same tools as the AI Chat - `mf_help`, `mf_status`, `mf_build`, `mf_read`, `mf_write`, `mf_page`, `mf_run`, `mf_screenshot` (a PNG), `mf_get_layout`, `mf_load_layout`, `mf_examples`, `mf_load_example`, `mf_restore_backup`. In any Claude Code session, ask for a layout, a change or a check and Claude works in the running program (it starts MaterialFlow.exe itself when it is not running). It uses your Claude Code plan, not API credits.
+
+- **AI Chat > Claude Code link (MCP)** (on by default, saved): the program opens its AI bridge when it starts (127.0.0.1 only, from port 5047) and writes its port and token in `aichat\bridge.json`, which mfmcp.exe reads. Off: no bridge (until the AI Chat window is opened).
+- Registered for every folder in `~/.claude.json` (`mcpServers` > `material-flow`), and for this folder in `.mcp.json`. By hand: `claude mcp add material-flow -- "<folder>\mfmcp.exe"`. A new Claude Code session picks it up.
+- Build it: `fpc -MObjFPC -Scghi -O2 -FUlib\mcp -omfmcp.exe mfmcp.lpr`.
 ## IPC network (server and client)
 
 The program talks to other programs (an HMI, a PLC gateway, another Material Flow) over TCP: as a **server for many clients** and as a **client of many servers**, both at the same time. Both are **off** by default.
@@ -393,6 +428,8 @@ The program talks to other programs (an HMI, a PLC gateway, another Material Flo
 - **IPC inputs / outputs** panel (F11, its own window): the points of the server and of the client. An **OUT** point reads a part of the layout (its **Link**: a tag, sensor, meter, equipment, controller value - on any page) and sends it under its **Name**; an **IN** point takes the value sent under its Name and works the part called Link: a switch, push button, selector, breaker, potentiometer, drive, controller set point (**TAG.SP**), equipment (run / stop, above 1 its speed) - on this page or another one. A Link that is no part becomes a value and tag of its own that displays, gauges, trend charts, flow charts and contacts read. An empty Link is the point's Name; **Peer** limits a point to one client (by its HELLO name) or one server (by its name in the list). **Auto map** adds an OUT point for every name in the layout and an IN point for every part a value can work. Saved in **ipc_io.ini**, its own file.
 - The wire is text, one message per line: `HELLO <name>`, `SET <name> <value>` (a number; ON / OFF too), `PING` / `PONG`. A new connection gets every output at once, then what changes (and all of them once a second). Every socket is non-blocking: the program never waits on the network.
 ## Every page at once (the plant bus)
+
+Switches, push buttons, selectors, float and photo switches (on = 1, off = 0) and coils, lamps and solenoids (energised = 1) are on the bus too: a table cell `{S1}`, a display or a flow chart on another page reads them, and a switch that is on counts as an active tag there (contacts with its tag close).
 
 All pages run at the same time, every frame, not only the page on screen. A pump on page 3 keeps pumping while you look at page 1, and all pages run on the same clock.
 
@@ -785,6 +822,7 @@ The examples:
 33. **Belt conveyor system**, after a technical drawing: belt conveyor BC-01 inclined 15 deg, 6620 mm long, with its feed hopper over the tail end and the gear motor at the head end, which drops the sand into a bin (WT1 weighs it). Click SB1: KM1 runs drive U1 (speed from potentiometer RV1) and opens the feed gate, which is shut whenever the belt is not running; SB0, E-stop ES1 or overload OL1 stop it. Labels list the components and the key dimensions of the drawing.
 34. **Bottles, boxes & toys**: item feeders. Line 1: bottles drop onto Belt01 and into the crate; photo sensor PE1 counts each one (CNT1) - at 12 the crate is full, the feeder and the belt stop and H1 lights; SB2 resets the count. Line 2 (switch S2): glasses, boxes and dolls ride a 12 deg belt up into the bin. WT1 / WT2 weigh the crate and the bin.
 35. **Shipping dock & order pickers**, after a warehouse plan, seen from the side: three order pickers take boxes (one of them mixed pieces) from their standard racks and put them on the roller conveyor; click SB1 and it carries them to the dock, where the dock worker lifts each one into the box van, on top of the load. PE1 / CNT1 count what is shipped, WT1 weighs the van's load.
+36. **Vibratory feeders compared**: the same sand on two vibratory tray feeders, VF01 shaking at 30 % and VF02 at 80 %, each into a bin on a weight sensor; S1 / S2 switch them. Page 3 **Compare** sets the two lines side by side: a table of live values ({VF01}, {WT1}... in its cells), the bin meters lined up in the cells of a second table, and a trend of both bins.
 
 ## What it covers
 
@@ -821,4 +859,4 @@ The examples:
 - **Material in pipes:** the air drags particles along. They also feel gravity and wall friction, so sand needs enough suction to be lifted up a riser. At tees, particles split in proportion to the flow in each branch.
 - **Free material:** gravity, air drag, suction pull and nozzle jets act on it. Particle contacts use position-based dynamics, so piles and liquid levels stay stable. Buckets and the floor are solid.
 
-For a verification run without user input, `MaterialFlow.exe --shot <frames> out.bmp [layout.mflow]` simulates the demo, or the given layout (every page of it), for that many frames. It then saves a screenshot and a stats file (`out.bmp.txt`). `MaterialFlow.exe --export-examples examples` rewrites the example files and `demo_original.mflow` from the built-in versions. `MaterialFlow.exe --selftest report.txt` runs the automated checks (undo/redo, cut/copy/paste, panels, pages, layers, links, frame popups, equipment, the six states, the sequence, valves, heaters, rain, fire, wells, pools, ponds, pumps, electrical circuits, conveyors, potentiometers, current transformers, gauges, Focus Properties windows, pneumatic and hydraulic circuits, the virtual feeder, the menus, the Physics Lab, the Shape Editor, resizable panels, timers, counters, sensors, controllers, every page running at once, humidity sensors, heat exchangers, cooling towers, chillers, pH sensors, scrolling panels, flow charts and their jumps, switching and random values, resizable Properties and Focus Properties, trend charts, timelines, the examples, the themes and their contrast, the rotary dryer, the gate cycle chart, backgrounds, the PVC plant, moving and sizing frame popups, inclined conveyors, item feeders and pieces, the IPC server and client, workers; 849 checks). Test runs never load `physics.mfphys` or `shapes.mfshape`.
+For a verification run without user input, `MaterialFlow.exe --shot <frames> out.bmp [layout.mflow]` simulates the demo, or the given layout (every page of it), for that many frames. It then saves a screenshot and a stats file (`out.bmp.txt`). `MaterialFlow.exe --export-examples examples` rewrites the example files and `demo_original.mflow` from the built-in versions. `MaterialFlow.exe --selftest report.txt` runs the automated checks (undo/redo, cut/copy/paste, panels, pages, layers, links, frame popups, equipment, the six states, the sequence, valves, heaters, rain, fire, wells, pools, ponds, pumps, electrical circuits, conveyors, potentiometers, current transformers, gauges, Focus Properties windows, pneumatic and hydraulic circuits, the virtual feeder, the menus, the Physics Lab, the Shape Editor, resizable panels, timers, counters, sensors, controllers, every page running at once, humidity sensors, heat exchangers, cooling towers, chillers, pH sensors, scrolling panels, flow charts and their jumps, switching and random values, resizable Properties and Focus Properties, trend charts, timelines, the examples, the themes and their contrast, the rotary dryer, the gate cycle chart, backgrounds, the PVC plant, moving and sizing frame popups, inclined conveyors, item feeders and pieces, the IPC server and client, workers, the AI Chat menu, the AI bridge, tables, vibratory feeders; 898 checks). Test runs never load `physics.mfphys` or `shapes.mfshape`.

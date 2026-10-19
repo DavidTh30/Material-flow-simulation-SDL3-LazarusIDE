@@ -7,7 +7,7 @@ program MaterialFlow;
 {$APPTYPE GUI}
 
 uses
-  SysUtils, sdl3min, simcore, plantbus, layoutio, mfexamples, mftheme, edithist, mfpages, elec, fluid, flowchart, trends, piecesim, ipcnet, physics, shapes, mfapp;
+  SysUtils, sdl3min, simcore, plantbus, layoutio, mfexamples, mftheme, edithist, mfpages, elec, fluid, flowchart, trends, piecesim, ipcnet, aichat, aibridge, physics, shapes, mfapp;
 
 procedure DumpError(E: Exception);
 var
