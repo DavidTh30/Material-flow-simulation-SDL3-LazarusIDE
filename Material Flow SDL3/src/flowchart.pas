@@ -393,7 +393,7 @@ begin
       if (v >= 0.5) and (Equips[i].State <> EQS_RUN) then Equips[i].RunTime := 0;
       if v >= 0.5 then Equips[i].State := EQS_RUN else Equips[i].State := EQS_STOP;
     end;
-    if (v > 1) and (Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_RAIN, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER]) then
+    if (v > 1) and (Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_VIBFEEDER, EQ_RAIN, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER]) then
       Equips[i].Level := fclamp(v, 0, 100);
     Exit(True);
   end;

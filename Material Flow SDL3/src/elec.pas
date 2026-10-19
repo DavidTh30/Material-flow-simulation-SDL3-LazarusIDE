@@ -800,7 +800,7 @@ begin
   else if Equips[i].Kind = EQ_FIRE then Value := Equips[i].Heat
   else if EquipRunning(i) then
   begin
-    if Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_RAIN] then Value := Equips[i].Level else Value := 100;
+    if Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_VIBFEEDER, EQ_RAIN] then Value := Equips[i].Level else Value := 100;
   end;
 end;
 
@@ -1161,7 +1161,7 @@ begin
         if (i < 0) and BusEquip(c^.Ref, be) then c^.Val := 14.5 * be.Speed;
         if (i >= 0) and EquipRunning(i) then
         begin
-          if Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_RAIN] then c^.Val := 14.5 * Equips[i].Level
+          if Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_VIBFEEDER, EQ_RAIN] then c^.Val := 14.5 * Equips[i].Level
           else c^.Val := 1450;
         end;
       end;
@@ -1369,7 +1369,7 @@ begin
       begin
         if Equips[i].State <> EQS_RUN then Equips[i].RunTime := 0;
         Equips[i].State := EQS_RUN;
-        if (cmd.Speed >= 0) and (Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT] + ThermalKinds) then Equips[i].Level := cmd.Speed;
+        if (cmd.Speed >= 0) and (Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_VIBFEEDER] + ThermalKinds) then Equips[i].Level := cmd.Speed;
       end
       else
         Equips[i].State := EQS_STOP;
@@ -1424,6 +1424,22 @@ begin
         BusAddSig(c^.Tag + '.SP', c^.P1, CtrlUnit(c^));
       end;
     end;
+  { switches, buttons, selectors, float / photo switches: on (closed) = 1, off = 0; coils, lamps,
+    solenoids: on = 1 - so the other pages read them (a table cell {S1}, a display, a flow chart);
+    a switch that is on also counts as an active tag there, for contacts with its tag }
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+    begin
+      c := @EGrid[x, y];
+      if c^.Tag = '' then Continue;
+      if c^.Kind in [ekPBNO, ekPBNC, ekPBLatch, ekSwitch, ekSw2, ekSw3, ekSelector, ekEStop, ekBreaker, ekFloat, ekPhoto] then
+      begin
+        BusAddSig(c^.Tag, Ord(EConducts(x, y)), '');
+        if EConducts(x, y) and (c^.Kind in [ekPBNO, ekPBLatch, ekSwitch, ekSelector, ekFloat]) then BusAddTag(c^.Tag);
+      end
+      else if c^.Kind in [ekRelay, ekContactor, ekLamp, ekBuzzer, ekSolenoid] then
+        BusAddSig(c^.Tag, Ord(c^.Energized), '');
+    end;
   if Assigned(ExtFlowSigName) and Assigned(ExtFlowValue) then
   begin
     i := 0;
@@ -1457,7 +1473,7 @@ begin
     e.Level := EquipLevelByName(Equips[i].Name);
     if EquipRunning(i) then
     begin
-      if Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_RAIN] then e.Speed := Equips[i].Level else e.Speed := 100;
+      if Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_VIBFEEDER, EQ_RAIN] then e.Speed := Equips[i].Level else e.Speed := 100;
     end;
     e.Temp := Equips[i].Temp;
     BusAddEq(e);
@@ -1685,7 +1701,7 @@ begin
       begin
         if Equips[i].State <> EQS_RUN then Equips[i].RunTime := 0;
         Equips[i].State := EQS_RUN;
-        if (speed[i] >= 0) and (Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT] + ThermalKinds) then Equips[i].Level := speed[i];
+        if (speed[i] >= 0) and (Equips[i].Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_VIBFEEDER] + ThermalKinds) then Equips[i].Level := speed[i];
         Inc(nOn);
       end
       else

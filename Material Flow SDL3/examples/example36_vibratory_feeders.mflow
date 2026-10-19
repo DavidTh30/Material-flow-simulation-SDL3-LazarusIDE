@@ -1,0 +1,163 @@
+# Material Flow Simulator layout
+# POPUP n page colour title / POPUPTEXT n text
+# PAGE name / LAYERS count active / LAYER n visible locked name / ON layer
+# CELL x y kind conn dia dir open strength
+# STOCK x y water oil fluff sand air% feed%
+# BUCKET x y w h
+# LABEL x y text   (\n = new line)
+# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
+# FRAME x y w h colour dashed fill carry title
+# TABLE x y rows cols across down colour header textsize title / TCOLS w.. / TROWS h.. / TCELL r c text / LSCALE size
+# LINK x y colour page|popup n caption
+# EQUIP kind x y w h state flip linkx linky level name
+# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3
+# FLOW n kind x y w h op act next no value src target caption   (next / no: node n, 0 = none)
+# FLOWX n type low period   (a random node: 0 boolean, 1 byte, 2 integer, 3 float)
+MFLOW 2
+NAME Vibratory feeders compared
+POPUP 1 2 2 How it works
+POPUPTEXT 1 Each feeder drops sand on a vibratory tray\nfeeder; shaking, the tray throws it up and\nforward, so it hops along and falls off the\nend into a bin on a weight sensor. VF01\nshakes at 30 %, VF02 at 80 %: B feeds faster.
+POPUP 2 0 3 Try this
+POPUPTEXT 2 Switch S2 off: tray B stops and holds its\nsand. Select VF01, Amplitude % up to 80: it\ncatches up. Open page 3 (Compare): the table\nshows both lines live; type {M1} in a cell.
+
+PAGE Plant
+LAYERS 4 1
+LAYER 1 1 0 Process
+LAYER 2 1 0 Notes
+LAYER 3 1 0 Equipment
+LAYER 4 1 0 Electrical
+GRAVITY 1.00
+ON 1
+CELL 6 2 feeder S 4 E 1 0.00
+STOCK 6 2 0.00 0.00 0.00 1500.00 0.00 30.00
+CELL 26 2 feeder S 4 E 1 0.00
+STOCK 26 2 0.00 0.00 0.00 1500.00 0.00 30.00
+CELL 6 3 pipe SN 3 E 1 0.00
+CELL 26 3 pipe SN 3 E 1 0.00
+CELL 6 4 pipe SN 3 E 1 0.00
+CELL 26 4 pipe SN 3 E 1 0.00
+CELL 6 5 pipe SN 3 E 1 0.00
+CELL 26 5 pipe SN 3 E 1 0.00
+CELL 6 6 drop N 3 S 1 100.00
+CELL 26 6 drop N 3 S 1 100.00
+BUCKET 345.00 696.00 150.00 110.00
+BUCKET 853.00 696.00 190.00 110.00
+ON 2
+LABEL 300.00 120.00 LINE A\nVF01 shakes at 30 %
+LABEL 700.00 120.00 LINE B\nVF02 shakes at 80 %
+LABEL 420.00 420.00 VIBRATORY FEEDERS\nEach tray shakes the sand along and off\nits end into the bin (WT1, WT2 weigh it).\nThe harder it shakes, the faster it feeds.\nHOW TO USE: S1 / S2 switch them; select a\nfeeder: Amplitude % sets how hard it shakes.
+LINK 420.00 540.00 2 page 3 Compare (page 3)
+LINK 24.00 24.00 1 page 2 About
+LINK 24.00 46.00 2 popup 1 How it works
+LINK 24.00 68.00 3 popup 2 Try this
+ON 3
+EQUIP vibfeeder 120.00 156.00 264.00 96.00 stop 0 -1 -1 30.00 VF01
+EQUIP vibfeeder 600.00 156.00 264.00 96.00 stop 0 -1 -1 80.00 VF02
+EQUIP digital 120.00 330.00 160.00 52.00 stop 0 -1 -1 50.00 VF01 amplitude %
+EQSRC 0.00 100.00 VF01
+EQUIP digital 600.00 330.00 160.00 52.00 stop 0 -1 -1 50.00 VF02 amplitude %
+EQSRC 0.00 100.00 VF02
+ON 4
+ECELL 29 1 wire ES 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 33 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 1 ac EW 0 0 0 0 1 0 0.00 0.00 230VAC - - 0.00
+ECELL 37 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 41 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 1 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 1 wire SW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 2 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 3 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 3 switch EW 0 0 0 0 1 0 0.00 0.00 S1 - - 0.00
+ECELL 33 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 3 motor EW 0 0 0 0 0 0 5.00 0.00 M1 VF01 - 0.00
+ECELL 41 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 3 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 3 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 4 wire SN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 5 wire ESN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 30 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 31 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 32 5 switch EW 0 0 0 0 1 0 0.00 0.00 S2 - - 0.00
+ECELL 33 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 34 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 35 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 36 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 37 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 38 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 39 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 40 5 motor EW 0 0 0 0 0 0 5.00 0.00 M2 VF02 - 0.00
+ECELL 41 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 42 5 wire EW 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 5 wire SWN 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 29 6 wire N 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 43 6 wire N 0 0 0 0 0 0 0.00 0.00 - - - 0.00
+ECELL 17 33 wt EW 0 0 0 0 0 0 0.00 0.00 WT1 - - 0.00
+ECELL 39 33 wt EW 0 0 0 0 0 0 0.00 0.00 WT2 - - 0.00
+
+PAGE About
+LAYERS 1 1
+LAYER 1 1 0 Text
+GRAVITY 1.00
+ON 1
+FRAME 48.00 48.00 624.00 624.00 1 0 1 1 ABOUT THIS EXAMPLE
+LABEL 96.00 96.00 EXAMPLE 36 - VIBRATORY FEEDERS COMPARED\nTwo vibratory tray feeders shake the same\nsand at 30 % and 80 %; page 3 compares the\nlines in a table of live values, with the\nbin meters lined up in a second table.
+LABEL 96.00 240.00 HOW THIS LAYOUT IS BUILT\nPage 1 "Plant" - the working process:\n  layer 1 "Process": pipes, feeders, buckets\n  layer 2 "Notes":   labels, frames, links\nPage 2 "About" - this page.\nFrame popups: "How it works", "Try this".
+LABEL 96.00 408.00 GETTING AROUND\nClick a link button (Select tool) to jump.\nPgUp / PgDn, or < > in the menu bar.\nPage & Layer panel (F6): pages and layers.\nFrame popup panel (F7): edit the popups.
+LINK 96.00 576.00 1 page 1 Back to the plant
+LINK 336.00 576.00 2 popup 1 How it works
+LINK 504.00 576.00 3 popup 2 Try this
+
+PAGE Compare
+LAYERS 1 1
+LAYER 1 1 0 Tables
+GRAVITY 1.00
+ON 1
+TABLE 48.00 72.00 5 3 1 1 1 1 1.00 LINE A vs LINE B (live)
+TCOLS 220.00 200.00 200.00
+TROWS 44.00 44.00 44.00 44.00 44.00
+TCELL 1 1 Value
+TCELL 1 2 Line A
+TCELL 1 3 Line B
+TCELL 2 1 Vibratory feeder
+TCELL 2 2 VF01
+TCELL 2 3 VF02
+TCELL 3 1 Amplitude %
+TCELL 3 2 {VF01}
+TCELL 3 3 {VF02}
+TCELL 4 1 Sand in the bin
+TCELL 4 2 {WT1}
+TCELL 4 3 {WT2}
+TCELL 5 1 Switch (1 on, 0 off)
+TCELL 5 2 {S1}
+TCELL 5 3 {S2}
+TABLE 48.00 380.00 1 2 1 1 2 0 1.00 BIN METERS
+TCOLS 310.00 310.00
+TROWS 100.00
+LABEL 700.00 72.00 COMPARE (page 3)\nThe same sand on two feeders:\nVF01 shakes at 30 %, VF02 at 80 %.\nA table cell with {NAME} shows the\nlive value of NAME; the meters sit\nin the cells of the second table.
+LINK 700.00 200.00 1 page 1 Feeders (page 1)
+EQUIP digital 105.00 402.00 196.00 56.00 stop 0 -1 -1 50.00 Bin A kg
+EQSRC 0.00 100.00 WT1
+EQUIP digital 415.00 402.00 196.00 56.00 stop 0 -1 -1 50.00 Bin B kg
+EQSRC 0.00 100.00 WT2
+EQUIP trend 48.00 520.00 620.00 230.00 stop 0 -1 -1 50.00 Bins A and B
+EQX 0 0 120.00 -1 -1
+EQSRC 0.00 0.00 WT1
+EQPENS WT2 - -

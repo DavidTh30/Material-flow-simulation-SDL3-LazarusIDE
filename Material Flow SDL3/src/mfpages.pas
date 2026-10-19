@@ -49,6 +49,7 @@ type
     Buckets: array[0..MAX_BUCKETS - 1] of TBucket;
     Labels: array[0..MAX_LABELS - 1] of TLabelObj;
     Frames: array[0..MAX_FRAMES - 1] of TFrameObj;
+    Tables: array[0..MAX_TABLES - 1] of TTableObj;
     Links: array[0..MAX_LINKS - 1] of TLinkObj;
     Equips: array[0..MAX_EQUIP - 1] of TEquipObj;
     EGrid: array[0..GW - 1, 0..GH - 1] of TECell;
@@ -193,6 +194,7 @@ begin
   for i := 0 to MAX_BUCKETS - 1 do P.Buckets[i].Active := False;
   for i := 0 to MAX_LABELS - 1 do P.Labels[i].Active := False;
   for i := 0 to MAX_FRAMES - 1 do P.Frames[i].Active := False;
+  for i := 0 to MAX_TABLES - 1 do P.Tables[i].Active := False;
   for i := 0 to MAX_LINKS - 1 do P.Links[i].Active := False;
   for i := 0 to MAX_EQUIP - 1 do P.Equips[i].Active := False;
   FillChar(P.EGrid, SizeOf(P.EGrid), 0);
@@ -238,6 +240,7 @@ begin
   Pages[i].Buckets := Buckets;
   Pages[i].Labels := Labels;
   Pages[i].Frames := Frames;
+  Pages[i].Tables := Tables;
   Pages[i].Links := Links;
   Pages[i].Equips := Equips;
   Pages[i].EGrid := EGrid;
@@ -264,6 +267,7 @@ begin
   Buckets := Pages[i].Buckets;
   Labels := Pages[i].Labels;
   Frames := Pages[i].Frames;
+  Tables := Pages[i].Tables;
   Links := Pages[i].Links;
   Equips := Pages[i].Equips;
   EGrid := Pages[i].EGrid;
@@ -441,6 +445,7 @@ begin
   for i := 0 to MAX_BUCKETS - 1 do Buckets[i].Layer := Shift(Buckets[i].Layer);
   for i := 0 to MAX_LABELS - 1 do Labels[i].Layer := Shift(Labels[i].Layer);
   for i := 0 to MAX_FRAMES - 1 do Frames[i].Layer := Shift(Frames[i].Layer);
+  for i := 0 to MAX_TABLES - 1 do Tables[i].Layer := Shift(Tables[i].Layer);
   for i := 0 to MAX_LINKS - 1 do Links[i].Layer := Shift(Links[i].Layer);
   for i := 0 to MAX_EQUIP - 1 do Equips[i].Layer := Shift(Equips[i].Layer);
   for y := 0 to GH - 1 do
@@ -537,6 +542,7 @@ begin
   Pages[i].Buckets := Buckets;
   Pages[i].Labels := Labels;
   Pages[i].Frames := Frames;
+  Pages[i].Tables := Tables;
   Pages[i].Links := Links;
   Pages[i].Equips := Equips;
   Pages[i].EGrid := EGrid;
@@ -560,6 +566,7 @@ begin
   Buckets := Pages[i].Buckets;
   Labels := Pages[i].Labels;
   Frames := Pages[i].Frames;
+  Tables := Pages[i].Tables;
   Links := Pages[i].Links;
   Equips := Pages[i].Equips;
   EGrid := Pages[i].EGrid;

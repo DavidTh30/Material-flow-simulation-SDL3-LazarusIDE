@@ -11,7 +11,7 @@ procedure RunApp;
 implementation
 
 uses
-  SysUtils, Math, sdl3min, simcore, layoutio, mfexamples, mftheme, edithist, mfpages, elec, fluid, physics, shapes, plantbus, flowchart, trends, piecesim, ipcnet;
+  SysUtils, Classes, Math, sdl3min, simcore, layoutio, mfexamples, mftheme, edithist, mfpages, elec, fluid, physics, shapes, plantbus, flowchart, trends, piecesim, ipcnet, aichat, aibridge, fpjson, jsonparser, base64;
 
 const
   PANEL_X = CANVAS_W;        { the right panel column starts here (when it is open) }
@@ -22,10 +22,10 @@ const
 
 type
   TTool = (tSelect, tPipe, tResize, tErase, tFeeder, tVFeeder, tHopper, tSilo, tBlower, tSuction, tNozzle,
-    tDrop, tCheck, tValve2, tValve3, tValve4, tBucket, tLabel, tLabelDate, tLabelTime, tFrame, tLink,
+    tDrop, tCheck, tValve2, tValve3, tValve4, tBucket, tLabel, tLabelDate, tLabelTime, tFrame, tTable, tLink,
     tEqMotor, tEqBlower, tEqPaddle, tEqScrew, tEqCyclone, tEqSilo, tEqStand, tEqLamp, tEqLegend,
     tEqSequence, tEqDiverter, tEqShutter, tEqSlide, tEqHeater, tEqIRHeater, tEqRain, tEqFire,
-    tEqPond, tEqPool, tEqWell, tEqPump, tEqPanel, tEqConveyor, tEqBelt, tEqGauge, tEqDigital, tEqCylinder, tEqCompressor, tEqHPU, tEqReceiver, tEqController, tEqHeatEx, tEqCoolTower, tEqChiller, tEqTrend, tEqTimeline, tEqDryer, tEqItemFeeder, tEqWorker, tEqVan, tEqRack,
+    tEqPond, tEqPool, tEqWell, tEqPump, tEqPanel, tEqConveyor, tEqBelt, tEqGauge, tEqDigital, tEqCylinder, tEqCompressor, tEqHPU, tEqReceiver, tEqController, tEqHeatEx, tEqCoolTower, tEqChiller, tEqTrend, tEqTimeline, tEqDryer, tEqItemFeeder, tEqWorker, tEqVan, tEqRack, tEqVibFeeder,
     tElWire, tElCross, tElTerminal, tElAC, tElDC, tElFuse, tElBreaker, tElSwitch, tElSw2, tElSw3, tElPBNO, tElPBNC,
     tElPBLatch, tElSelector, tElEStop, tElNO, tElNC, tElRelay, tElContactor, tElTimer, tElOL, tElLamp, tElBuzzer,
     tElMotor, tElDrive, tElFloat, tElCT, tElPot, tElSolenoid,
@@ -34,10 +34,10 @@ type
     tFlAirMotor, tFlHydMotor, tFlSilencer, tFlTank, tFlGauge, tFlPSwitch,
     tCtCounter, tCtLevel, tCtPress, tCtFlow, tCtTemp, tCtSpeed, tCtWeight, tCtPhoto, tCtController, tCtHumid, tCtPH,
     tFwStart, tFwInput, tFwDecision, tFwAction, tFwDisplay, tFwDelay, tFwEnd, tFwArrow, tFwRandom);
-  TSelKind = (selNone, selCell, selBucket, selMulti, selLabel, selFrame, selLink, selEquip, selECell, selFCell, selFlow);
+  TSelKind = (selNone, selCell, selBucket, selMulti, selLabel, selFrame, selLink, selEquip, selECell, selFCell, selFlow, selTable);
   TDrag = (dragNone, dragPipe, dragResize, dragErase, dragBucket, dragBox, dragMove, dragLabel,
     dragFrameNew, dragFrameMove, dragFrameSize, dragLink, dragEqMove, dragEqSize, dragTLPin, dragEWire, dragEPress, dragFLine, dragFPress,
-    dragFlowMove, dragFlowArrow);
+    dragFlowMove, dragFlowArrow, dragTblNew, dragTblMove, dragTblSize);
   TClipBucket = record
     DX, DY, W, H: Single;   { relative to the block's top-left corner }
     Layer: Byte;
@@ -77,11 +77,11 @@ type
 const
   ToolNames: array[TTool] of string = ('Select', 'Pipe', 'Pipe size', 'Erase',
     'Feeder', 'Virtual fd.', 'Hopper', 'Silo', 'Blower', 'Suction', 'Push nozzle', 'Drop out', '1-way pipe',
-    '2-way valve', '3-way valve', '4-way valve', 'Bucket', 'Label', 'Date label', 'Time label', 'Frame', 'Link',
+    '2-way valve', '3-way valve', '4-way valve', 'Bucket', 'Label', 'Date label', 'Time label', 'Frame', 'Table', 'Link',
     'Motor', 'Blower', 'Paddle', 'Screw conv.', 'Cyclone', 'Silo bin', 'Silo stand', 'Lamp', 'Legend',
     'Sequence', 'Diverter', 'Shutter', 'Slide valve', 'Heater', 'IR heater', 'Rain', 'Fire', 'Pond', 'Pool', 'Well', 'Water pump',
     'Cabinet', 'Roller conveyor', 'Belt conveyor', 'Needle gauge', 'Digital display',
-    'Cylinder', 'Compressor', 'Hydraulic unit', 'Air receiver', 'Faceplate', 'Heat exch.', 'Cool. tower', 'Chiller', 'Trend chart', 'Timeline', 'Rotary dryer', 'Item feeder', 'Worker', 'Box van', 'Standard rack',
+    'Cylinder', 'Compressor', 'Hydraulic unit', 'Air receiver', 'Faceplate', 'Heat exch.', 'Cool. tower', 'Chiller', 'Trend chart', 'Timeline', 'Rotary dryer', 'Item feeder', 'Worker', 'Box van', 'Standard rack', 'Vib. feeder',
     'Wire', 'Cross', 'Terminal', 'AC supply', 'DC supply', 'Fuse', 'Breaker', 'Switch', '2-way sw.', '3-way sw.',
     'Push NO', 'Push NC', 'Push on/off', 'Selector', 'E-Stop', 'NO contact', 'NC contact', 'Relay', 'Contactor',
     'Timer', 'Overload', 'Lamp', 'Buzzer', 'Motor M', 'Drive VFD', 'Float sw.', 'Current tr.', 'Potentiometer', 'Solenoid Y',
@@ -92,7 +92,7 @@ const
     'Start', 'Input', 'Decision', 'Action', 'Display', 'Delay', 'End', 'Arrow', 'Random');
   ToolKinds: array[TTool] of TCellKind = (ckEmpty, ckPipe, ckEmpty, ckEmpty,
     ckSource, ckVFeeder, ckHopper, ckSilo, ckBlower, ckSuction, ckNozzle, ckDrop, ckCheck, ckValve2, ckValve3, ckValve4,
-    ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
+    ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
@@ -104,7 +104,7 @@ const
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
     ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty, ckEmpty,
-    ckEmpty, ckEmpty, ckEmpty);
+    ckEmpty, ckEmpty, ckEmpty, ckEmpty);
   ToolHints: array[TTool] of string = (
     'Click to edit; drag box to select',
     'Drag to route; start on pipe=branch',
@@ -127,6 +127,7 @@ const
     'Click: label showing the date',
     'Click: label showing the time',
     'Drag: frame to group & title parts',
+    'Drag: table to line up parts & labels',
     'Click: link to a page / popup',
     'Click: motor (on a device: linked)',
     'Click: centrifugal blower',
@@ -169,6 +170,7 @@ const
     'Click: worker (loads / picks pieces)',
     'Click: box van (its load: a bucket)',
     'Click: standard rack (shelves)',
+    'Click: vibratory feeder (shakes material on)',
     'Drag: wire (joins where it meets)',
     'Click: wires crossing, not joined',
     'Click: terminal (a joint)',
@@ -438,6 +440,13 @@ begin
   Widest := Max(Widest, cur);
 end;
 
+{ a label's text size (1 = normal) }
+function LScale(i: Integer): Single;
+begin
+  Result := Labels[i].Scale;
+  if Result < 0.05 then Result := 1;
+end;
+
 { label i's box in world coordinates (its text keeps its size when zoomed) }
 procedure LabelBox(i: Integer; out x, y, w, h: Single);
 var
@@ -447,8 +456,8 @@ begin
   wd := Max(wd + 1, 6);
   x := Labels[i].X;
   y := Labels[i].Y;
-  w := (wd * 8 + 2 * LABEL_PAD) / Zoom;
-  h := (n * LABEL_LINE + 2 * LABEL_PAD - 2) / Zoom;
+  w := (wd * 8 + 2 * LABEL_PAD) * LScale(i) / Zoom;
+  h := (n * LABEL_LINE + 2 * LABEL_PAD - 2) * LScale(i) / Zoom;
 end;
 
 function LabelAt(wx, wy: Single): Integer;
@@ -736,6 +745,36 @@ begin
   if TrackDraw and (s <> '') and (y + 9 > MaxDrawY) then MaxDrawY := y + 9;
   { text keeps its size when zoomed; only its position follows the view }
   if s <> '' then SDL_RenderDebugText(Ren, SXf(x), SYf(y), PAnsiChar(s));
+end;
+
+var
+  CanvasClip: TSDL_Rect;           { the canvas's clip while it draws (scaled text has to scale it too) }
+  CanvasClipOn: Boolean = False;
+
+{ text Sc times its normal size }
+procedure TextS(x, y: Single; const s: string; Sc: Single);
+var
+  cr: TSDL_Rect;
+begin
+  if Abs(Sc - 1) < 0.01 then
+  begin
+    TextR(x, y, s);
+    Exit;
+  end;
+  if (s = '') or (Sc <= 0) then Exit;
+  if TrackDraw and (y + 9 * Sc > MaxDrawY) then MaxDrawY := y + 9 * Sc;
+  SDL_SetRenderScale(Ren, Sc, Sc);
+  if CanvasClipOn then
+  begin
+    cr.x := Floor(CanvasClip.x / Sc);
+    cr.y := Floor(CanvasClip.y / Sc);
+    cr.w := Ceil(CanvasClip.w / Sc);
+    cr.h := Ceil(CanvasClip.h / Sc);
+    SDL_SetRenderClipRect(Ren, @cr);
+  end;
+  SDL_RenderDebugText(Ren, SXf(x) / Sc, SYf(y) / Sc, PAnsiChar(s));
+  SDL_SetRenderScale(Ren, 1, 1);
+  if CanvasClipOn then SDL_SetRenderClipRect(Ren, @CanvasClip);
 end;
 
 procedure SetVtx(i: Integer; x, y: Single; r, g, b, a: Byte);
@@ -1568,7 +1607,7 @@ end;
 procedure DrawLabels;
 var
   i, k, n, wd, titleLines: Integer;
-  ux, uy, w, h: Single;
+  ux, uy, w, h, sc: Single;
   s, line, caret: string;
   editing: Boolean;
   r, g, b: Byte;
@@ -1595,8 +1634,9 @@ begin
     wd := Max(wd + 1, 6);
     ux := (Labels[i].X - ViewX) * Zoom;
     uy := (Labels[i].Y - ViewY) * Zoom;
-    w := wd * 8 + 2 * LABEL_PAD;
-    h := n * LABEL_LINE + 2 * LABEL_PAD - 2;
+    sc := LScale(i);
+    w := (wd * 8 + 2 * LABEL_PAD) * sc;
+    h := (n * LABEL_LINE + 2 * LABEL_PAD - 2) * sc;
     if not Labels[i].NoBox then
     begin
       SetC(Th.OverlayBg, 225);
@@ -1613,7 +1653,7 @@ begin
     if (Labels[i].Kind = LBL_TEXT) and (Labels[i].Text = '') and not editing then
     begin
       SetC(Th.TextDim);
-      TextR(ux + LABEL_PAD, uy + LABEL_PAD, '(empty)');
+      TextS(ux + LABEL_PAD * sc, uy + LABEL_PAD * sc, '(empty)', sc);
     end;
     LabelRGB(Labels[i].Color, r, g, b);
     line := '';
@@ -1623,7 +1663,7 @@ begin
       begin
         { title lines in the accent colour unless the label has its own colour }
         if (k < titleLines) and (Labels[i].Color = 0) then SetC(Th.Title) else SetCol(r, g, b);
-        TextR(ux + LABEL_PAD, uy + LABEL_PAD + k * LABEL_LINE, line);
+        TextS(ux + LABEL_PAD * sc, uy + (LABEL_PAD + k * LABEL_LINE) * sc, line, sc);
         line := '';
         Inc(k);
       end
@@ -1760,6 +1800,345 @@ begin
   for i := 0 to MAX_FRAMES - 1 do
     if Frames[i].Active and LayerShown(Frames[i].Layer) then
       DrawFrameShape(i, Frames[i].X, Frames[i].Y, Frames[i].W, Frames[i].H, False);
+end;
+
+
+{ ---------------------------------------------------------------- tables }
+
+const
+  TBL_PAD = 4;          { the space between a cell's edge and what is lined up in it }
+  TBL_ALIGN_X: array[0..2] of string = ('Left', 'Centre', 'Right');
+  TBL_ALIGN_Y: array[0..2] of string = ('Top', 'Middle', 'Bottom');
+
+type
+  { a part or label in a table's cell: equipment (K 0) or a label (K 1), where and how big it was }
+  TTblMember = record
+    K, I, R, C: Integer;
+    X, Y, W, H, S: Single;
+  end;
+
+var
+  SelTb: Integer = -1;            { the selected table and its selected cell }
+  SelTbR: Integer = 0;
+  SelTbC: Integer = 0;
+  TbDrag: Integer = -1;           { the table being moved / resized }
+  TbX0, TbY0, TbX1, TbY1: Single; { where the drag started / is now (canvas pixels) }
+  TbOX, TbOY, TbW0, TbH0, TbTS0: Single;
+  TbColW0: array[0..TBL_COLS - 1] of Single;
+  TbRowH0: array[0..TBL_ROWS - 1] of Single;
+  TbM: array[0..MAX_EQUIP + MAX_LABELS - 1] of TTblMember;
+  TbMN: Integer = 0;
+
+{ the title tab above the table (world coordinates) }
+procedure TableTab(t: Integer; out x, y, w, h: Single);
+var
+  s: string;
+begin
+  s := Tables[t].Title;
+  if s = '' then s := 'Table';
+  w := fmax(48, (Length(s) * 8 + 12) / Zoom);
+  h := FRAME_TAB_H / Zoom;
+  x := Tables[t].X;
+  y := Tables[t].Y - h;
+end;
+
+{ the table whose title tab or outline (Part 0, to move it) or corner square (Part 1, to resize it) is
+  under wx, wy; the cells inside stay free for the parts and labels in them }
+function TableAt(wx, wy: Single; out Part: Integer): Integer;
+var
+  t: Integer;
+  x, y, w, h, tbx, tby, tbw, tbh: Single;
+begin
+  Part := 0;
+  for t := MAX_TABLES - 1 downto 0 do
+    if Tables[t].Active and LayerEditable(Tables[t].Layer) then
+    begin
+      x := Tables[t].X;
+      y := Tables[t].Y;
+      w := TableW(t);
+      h := TableH(t);
+      if (wx >= x + w - FRAME_HANDLE) and (wx <= x + w + 3) and (wy >= y + h - FRAME_HANDLE) and (wy <= y + h + 3) then
+      begin
+        Part := 1;
+        Exit(t);
+      end;
+      TableTab(t, tbx, tby, tbw, tbh);
+      if (wx >= tbx) and (wx <= tbx + tbw) and (wy >= tby) and (wy < y) then Exit(t);
+      if (wx >= x - FRAME_EDGE) and (wx <= x + w + FRAME_EDGE) and (wy >= y - FRAME_EDGE) and (wy <= y + h + FRAME_EDGE) and
+        not ((wx > x + FRAME_EDGE) and (wx < x + w - FRAME_EDGE) and (wy > y + FRAME_EDGE) and (wy < y + h - FRAME_EDGE)) then
+        Exit(t);
+    end;
+  Result := -1;
+end;
+
+{ the table and cell under wx, wy (inside it), or -1 }
+function TableCellPick(wx, wy: Single; out R, C: Integer): Integer;
+var
+  t: Integer;
+begin
+  R := -1;
+  C := -1;
+  for t := MAX_TABLES - 1 downto 0 do
+    if Tables[t].Active and LayerEditable(Tables[t].Layer) and TableCellAt(t, wx, wy, R, C) then Exit(t);
+  Result := -1;
+end;
+
+{ what a cell shows: its text, with each {NAME} as the live value of that part / tag }
+function CellShow(t, r, c: Integer): string;
+var
+  s, nm, u: string;
+  p, q: Integer;
+  v: Single;
+  b: Boolean;
+begin
+  s := Tables[t].Cells[r, c];
+  Result := '';
+  p := Pos('{', s);
+  while p > 0 do
+  begin
+    q := Pos('}', Copy(s, p + 1, MaxInt));
+    if q = 0 then Break;
+    Result := Result + Copy(s, 1, p - 1);
+    nm := Trim(Copy(s, p + 1, q - 1));
+    if FlowRead(nm, v, u, b) then
+    begin
+      { an on / off state or a count: a whole number }
+      if (u = '') and (Frac(v) = 0) and (Abs(v) < 1e6) then Result := Result + IntToStr(Round(v))
+      else Result := Result + FloatToStrF(v, ffFixed, 15, 1);
+      if u <> '' then Result := Result + ' ' + u;
+    end
+    else
+      Result := Result + '?';
+    s := Copy(s, p + q + 1, MaxInt);
+    p := Pos('{', s);
+  end;
+  Result := Result + s;
+end;
+
+function TblIdx(t, r, c: Integer): Integer;
+begin
+  Result := t * 256 + r * 16 + c;
+end;
+
+procedure DrawTableShape(t: Integer);
+var
+  P: ^TTableObj;
+  r, g, b: Byte;
+  x, y, w, h, cx, cy, cw, ch, tbx, tby, tbw, tbh, sc, txw: Single;
+  rr, cc, n: Integer;
+  s: string;
+  selected, editing: Boolean;
+begin
+  P := @Tables[t];
+  FrameRGB(P^.Color, r, g, b);
+  selected := (SelKind = selTable) and (SelTb = t);
+  x := P^.X;
+  y := P^.Y;
+  w := TableW(t);
+  h := TableH(t);
+  SetCol(r, g, b, 18);
+  FillR(x, y, w, h);
+  if P^.Header then
+  begin
+    SetCol(r, g, b, 60);
+    FillR(x, y, w, P^.RowH[0]);
+  end;
+  if selected and (SelTbR < P^.NR) and (SelTbC < P^.NC) then
+  begin
+    SetC(Th.Select, 45);
+    FillR(TableColX(t, SelTbC), TableRowY(t, SelTbR), P^.ColW[SelTbC], P^.RowH[SelTbR]);
+  end;
+  { the grid inside }
+  SetCol(r, g, b, 150);
+  for cc := 1 to P^.NC - 1 do
+  begin
+    cx := TableColX(t, cc);
+    LineR(cx, y, cx, y + h);
+  end;
+  for rr := 1 to P^.NR - 1 do
+  begin
+    cy := TableRowY(t, rr);
+    LineR(x, cy, x + w, cy);
+  end;
+  if selected then SetC(Th.Select) else SetCol(r, g, b, 220);
+  RectR(x, y, w, h);
+  RectR(x + 1, y + 1, w - 2, h - 2);
+  { the title tab above it }
+  TableTab(t, tbx, tby, tbw, tbh);
+  s := P^.Title;
+  if s = '' then s := 'Table';
+  if (TxtEdit = 38) and (TxtIdx = t) and ((SDL_GetTicksNS div 500000000) mod 2 = 0) then s := s + '_';
+  tbw := fmax(tbw, (Length(s) * 8 + 12) / Zoom);
+  if selected then SetC(Th.Select) else SetCol(r, g, b, 230);
+  FillR(tbx, tby, tbw, tbh);
+  if Th.Light or (P^.Color in [3, 5]) or selected then SetCol(20, 22, 28) else SetCol(250, 250, 252);
+  TextR(tbx + 6 / Zoom, tby + 4 / Zoom, s);
+  { the cells' texts, lined up like what is in them }
+  sc := fclamp(P^.TextScale, 0.5, 4);
+  for rr := 0 to P^.NR - 1 do
+    for cc := 0 to P^.NC - 1 do
+    begin
+      editing := (TxtEdit = 37) and (TxtIdx = TblIdx(t, rr, cc));
+      if editing then
+      begin
+        s := P^.Cells[rr, cc];
+        if (SDL_GetTicksNS div 500000000) mod 2 = 0 then s := s + '_';
+      end
+      else
+        s := CellShow(t, rr, cc);
+      if s = '' then Continue;
+      cx := TableColX(t, cc);
+      cy := TableRowY(t, rr);
+      cw := P^.ColW[cc];
+      ch := P^.RowH[rr];
+      n := Trunc((cw * Zoom - 2 * TBL_PAD) / (8 * sc));
+      if n < 1 then Continue;
+      if Length(s) > n then s := Copy(s, 1, n);
+      txw := Length(s) * 8 * sc / Zoom;
+      case P^.HAlign of
+        0: tbx := cx + TBL_PAD / Zoom;
+        2: tbx := cx + cw - txw - TBL_PAD / Zoom;
+      else
+        tbx := cx + (cw - txw) / 2;
+      end;
+      case P^.VAlign of
+        0: tby := cy + TBL_PAD / Zoom;
+        2: tby := cy + ch - 8 * sc / Zoom - TBL_PAD / Zoom;
+      else
+        tby := cy + (ch - 8 * sc / Zoom) / 2;
+      end;
+      if (rr = 0) and P^.Header then SetC(Th.Title)
+      else if P^.Color <> 0 then SetCol(r, g, b)
+      else SetC(Th.Text);
+      TextS(tbx, tby, s, sc);
+    end;
+  if selected then
+  begin
+    SetC(Th.Select);
+    FillR(x + w - 8, y + h - 8, 8, 8);
+  end;
+end;
+
+procedure DrawTables;
+var
+  t: Integer;
+begin
+  for t := 0 to MAX_TABLES - 1 do
+    if Tables[t].Active and LayerShown(Tables[t].Layer) then DrawTableShape(t);
+end;
+
+{ what is in table t's cells now: equipment and labels whose centre is in a cell }
+procedure TableSnap(t: Integer);
+var
+  i, r, c: Integer;
+  x, y, w, h: Single;
+
+  procedure Add(AK, AI: Integer; AX, AY, AW, AH, ASc: Single);
+  begin
+    if TbMN > High(TbM) then Exit;
+    TbM[TbMN].K := AK;
+    TbM[TbMN].I := AI;
+    TbM[TbMN].R := r;
+    TbM[TbMN].C := c;
+    TbM[TbMN].X := AX;
+    TbM[TbMN].Y := AY;
+    TbM[TbMN].W := AW;
+    TbM[TbMN].H := AH;
+    TbM[TbMN].S := ASc;
+    Inc(TbMN);
+  end;
+
+begin
+  TbMN := 0;
+  if (t < 0) or not Tables[t].Active then Exit;
+  for i := 0 to MAX_EQUIP - 1 do
+    if Equips[i].Active and LayerEditable(Equips[i].Layer) and
+      TableCellAt(t, Equips[i].X + Equips[i].W / 2, Equips[i].Y + Equips[i].H / 2, r, c) then
+      Add(0, i, Equips[i].X, Equips[i].Y, Equips[i].W, Equips[i].H, 1);
+  for i := 0 to MAX_LABELS - 1 do
+    if Labels[i].Active and LayerEditable(Labels[i].Layer) then
+    begin
+      LabelBox(i, x, y, w, h);
+      if TableCellAt(t, x + w / 2, y + h / 2, r, c) then Add(1, i, x, y, w, h, LScale(i));
+    end;
+end;
+
+{ put member m of table t in its cell as the table lines it up, K times its size when the snapshot was taken }
+procedure PlaceMember(t: Integer; const m: TTblMember; K: Single);
+var
+  cx, cy, cw, ch, w, h, x, y, lx, ly: Single;
+begin
+  if (m.R >= Tables[t].NR) or (m.C >= Tables[t].NC) then Exit;
+  cx := TableColX(t, m.C);
+  cy := TableRowY(t, m.R);
+  cw := Tables[t].ColW[m.C];
+  ch := Tables[t].RowH[m.R];
+  if m.K = 0 then
+  begin
+    if not Equips[m.I].Active then Exit;
+    Equips[m.I].W := fmax(8, m.W * K);
+    Equips[m.I].H := fmax(8, m.H * K);
+    w := Equips[m.I].W;
+    h := Equips[m.I].H;
+  end
+  else
+  begin
+    if not Labels[m.I].Active then Exit;
+    Labels[m.I].Scale := fclamp(m.S * K, 0.25, 6);
+    LabelBox(m.I, lx, ly, w, h);
+  end;
+  case Tables[t].HAlign of
+    0: x := cx + TBL_PAD;
+    2: x := cx + cw - w - TBL_PAD;
+  else
+    x := cx + (cw - w) / 2;
+  end;
+  case Tables[t].VAlign of
+    0: y := cy + TBL_PAD;
+    2: y := cy + ch - h - TBL_PAD;
+  else
+    y := cy + (ch - h) / 2;
+  end;
+  if m.K = 0 then
+  begin
+    Equips[m.I].X := x;
+    Equips[m.I].Y := y;
+  end
+  else
+  begin
+    Labels[m.I].X := x;
+    Labels[m.I].Y := y;
+  end;
+end;
+
+{ line up what is in table t's cells }
+procedure ArrangeTable(t: Integer);
+var
+  k: Integer;
+begin
+  TableSnap(t);
+  for k := 0 to TbMN - 1 do PlaceMember(t, TbM[k], 1);
+end;
+
+procedure ArrangeTables;
+var
+  t: Integer;
+begin
+  for t := 0 to MAX_TABLES - 1 do
+    if Tables[t].Active and LayerEditable(Tables[t].Layer) then ArrangeTable(t);
+end;
+
+{ a change to table t's columns / rows: what was in a cell stays in that cell }
+procedure TableChangeBegin(t: Integer);
+begin
+  TableSnap(t);
+end;
+
+procedure TableChangeEnd(t: Integer);
+var
+  k: Integer;
+begin
+  for k := 0 to TbMN - 1 do PlaceMember(t, TbM[k], 1);
 end;
 
 { ---------------------------------------------------------------- links }
@@ -4002,6 +4381,71 @@ begin
         FillR(x + w - 22, y + h, 14, 4);
       end;
 
+    EQ_VIBFEEDER:
+      begin
+        { a vibratory tray feeder: the trough on coil springs over its base, the vibrator under it;
+          running, the trough (and the springs' tops) shake - the harder, the higher its amplitude }
+        ty := VibDeckY(i);
+        a := 0;
+        if EquipRunning(i) then a := Sin(E^.Phase * 37) * (0.6 + E^.Level / 100 * 2.4);
+        { the base on the floor }
+        SetCol(70, 74, 82);
+        FillR(x + w * 0.06, y + h - 10, w * 0.88, 10);
+        SetCol(95, 100, 110);
+        FillR(x + w * 0.06, y + h - 10, w * 0.88, 2);
+        { four coil springs from the base up to the trough }
+        SetCol(160, 166, 176);
+        mh := (y + h - 10) - (ty + 8 + a * 0.6);
+        for k := 0 to 3 do
+        begin
+          t := x + w * (0.12 + k * 0.255);
+          for n := 0 to 5 do
+            LineR(t + 5 - 10 * (n mod 2) + a * 0.5, ty + 8 + a * 0.6 + mh * n / 6,
+              t + 5 - 10 * ((n + 1) mod 2) + a * 0.5, ty + 8 + a * 0.6 + mh * (n + 1) / 6);
+        end;
+        { the vibrator (an out-of-balance motor) hung under the trough }
+        mw := fmin(80, w * 0.3);
+        DrawMotorBody(x + (w - mw) / 2 + a, ty + 10 + a * 0.6, mw, fmin(h * 0.36, 34), E^.Flip, r, g, b);
+        { the trough: the back plate (the material shows in front of it), the deck, the wall at the inlet end, the lip }
+        SetCol(118, 126, 138, 190);
+        FillR(x + a, ty - 16 + a * 0.6, w, 16);
+        SetCol(172, 178, 188);
+        FillR(x + a, ty + a * 0.6, w, 7);
+        SetCol(60, 64, 72);
+        LineR(x + a, ty + 7 + a * 0.6, x + w + a, ty + 7 + a * 0.6);
+        SetCol(150, 156, 166);
+        if E^.Flip then
+        begin
+          FillR(x + w - 5 + a, ty - 16 + a * 0.6, 5, 16);
+          FillR(x - 8 + a, ty + 1 + a * 0.6, 10, 4);
+        end
+        else
+        begin
+          FillR(x + a, ty - 16 + a * 0.6, 5, 16);
+          FillR(x + w - 2 + a, ty + 1 + a * 0.6, 10, 4);
+        end;
+        { running: chevrons along the deck show the way the material goes }
+        if EquipRunning(i) then
+        begin
+          SetCol(255, 200, 60, 200);
+          t := x + 16 + Frac(E^.Phase * 0.4) * 24;
+          while t < x + w - 12 do
+          begin
+            if E^.Flip then
+            begin
+              LineR(t + 3 + a, ty + 2, t - 1 + a, ty + 4);
+              LineR(t - 1 + a, ty + 4, t + 3 + a, ty + 6);
+            end
+            else
+            begin
+              LineR(t - 1 + a, ty + 2, t + 3 + a, ty + 4);
+              LineR(t + 3 + a, ty + 4, t - 1 + a, ty + 6);
+            end;
+            t := t + 24;
+          end;
+        end;
+      end;
+
     EQ_CONVEYOR, EQ_BELT:
       if ConveyorTilt(i) <> 0 then DrawTiltedBelt else
       begin
@@ -5992,11 +6436,14 @@ begin
   cr.w := CANVAS_W;
   cr.h := CANVAS_H;
   SDL_SetRenderClipRect(Ren, @cr);
+  CanvasClip := cr;
+  CanvasClipOn := True;
   CanvasXf := True;
   if LayoutBg >= 0 then DrawBackgroundAt(LayoutBg, 0, 0, CANVAS_W, CANVAS_H)
   else DrawBackgroundAt(BgIndex, 0, 0, CANVAS_W, CANVAS_H);
   DrawGrid;
   DrawFrames;
+  DrawTables;
   SetC(Th.Floor);
   FillR(0, FLOOR_Y, CANVAS_W, CANVAS_H - FLOOR_Y);
 
@@ -6037,6 +6484,12 @@ begin
     SetC(Th.Paste);
     RectR(SnapCell(fmin(FrX0, FrX1)), SnapCell(fmin(FrY0, FrY1)),
       SnapCell(fmax(FrX0, FrX1)) - SnapCell(fmin(FrX0, FrX1)), SnapCell(fmax(FrY0, FrY1)) - SnapCell(fmin(FrY0, FrY1)));
+  end
+  else if Drag = dragTblNew then
+  begin
+    SetC(Th.Paste);
+    RectR(SnapCell(fmin(TbX0, TbX1)), SnapCell(fmin(TbY0, TbY1)),
+      SnapCell(fmax(TbX0, TbX1)) - SnapCell(fmin(TbX0, TbX1)), SnapCell(fmax(TbY0, TbY1)) - SnapCell(fmin(TbY0, TbY1)));
   end
   else if (Drag = dragFrameMove) and (FrDrag >= 0) and ((FrDX <> 0) or (FrDY <> 0)) then
     with Frames[FrDrag] do
@@ -6137,7 +6590,9 @@ begin
     SetC(Th.Text);
     jt := Format('< Back to flow chart (page %d)', [JumpBackPage + 1]);
     TextR(jx + (jw - Length(jt) * 8) / 2, jy + 7, jt);
-  end;  SDL_SetRenderClipRect(Ren, nil);
+  end;
+  SDL_SetRenderClipRect(Ren, nil);
+  CanvasClipOn := False;
   if Zoom <> 1 then
   begin
     SetC(Th.OverlayBg, 210);
@@ -6856,6 +7311,7 @@ begin
     selBucket: Result := Format('bucket %d', [SelB + 1]);
     selLabel: Result := 'label';
     selFrame: Result := 'frame';
+    selTable: Result := 'table';
     selLink: Result := 'link';
     selEquip: Result := Equips[SelEq].Name;
     selECell: Result := EKindNames[EGrid[SelEX, SelEY].Kind] + ' ' + EGrid[SelEX, SelEY].Tag;
@@ -6878,7 +7334,7 @@ var
   x1, y1, x2, y2, x, y, i, n: Integer;
 begin
   Result := False;
-  if SelKind in [selNone, selFrame, selLink, selFlow] then Exit;
+  if SelKind in [selNone, selFrame, selLink, selFlow, selTable] then Exit;
   SelRect(x1, y1, x2, y2);
   B.W := x2 - x1 + 1;
   B.H := y2 - y1 + 1;
@@ -7206,7 +7662,8 @@ begin
     1, 5, 9: Result := 40;
     2, 6, 10..20, 27, 28, 30, 31, 36: Result := 24;
     34, 35: Result := 32;
-    32: Result := 60;
+    32, 38: Result := 60;
+    37: Result := 40;
     29, 33: Result := 6;
     21..26: Result := 14;
     7, 8: Result := 12;
@@ -7249,6 +7706,8 @@ begin
     34: Result := IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Name;
     35: Result := IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Link;
     36: Result := IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Peer;
+    37: Result := Tables[EnsureRange(TxtIdx div 256, 0, MAX_TABLES - 1)].Cells[(TxtIdx mod 256) div 16, TxtIdx mod 16];
+    38: Result := Tables[EnsureRange(TxtIdx, 0, MAX_TABLES - 1)].Title;
   end;
 end;
 
@@ -7294,6 +7753,8 @@ begin
     34: IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Name := s;
     35: IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Link := s;
     36: IPCPoints[EnsureRange(TxtIdx, 0, IPC_MAX_POINTS - 1)].Peer := s;
+    37: Tables[EnsureRange(TxtIdx div 256, 0, MAX_TABLES - 1)].Cells[(TxtIdx mod 256) div 16, TxtIdx mod 16] := s;
+    38: Tables[EnsureRange(TxtIdx, 0, MAX_TABLES - 1)].Title := s;
   end;
 end;
 
@@ -7340,13 +7801,13 @@ end;
 { Kind: 1 page name, 2 layer name, 3 popup title, 4 popup text, 5 link caption }
 procedure StartTxt(Kind, Idx: Integer);
 const
-  What: array[1..36] of string = ('the page name', 'the layer name', 'the popup title', 'the popup text',
+  What: array[1..38] of string = ('the page name', 'the layer name', 'the popup title', 'the popup text',
     'the link caption', 'the equipment name', 'the tag', 'the tag', 'the node''s text', 'what it reads',
     'what it works', 'pen 1', 'pen 2', 'pen 3', 'pen 4', 'what starts it', 'what the pin reads',
     'where it sends before its time', 'where it sends at its time', 'where it sends after its time',
     'the value before', 'the value at its time', 'the value after', 'the pin''s time', 'the length', 'how long at it', 'what stops it',
     'the server''s name', 'the server''s port', 'the client''s name', 'the server''s name', 'the server''s address',
-    'the server''s port', 'the point''s name', 'the part it is linked to', 'the peer');
+    'the server''s port', 'the point''s name', 'the part it is linked to', 'the peer', 'the cell''s text', 'the table''s title');
 begin
   StopEditLabel;
   StopEditFrame;
@@ -7364,7 +7825,8 @@ begin
   OpenMenu := -1;
   PopupOpen := False;
   if Win <> nil then SDL_StartTextInput(Win);
-  if Kind = 4 then SetStatus('Type ' + What[Kind] + ' - Enter: new line, Esc: done')
+  if Kind = 37 then SetStatus('Type the cell''s text ({TT1}: a live value) - Tab: next cell, Enter or Esc: done')
+  else if Kind = 4 then SetStatus('Type ' + What[Kind] + ' - Enter: new line, Esc: done')
   else SetStatus('Type ' + What[Kind] + ' - Enter or Esc: done');
 end;
 
@@ -7390,6 +7852,7 @@ end;
 procedure TxtKey(key: UInt32);
 var
   t: string;
+  k, r, c: Integer;
 begin
   if TxtEdit = 0 then Exit;
   t := TxtValue;
@@ -7400,6 +7863,22 @@ begin
       if (TxtEdit = 4) and (Length(t) < TxtMax) then TxtStore(t + #10) else StopTxt;
     SDLK_ESCAPE:
       StopTxt;
+    SDLK_TAB:
+      { a table's cells: on to the next one (row by row) }
+      if TxtEdit = 37 then
+      begin
+        k := TxtIdx div 256;
+        r := (TxtIdx mod 256) div 16;
+        c := TxtIdx mod 16 + 1;
+        if c >= Tables[k].NC then
+        begin
+          c := 0;
+          r := (r + 1) mod Tables[k].NR;
+        end;
+        SelTbR := r;
+        SelTbC := c;
+        StartTxt(37, TblIdx(k, r, c));
+      end;
   end;
 end;
 
@@ -7604,6 +8083,300 @@ begin
   if Button(284, QX, y, 136, 18, 'Delete (Del)') then DeleteSelected;
   Info(y + 26, 'Drag its title to move it, the');
   Info(y + 38, 'corner square to resize it.');
+end;
+
+
+{ ---------------------------------------------------------------- table editing }
+
+{ the Table tool was dragged from TbX0,TbY0 to TbX1,TbY1: 3 x 3 cells over it (a click gives 3 rows of 4) }
+procedure FinishTableNew;
+var
+  x1, y1, x2, y2: Single;
+  t, n, nr, nc: Integer;
+begin
+  x1 := SnapCell(fmin(TbX0, TbX1));
+  y1 := SnapCell(fmin(TbY0, TbY1));
+  x2 := SnapCell(fmax(TbX0, TbX1));
+  y2 := SnapCell(fmax(TbY0, TbY1));
+  nr := 3;
+  nc := 3;
+  if (x2 - x1 < 3 * CELL) or (y2 - y1 < 2 * CELL) then
+  begin
+    nc := 4;
+    x2 := x1 + 4 * 80;
+    y2 := y1 + 3 * 40;
+  end;
+  y1 := fmax(y1, FRAME_TAB_H);      { room for its title tab }
+  n := 1;
+  for t := 0 to MAX_TABLES - 1 do
+    if Tables[t].Active then Inc(n);
+  t := AddTable(x1, y1, nr, nc, (x2 - x1) / nc, (y2 - y1) / nr, Format('Table %d', [n]));
+  if t < 0 then
+  begin
+    SetStatus(Format('Too many tables on this page (max %d)', [MAX_TABLES]), True);
+    Exit;
+  end;
+  SelKind := selTable;
+  SelTb := t;
+  SelTbR := 0;
+  SelTbC := 0;
+  ArrangeTable(t);
+  StartTxt(38, t);
+end;
+
+{ a press on table t's title / outline (Part 0: move it) or corner (Part 1: resize it, and what is in it) }
+procedure StartTableDrag(t, Part: Integer);
+var
+  k: Integer;
+begin
+  SelKind := selTable;
+  SelTb := t;
+  TbDrag := t;
+  TbX0 := MWX;
+  TbY0 := MWY;
+  TbOX := Tables[t].X;
+  TbOY := Tables[t].Y;
+  TbW0 := TableW(t);
+  TbH0 := TableH(t);
+  TbTS0 := Tables[t].TextScale;
+  for k := 0 to TBL_COLS - 1 do TbColW0[k] := Tables[t].ColW[k];
+  for k := 0 to TBL_ROWS - 1 do TbRowH0[k] := Tables[t].RowH[k];
+  TableSnap(t);
+  if Part = 1 then Drag := dragTblSize else Drag := dragTblMove;
+end;
+
+{ while it is dragged: the table and what is in it move together, kept on the canvas }
+procedure UpdateTableMove;
+var
+  t, k: Integer;
+  dx, dy: Single;
+begin
+  t := TbDrag;
+  if (t < 0) or not Tables[t].Active then Exit;
+  dx := fclamp(Round(MWX - TbX0), -TbOX, CANVAS_W - TbOX - TbW0);
+  dy := fclamp(Round(MWY - TbY0), FRAME_TAB_H - TbOY, CANVAS_H - TbOY - TbH0);
+  Tables[t].X := TbOX + dx;
+  Tables[t].Y := TbOY + dy;
+  for k := 0 to TbMN - 1 do
+    if TbM[k].K = 0 then
+    begin
+      Equips[TbM[k].I].X := TbM[k].X + dx;
+      Equips[TbM[k].I].Y := TbM[k].Y + dy;
+    end
+    else
+    begin
+      Labels[TbM[k].I].X := TbM[k].X + dx;
+      Labels[TbM[k].I].Y := TbM[k].Y + dy;
+    end;
+end;
+
+{ while its corner is dragged: columns, rows, the cells' text and what is in them grow / shrink together }
+procedure UpdateTableSize;
+var
+  t, k: Integer;
+  sx, sy, mn, f: Single;
+begin
+  t := TbDrag;
+  if (t < 0) or not Tables[t].Active or (TbW0 <= 0) or (TbH0 <= 0) then Exit;
+  sx := (MWX - TbOX) / TbW0;
+  sy := (MWY - TbOY) / TbH0;
+  { no column / row below the smallest cell, nothing off the canvas }
+  mn := 1e9;
+  for k := 0 to Tables[t].NC - 1 do mn := fmin(mn, TbColW0[k]);
+  sx := fclamp(sx, TBL_MIN / mn, (CANVAS_W - TbOX) / TbW0);
+  mn := 1e9;
+  for k := 0 to Tables[t].NR - 1 do mn := fmin(mn, TbRowH0[k]);
+  sy := fclamp(sy, TBL_MIN / mn, (CANVAS_H - TbOY) / TbH0);
+  for k := 0 to Tables[t].NC - 1 do Tables[t].ColW[k] := TbColW0[k] * sx;
+  for k := 0 to Tables[t].NR - 1 do Tables[t].RowH[k] := TbRowH0[k] * sy;
+  f := fmin(sx, sy);
+  Tables[t].TextScale := fclamp(TbTS0 * f, 0.5, 4);
+  for k := 0 to TbMN - 1 do PlaceMember(t, TbM[k], f);
+end;
+
+{ the left button is up: a table drag is over; what was dropped into a cell lines up in it }
+procedure TableDragEnd(D: TDrag);
+begin
+  if D = dragTblNew then FinishTableNew;
+  TbDrag := -1;
+  if D in [dragTblMove, dragTblSize, dragEqMove, dragEqSize, dragLabel, dragMove, dragNone] then ArrangeTables;
+end;
+
+procedure TableAddRow(t: Integer);
+begin
+  if Tables[t].NR >= TBL_ROWS then Exit;
+  Tables[t].RowH[Tables[t].NR] := Tables[t].RowH[Tables[t].NR - 1];
+  Tables[t].NR := Tables[t].NR + 1;
+end;
+
+procedure TableAddCol(t: Integer);
+begin
+  if Tables[t].NC >= TBL_COLS then Exit;
+  Tables[t].ColW[Tables[t].NC] := Tables[t].ColW[Tables[t].NC - 1];
+  Tables[t].NC := Tables[t].NC + 1;
+end;
+
+{ the last row / column goes (its texts too); what was in it stays where it is }
+procedure TableDelRow(t: Integer);
+var
+  c: Integer;
+begin
+  if Tables[t].NR <= 1 then Exit;
+  Tables[t].NR := Tables[t].NR - 1;
+  for c := 0 to TBL_COLS - 1 do Tables[t].Cells[Tables[t].NR, c] := '';
+  if SelTbR >= Tables[t].NR then SelTbR := Tables[t].NR - 1;
+end;
+
+procedure TableDelCol(t: Integer);
+var
+  r: Integer;
+begin
+  if Tables[t].NC <= 1 then Exit;
+  Tables[t].NC := Tables[t].NC - 1;
+  for r := 0 to TBL_ROWS - 1 do Tables[t].Cells[r, Tables[t].NC] := '';
+  if SelTbC >= Tables[t].NC then SelTbC := Tables[t].NC - 1;
+end;
+
+procedure DrawTableProps(y: Single);
+var
+  t, c, k, ne, nl: Integer;
+  r, g, b: Byte;
+  s: string;
+begin
+  t := SelTb;
+  SelTbR := EnsureRange(SelTbR, 0, Tables[t].NR - 1);
+  SelTbC := EnsureRange(SelTbC, 0, Tables[t].NC - 1);
+  SetC(Th.Title);
+  TextR(QX, y, Format('Table %d', [t + 1]));
+  y := y + 16;
+  Info(y, 'Lines up the parts and labels in its cells.');
+  y := y + 16;
+  { title }
+  s := Tables[t].Title;
+  if (TxtEdit = 38) and (TxtIdx = t) and ((SDL_GetTicksNS div 500000000) mod 2 = 0) then s := s + '_';
+  SetC(Th.OverlayBg);
+  FillR(QX, y, 280, 18);
+  SetC(Th.MenuBorder);
+  RectR(QX, y, 280, 18);
+  SetC(Th.Text);
+  TextR(QX + 4, y + 5, Copy(s, 1, 34));
+  y := y + 22;
+  if (TxtEdit = 38) and (TxtIdx = t) then
+  begin
+    if Button(450, QX, y, 136, 18, 'Done', True) then StopTxt;
+  end
+  else if Button(450, QX, y, 136, 18, 'Edit title') then StartTxt(38, t);
+  if Tables[t].Header then
+  begin
+    if Button(468, QX + 142, y, 136, 18, 'Heading row: on', True) then Tables[t].Header := False;
+  end
+  else if Button(468, QX + 142, y, 136, 18, 'Heading row: off') then Tables[t].Header := True;
+  y := y + 26;
+  { the selected cell }
+  Info(y, Format('Cell row %d, column %d (click a cell to pick it)', [SelTbR + 1, SelTbC + 1]));
+  y := y + 12;
+  s := Tables[t].Cells[SelTbR, SelTbC];
+  if (TxtEdit = 37) and (TxtIdx = TblIdx(t, SelTbR, SelTbC)) and ((SDL_GetTicksNS div 500000000) mod 2 = 0) then s := s + '_';
+  SetC(Th.OverlayBg);
+  FillR(QX, y, 280, 18);
+  SetC(Th.MenuBorder);
+  RectR(QX, y, 280, 18);
+  SetC(Th.Text);
+  TextR(QX + 4, y + 5, Copy(s, 1, 34));
+  y := y + 22;
+  if (TxtEdit = 37) and (TxtIdx = TblIdx(t, SelTbR, SelTbC)) then
+  begin
+    if Button(451, QX, y, 136, 18, 'Done', True) then StopTxt;
+  end
+  else if Button(451, QX, y, 136, 18, 'Edit cell text') then StartTxt(37, TblIdx(t, SelTbR, SelTbC));
+  if Button(469, QX + 142, y, 136, 18, 'Clear cell text') then Tables[t].Cells[SelTbR, SelTbC] := '';
+  y := y + 22;
+  Info(y, 'Double-click a cell to type. {TT1} shows the');
+  Info(y + 11, 'live value of TT1. Tab: the next cell.');
+  y := y + 28;
+  { rows and columns }
+  Info(y, Format('Rows %d   Columns %d', [Tables[t].NR, Tables[t].NC]));
+  y := y + 12;
+  if Button(452, QX, y, 66, 18, '- Row') then begin TableChangeBegin(t); TableDelRow(t); TableChangeEnd(t); end;
+  if Button(453, QX + 71, y, 66, 18, '+ Row') then TableAddRow(t);
+  if Button(454, QX + 142, y, 66, 18, '- Column') then begin TableChangeBegin(t); TableDelCol(t); TableChangeEnd(t); end;
+  if Button(455, QX + 213, y, 66, 18, '+ Column') then TableAddCol(t);
+  y := y + 24;
+  Info(y, Format('Column %d: %.0f px   Row %d: %.0f px', [SelTbC + 1, Tables[t].ColW[SelTbC], SelTbR + 1, Tables[t].RowH[SelTbR]]));
+  y := y + 12;
+  if Button(456, QX, y, 66, 18, 'Narrower') then
+  begin
+    TableChangeBegin(t);
+    Tables[t].ColW[SelTbC] := fmax(TBL_MIN, Tables[t].ColW[SelTbC] - 10);
+    TableChangeEnd(t);
+  end;
+  if Button(457, QX + 71, y, 66, 18, 'Wider') then
+  begin
+    TableChangeBegin(t);
+    Tables[t].ColW[SelTbC] := fmin(CANVAS_W, Tables[t].ColW[SelTbC] + 10);
+    TableChangeEnd(t);
+  end;
+  if Button(458, QX + 142, y, 66, 18, 'Lower') then
+  begin
+    TableChangeBegin(t);
+    Tables[t].RowH[SelTbR] := fmax(TBL_MIN, Tables[t].RowH[SelTbR] - 10);
+    TableChangeEnd(t);
+  end;
+  if Button(459, QX + 213, y, 66, 18, 'Higher') then
+  begin
+    TableChangeBegin(t);
+    Tables[t].RowH[SelTbR] := fmin(CANVAS_H, Tables[t].RowH[SelTbR] + 10);
+    TableChangeEnd(t);
+  end;
+  y := y + 26;
+  { lining up }
+  Info(y, 'Line up across');
+  y := y + 12;
+  for k := 0 to 2 do
+    if Button(460 + k, QX + k * 94, y, 90, 18, TBL_ALIGN_X[k], Tables[t].HAlign = k) then
+    begin
+      Tables[t].HAlign := k;
+      ArrangeTable(t);
+    end;
+  y := y + 22;
+  Info(y, 'Line up down');
+  y := y + 12;
+  for k := 0 to 2 do
+    if Button(463 + k, QX + k * 94, y, 90, 18, TBL_ALIGN_Y[k], Tables[t].VAlign = k) then
+    begin
+      Tables[t].VAlign := k;
+      ArrangeTable(t);
+    end;
+  y := y + 26;
+  Info(y, Format('Text size %.0f%%', [Tables[t].TextScale * 100]));
+  if Button(466, QX + 142, y - 4, 66, 18, 'Smaller') then Tables[t].TextScale := fmax(0.5, Tables[t].TextScale - 0.25);
+  if Button(467, QX + 213, y - 4, 66, 18, 'Larger') then Tables[t].TextScale := fmin(4, Tables[t].TextScale + 0.25);
+  y := y + 22;
+  Info(y, 'Colour');
+  y := y + 12;
+  for c := 0 to 5 do
+  begin
+    if Button(470 + c, QX + c * 47, y, 44, 18, LabelColorNames[c], Tables[t].Color = c) then Tables[t].Color := c;
+    FrameRGB(c, r, g, b);
+    SetCol(r, g, b);
+    FillR(QX + c * 47 + 2, y + 15, 40, 2);
+  end;
+  y := y + 26;
+  TableSnap(t);
+  ne := 0;
+  nl := 0;
+  for k := 0 to TbMN - 1 do
+    if TbM[k].K = 0 then Inc(ne) else Inc(nl);
+  Info(y, Format('In its cells: %d equipment, %d labels', [ne, nl]));
+  y := y + 16;
+  if Button(476, QX, y, 136, 18, 'Line them up now') then ArrangeTable(t);
+  if Button(477, QX + 142, y, 136, 18, 'Delete (Del)') then
+  begin
+    DeleteSelected;
+    Exit;
+  end;
+  Info(y + 26, 'Drag its title to move it with all in it, the');
+  Info(y + 38, 'corner square to resize it and all in it.');
 end;
 
 { ---------------------------------------------------------------- label editing }
@@ -7882,6 +8655,7 @@ begin
   SelKind := selNone;
   Drag := dragNone;
   FrDrag := -1;
+  TbDrag := -1;
   PasteArmed := False;
 end;
 
@@ -8019,6 +8793,7 @@ begin
     selBucket: if not LayerEditable(Buckets[SelB].Layer) then SelKind := selNone;
     selLabel: if not LayerEditable(Labels[SelL].Layer) then SelKind := selNone;
     selFrame: if not LayerEditable(Frames[SelFr].Layer) then SelKind := selNone;
+    selTable: if not LayerEditable(Tables[SelTb].Layer) then SelKind := selNone;
     selLink: if not LayerEditable(Links[SelLk].Layer) then SelKind := selNone;
     selEquip: if not LayerEditable(Equips[SelEq].Layer) then SelKind := selNone;
     selECell: if not LayerEditable(EGrid[SelEX, SelEY].Layer) then SelKind := selNone;
@@ -8075,6 +8850,7 @@ begin
     selBucket: begin Buckets[SelB].Layer := CurLayer; n := 1; end;
     selLabel: begin Labels[SelL].Layer := CurLayer; n := 1; end;
     selFrame: begin Frames[SelFr].Layer := CurLayer; n := 1; end;
+    selTable: begin Tables[SelTb].Layer := CurLayer; n := 1; end;
     selLink: begin Links[SelLk].Layer := CurLayer; n := 1; end;
     selEquip: begin Equips[SelEq].Layer := CurLayer; n := 1; end;
     selECell: begin EGrid[SelEX, SelEY].Layer := CurLayer; n := 1; end;
@@ -8756,7 +9532,7 @@ begin
     if Button(1223, QX + 142, y, 138, 18, Format('Clear %d items', [PieceCount])) then PiecesClear;
     y := y + 22;
   end;
-  if (E^.Kind in [EQ_SILO, EQ_HEATER, EQ_IRHEATER, EQ_PUMP, EQ_POND, EQ_POOL, EQ_WELL, EQ_CONVEYOR, EQ_BELT, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER]) and
+  if (E^.Kind in [EQ_SILO, EQ_HEATER, EQ_IRHEATER, EQ_PUMP, EQ_POND, EQ_POOL, EQ_WELL, EQ_CONVEYOR, EQ_BELT, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER, EQ_VIBFEEDER]) and
     not ((E^.Kind = EQ_SILO) and (EquipLinkCell(i) <> nil)) then
   begin
     v := E^.Level;
@@ -8764,6 +9540,7 @@ begin
       EQ_SILO: ParamRow(746, y, 'Level', v, 0, 100, 5);
       EQ_PUMP: ParamRow(746, y, 'Flow %', v, 0, 100, 5);
       EQ_CONVEYOR, EQ_BELT: ParamRow(746, y, 'Speed %', v, 0, 100, 5);
+      EQ_VIBFEEDER: ParamRow(746, y, 'Amplitude %', v, 0, 100, 5);
       EQ_HEATEX: ParamRow(746, y, 'Tube flow', v, 0, 100, 5);
       EQ_COOLTOWER: ParamRow(746, y, 'Fan %', v, 0, 100, 5);
       EQ_CHILLER: ParamRow(746, y, 'Capacity', v, 0, 100, 5);
@@ -8879,7 +9656,7 @@ begin
   ParamRow(753, y + 20, 'Height', v, 12, CANVAS_H, 8);
   E^.H := Round(v);
   y := y + 42;
-  if E^.Kind in [EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW, EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_CYLINDER] then
+  if E^.Kind in [EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW, EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_CYLINDER, EQ_VIBFEEDER] then
     if Button(756, QX, y, 90, 18, 'Flip (R)', E^.Flip) then E^.Flip := not E^.Flip;
   if Button(757, QX + 94, y, 90, 18, 'Duplicate') then
   begin
@@ -9943,9 +10720,9 @@ begin
         SetStatus('Flipped ' + Equips[SelEq].Name);
         Exit;
       end;
-    selBucket, selLabel, selFrame, selLink:
+    selBucket, selLabel, selFrame, selLink, selTable:
       begin
-        SetStatus('Buckets, labels, frames and links stay upright - select parts to rotate', True);
+        SetStatus('Buckets, labels, frames, tables and links stay upright - select parts to rotate', True);
         Exit;
       end;
     selCell:
@@ -9972,6 +10749,18 @@ begin
   if CW then SetStatus('Rotated right: ' + s, lost > 0) else SetStatus('Rotated left: ' + s, lost > 0);
 end;
 
+{ the AI Chat: a window of its own (Edge as an app window), apart from this program }
+procedure DoAIChat(DefaultBrowser: Boolean);
+var
+  err: string;
+begin
+  OpenMenu := -1;
+  { the bridge through which the chat works this program (only that window gets its token) }
+  if not BridgeRunning then BridgeStart;
+  if OpenAIChat(DefaultBrowser, BridgePort, BridgeToken, err) then SetStatus('AI Chat opened in its own window')
+  else SetStatus('AI Chat: ' + err, True);
+end;
+
 procedure DoTheme(i: Integer);
 begin
   OpenMenu := -1;
@@ -9991,13 +10780,14 @@ type
   end;
 
 const
-  MENU_COUNT = 6;
-  MenuNames: array[0..MENU_COUNT - 1] of string = ('File', 'Edit', 'View', 'Panels', 'Examples', 'Theme');
+  MENU_COUNT = 7;
+  MenuNames: array[0..MENU_COUNT - 1] of string = ('File', 'Edit', 'View', 'Panels', 'Examples', 'Theme', 'AI Chat');
   MENU_BAR_W = 72;
   MENU_VIEW = 2;
   MENU_PANELS = 3;
   MENU_EXAMPLES = 4;
   MENU_THEME = 5;
+  MENU_AI = 6;
   VIEW_GRID_ITEM = 5;      { View > Grid > }
   THEME_BG_ITEM = THEME_COUNT;   { Theme > Background > }
   DEMO_FILE = 'demo_original.mflow';
@@ -10791,6 +11581,27 @@ begin
   SetStatus(Wins[i].Title + ' is floating - drag its title bar');
 end;
 
+var
+  { the AI bridge open from the start, for Claude Code (mfmcp.exe) and the AI Chat window }
+  ClaudeLink: Boolean = True;
+
+procedure ToggleClaudeLink;
+begin
+  OpenMenu := -1;
+  ClaudeLink := not ClaudeLink;
+  if ClaudeLink then
+  begin
+    if BridgeRunning or BridgeStart then SetStatus(Format('Claude Code link on (127.0.0.1:%d) - Claude Code can work this program', [BridgePort]))
+    else SetStatus('Claude Code link: no free port 5047..5066', True);
+  end
+  else
+  begin
+    BridgeStop;
+    SetStatus('Claude Code link off');
+  end;
+  SaveSettings;
+end;
+
 { materialflow.ini:  theme=N  and per panel  panelN=visible,side,docked,x,y,scale% }
 procedure SaveSettings;
 var
@@ -10804,6 +11615,7 @@ begin
     try
       WriteLn(f, 'theme=', ThemeIndex);
       WriteLn(f, 'background=', BgIndex);
+      WriteLn(f, 'claudelink=', Ord(ClaudeLink));
       WriteLn(f, Format('grid=%d,%d,%d,%d,%d,%d', [Ord(GridShow), GridStyle, GridMajor, GridStrength,
         GridColor, Ord(GridNumbers)]));
       for i := 0 to WIN_COUNT - 1 do
@@ -10843,6 +11655,8 @@ begin
           SelectTheme(StrToIntDef(Copy(s, 7, 10), 0))
         else if Pos('background=', s) = 1 then
           SelectBackground(StrToIntDef(Copy(s, 12, 10), 0))
+        else if Pos('claudelink=', s) = 1 then
+          ClaudeLink := Copy(s, 12, 1) <> '0'
         else if Pos('grid=', s) = 1 then
         begin
           rest := Copy(s, 6, MaxInt) + ',';
@@ -11019,6 +11833,12 @@ begin
         if LayoutBg >= 0 then AddItem('Background: ' + Backgrounds[LayoutBg].Name + ' (layout)', '>', True, False, True, True)
         else AddItem('Background: ' + Backgrounds[BgIndex].Name, '>', True, False, True, True);   { THEME_BG_ITEM }
       end;
+    MENU_AI:
+      begin
+        AddItem('Open AI Chat window', 'Ctrl+I', FileExists(AIChatPage));
+        AddItem('Open in the default browser', '', FileExists(AIChatPage));
+        AddItem('Claude Code link (MCP)', '', True, ClaudeLink);
+      end;
   end;
 end;
 
@@ -11164,6 +11984,8 @@ begin
       if i = 0 then DoLoadDemo else DoExample(i);
     MENU_THEME:
       if i < THEME_COUNT then DoTheme(i);
+    MENU_AI:
+      if i = 2 then ToggleClaudeLink else DoAIChat(i = 1);
   end;
 end;
 
@@ -11489,6 +12311,7 @@ begin
     tEqWorker: Result := 'Worker';
     tEqVan: Result := 'Van';
     tEqRack: Result := 'Rack';
+    tEqVibFeeder: Result := 'Vib.feed';
     tFlCompressor: Result := 'Compress';
     tFlHPump: Result := 'Hyd.pump';
     tFlRegulator: Result := 'Regulat.';
@@ -12373,6 +13196,7 @@ begin
   if (SelKind = selBucket) and not Buckets[SelB].Active then SelKind := selNone;
   if (SelKind = selLabel) and not Labels[SelL].Active then SelKind := selNone;
   if (SelKind = selFrame) and ((SelFr < 0) or not Frames[SelFr].Active) then SelKind := selNone;
+  if (SelKind = selTable) and ((SelTb < 0) or not Tables[SelTb].Active) then SelKind := selNone;
   if (SelKind = selLink) and ((SelLk < 0) or not Links[SelLk].Active) then SelKind := selNone;
   if (SelKind = selEquip) and ((SelEq < 0) or not Equips[SelEq].Active) then SelKind := selNone;
   if (SelKind = selECell) and EEmpty(SelEX, SelEY) then SelKind := selNone;
@@ -12387,6 +13211,7 @@ begin
     selCell: DrawCellProps(y0);
     selLabel: DrawLabelProps(y0);
     selFrame: DrawFrameProps(y0);
+    selTable: DrawTableProps(y0);
     selLink: DrawLinkProps(y0);
     selEquip: DrawEquipProps(y0);
     selECell: DrawECellProps(y0);
@@ -12439,7 +13264,7 @@ end;
 
 procedure DrawStatusContent(y0: Single);
 var
-  gx, gy, L, fr, part, eq: Integer;
+  gx, gy, L, fr, part, eq, k: Integer;
   c: PCell;
   s: string;
 begin
@@ -12466,6 +13291,8 @@ begin
       s := Format('Label %d [%d,%d]', [L + 1, gx, gy])
     else if fr >= 0 then
       s := 'Frame: ' + Frames[fr].Title
+    else if TableAt(MWX, MWY, k) >= 0 then
+      s := 'Table: ' + Tables[TableAt(MWX, MWY, k)].Title
     else if InGrid(gx, gy) then
     begin
       c := @Grid[gx, gy];
@@ -13377,6 +14204,11 @@ begin
         if EditFrame = SelFr then StopEditFrame;
         DeleteFrame(SelFr);
       end;
+    selTable:
+      begin
+        if TxtEdit in [37, 38] then StopTxt;
+        DeleteTable(SelTb);
+      end;
     selMulti:
       begin
         { buckets first: their test looks at the box, not at the parts }
@@ -13462,7 +14294,7 @@ end;
 procedure CanvasPress(Right: Boolean);
 var
   fl: Integer;
-  gx, gy, b, L, sx, sy, fr, part, lk, eq, epart: Integer;
+  gx, gy, b, L, sx, sy, fr, part, lk, eq, epart, tb: Integer;
   blocked: Boolean;
 begin
   if (MWX < 0) or (MWY < 0) then Exit;   { outside the layout when zoomed out }
@@ -13693,7 +14525,7 @@ begin
     end;
     Exit;
   end;
-  if (not Right) and (not PasteArmed) and (Tool >= tEqMotor) and (Tool <= tEqRack) then
+  if (not Right) and (not PasteArmed) and (Tool >= tEqMotor) and (Tool <= tEqVibFeeder) then
   begin
     StopEditLabel;
     StopEditFrame;
@@ -13748,6 +14580,30 @@ begin
       FrDY := 0;
       if part = 1 then Drag := dragFrameSize else Drag := dragFrameMove;
     end;
+    Exit;
+  end;
+  { a table's title / outline / corner }
+  tb := TableAt(MWX, MWY, part);
+  if (not Right) and (not PasteArmed) and (Tool in [tSelect, tTable]) and (L < 0) and (tb >= 0) then
+  begin
+    if (part = 0) and (LastClicks >= 2) then
+    begin
+      SelKind := selTable;
+      SelTb := tb;
+      StartTxt(38, tb);
+    end
+    else
+      StartTableDrag(tb, part);
+    Exit;
+  end;
+  if (not Right) and (not PasteArmed) and (Tool = tTable) and (L < 0) then
+  begin
+    { drag out a new table }
+    Drag := dragTblNew;
+    TbX0 := MWX;
+    TbY0 := MWY;
+    TbX1 := MWX;
+    TbY1 := MWY;
     Exit;
   end;
   if (not Right) and (not PasteArmed) and (Tool = tFrame) then
@@ -13849,6 +14705,15 @@ begin
           LastMX := MWX;
           LastMY := MWY;
         end
+        else if TableCellPick(MWX, MWY, sx, sy) >= 0 then
+        begin
+          { a table's cell: pick it; a double-click types its text }
+          SelTb := TableCellPick(MWX, MWY, sx, sy);
+          SelKind := selTable;
+          SelTbR := sx;
+          SelTbC := sy;
+          if LastClicks >= 2 then StartTxt(37, TblIdx(SelTb, sx, sy)) else if TxtEdit = 37 then StopTxt;
+        end
         else
         begin
           { empty space: drag a box to select several parts }
@@ -13947,6 +14812,13 @@ begin
       end;
     dragFrameMove: UpdateFrameMove;
     dragFrameSize: UpdateFrameSize;
+    dragTblNew:
+      begin
+        TbX1 := fclamp(MWX, 0, CANVAS_W);
+        TbY1 := fclamp(MWY, 0, CANVAS_H);
+      end;
+    dragTblMove: UpdateTableMove;
+    dragTblSize: UpdateTableSize;
     dragEWire:
       if (gx <> LastCX) or (gy <> LastCY) then EWireTo(gx, gy);
     dragFLine:
@@ -14351,6 +15223,7 @@ begin
       Ord('q'): QuitRequested := True;
       Ord('z'): if (Mods and SDL_KMOD_SHIFT) <> 0 then DoRedo else DoUndo;
       Ord('y'): DoRedo;
+      Ord('i'): DoAIChat(False);
       SDLK_EQUALS, SDLK_KP_PLUS: ZoomAt(Zoom * 1.25, CANVAS_W / 2, CANVAS_H / 2);
       SDLK_MINUS, SDLK_KP_MINUS: ZoomAt(Zoom / 1.25, CANVAS_W / 2, CANVAS_H / 2);
       SDLK_0: ZoomAt(1, CANVAS_W / 2, CANVAS_H / 2);
@@ -14567,6 +15440,7 @@ begin
   Rewrite(f);
   WriteLn(f, 'sim ms/frame ', ShotMsPerFrame: 0: 2);
   WriteLn(f, 'on floor outside buckets ', onFloor);
+
   WriteLn(f, 'pieces ', PieceCount);
   WriteLn(f, 'particles ', NPart, ' inPipe ', inPipe, ' air ', NAir, ' limit ', LimitHit);
   for m := Low(TMat) to High(TMat) do
@@ -14620,6 +15494,764 @@ begin
 end;
 
 { --selftest <report.txt> : exercises undo/redo, cut/copy/paste and themes }
+{ ---------------------------------------------------------------- the AI bridge: the chat window works the program }
+
+var
+  AIPdfId: Integer = 0;          { the request waiting for its PDF }
+  AIPdfProc: PtrUInt = 0;
+  AIPdfFile: string = '';
+  AIPdfT: Single = 0;
+
+function TagList(const A: array of string; From: Integer): string;
+var
+  k: Integer;
+begin
+  Result := '';
+  for k := From to High(A) do
+  begin
+    if Result <> '' then Result := Result + ' ';
+    Result := Result + A[k];
+  end;
+end;
+
+{ what the AI is told about the program, the build commands and the layout file }
+function AIHelpText: string;
+var
+  ek: TEKind;
+  fk: TFKind;
+  s, f: string;
+begin
+  s := '';
+  for ek := Succ(ekNone) to High(TEKind) do s := s + EKindTags[ek] + ' ';
+  f := '';
+  for fk := Succ(fkNone) to High(TFKind) do f := f + FKindTags[fk] + ' ';
+  Result :=
+    'MATERIAL FLOW - how the AI works it' + LineEnding +
+    'The canvas is ' + IntToStr(GW) + ' x ' + IntToStr(GH) + ' cells of ' + IntToStr(CELL) + ' px (' + IntToStr(CANVAS_W) + ' x ' +
+    IntToStr(CANVAS_H) + ' px), y grows down, the floor is at y = ' + IntToStr(Round(FLOOR_Y)) + ' px. Gravity pulls down: material falls.' + LineEnding +
+    'Cells (pipes, devices, electrical and fluid power parts) use grid x y (0..' + IntToStr(GW - 1) + ', 0..' + IntToStr(GH - 1) +
+    '); equipment, buckets and labels use canvas pixels. Directions: E S W N.' + LineEnding +
+    'Material: water, oil, fluff (light), sand (heavy); air carries it. Blowers in pipes push it (dir = the way they blow);' +
+    ' a feeder (tank) feeds what it holds into its pipe; a drop outlet at a pipe end lets it fall; a bucket catches it.' + LineEnding +
+    'Electrical: a ladder of wires from an "ac" supply; contacts (no / nc) follow the tag of a coil (relay, contactor, timer,' +
+    ' counter, controller, photo...); a "motor" or "drive" cell with ref = an equipment name runs that equipment.' + LineEnding +
+    'Pieces (bottles, glasses, boxes, dolls) come from an "itemfeeder" (mode 0..3 kind, 4 mixed) or a "worker" (mode 0 loader / 1 picker).' + LineEnding +
+    LineEnding +
+    'TOOLS' + LineEnding +
+    'mf_build ops (on the page shown; one undo step), each an object with "op":' + LineEnding +
+    '  {op:"pipe", x1,y1,x2,y2, dia?:1..5 (3)}            a straight pipe (or an L: across, then up / down)' + LineEnding +
+    '  {op:"device", x,y, kind, strength?:0..100, dir?:"E"|"S"|"W"|"N", feed?}   on a pipe cell;' + LineEnding +
+    '       kind: blower suction nozzle drop check valve2 valve3 valve4 hopper silo' + LineEnding +
+    '  {op:"feeder", x,y, water?,oil?,fluff?,sand? (stock 0..3000), air?:%, feed?:%}' + LineEnding +
+    '  {op:"bucket", col, w, h}  on the floor under grid column col; or {op:"bucket", x, y, w, h} centre x, top y (px)' + LineEnding +
+    '  {op:"equip", kind, x,y, w?,h?, name?, state?:"stop|run|fault|mstart|mstop|disable", link?:[cx,cy], level?, src?, src2?,' + LineEnding +
+    '       mode?, rmin?, rmax?, delay?, flip?}   kind: ' + TagList(EquipTags, 0) + LineEnding +
+    '  {op:"ecell", x,y, kind, tag?, ref?, on?, p1?,p2?,p3?, pos?, npos?, src?}   kind: ' + s + LineEnding +
+    '  {op:"wire", x1,y1,x2,y2}           electrical wire (straight)' + LineEnding +
+    '  {op:"fcell", x,y, kind, tag?, ref?, dir?:0..3, sola?, solb?, act?, p1?}   kind: ' + f + LineEnding +
+    '  {op:"fline", x1,y1,x2,y2}          pneumatic / hydraulic line' + LineEnding +
+    '  {op:"flow", kind, x,y, caption?, src?, test?:">|<|>=|<=|=|<>|on|off", value?, act?:"run|stop|set|sp|tag|reset|on|off|pos",' + LineEnding +
+    '       target?}   a flow chart node (kind: ' + TagList(FlowKindTags, 0) + '); returns its index' + LineEnding +
+    '  {op:"connect", a, b, no?}          flow chart arrow from node a to b (no: the No way of a decision)' + LineEnding +
+    '  {op:"label", x,y, text}            {op:"erase", x,y}   {op:"clear_page"}' + LineEnding +
+    '  {op:"table", x,y, rows,cols, colw?,rowh? (px, or colws/rowhs: arrays), title?, across?:"left|centre|right",' + LineEnding +
+    '     down?:"top|middle|bottom", header?, color?:0..5, textsize?, cells?:[["a","b"],["{TT1}",...]]}' + LineEnding +
+    '     a table: equipment and labels whose centre is in a cell are lined up in it (after every build);' + LineEnding +
+    '     a cell''s text {NAME} shows the live value of NAME (a tag, sensor, equipment...) - a data table.' + LineEnding +
+    '  {op:"layer", n}  (1..)  {op:"add_layer", name}' + LineEnding +
+    'mf_get_layout / mf_load_layout: the whole layout as the .mflow text (all pages). Read mf_examples n for a worked file.' + LineEnding +
+    'mf_run on/off, mf_read names (tags, sensors, equipment, values), mf_write name value (a switch, pot, set point TAG.SP,' +
+    ' equipment run 1 / stop 0), mf_page, mf_screenshot (to see the result: look before you say it works).' + LineEnding +
+    LineEnding +
+    'TIPS: build pipes first, then devices on them, then feeders and buckets; keep pipes inside the grid; leave a drop outlet' +
+    ' at a pipe end above a bucket; run the simulation and take a screenshot to check. Before loading a whole layout the' +
+    ' program keeps a backup (mf_restore_backup).';
+end;
+
+{ fpjson's strings are UTF8String; this program keeps UTF-8 bytes in plain strings: hand them over as they are }
+function U8(const s: string): UTF8String;
+begin
+  SetLength(Result, Length(s));
+  if s <> '' then Move(s[1], Result[1], Length(s));
+end;
+
+function Raw8(const s: UTF8String): string;
+begin
+  SetLength(Result, Length(s));
+  if s <> '' then Move(s[1], Result[1], Length(s));
+end;
+
+function OkObj: TJSONObject;
+begin
+  Result := TJSONObject.Create;
+  Result.Add('ok', True);
+end;
+
+function ErrObj(const Msg: string): TJSONObject;
+begin
+  Result := TJSONObject.Create;
+  Result.Add('ok', False);
+  Result.Add('error', U8(Msg));
+end;
+
+function JInt(O: TJSONObject; const K: string; Def: Integer): Integer;
+var
+  d: TJSONData;
+begin
+  d := O.Find(K);
+  if (d <> nil) and (d.JSONType = jtNumber) then Result := Round(d.AsFloat) else Result := Def;
+end;
+
+function JNum(O: TJSONObject; const K: string; Def: Double): Double;
+var
+  d: TJSONData;
+begin
+  d := O.Find(K);
+  if (d <> nil) and (d.JSONType = jtNumber) then Result := d.AsFloat else Result := Def;
+end;
+
+function JStr(O: TJSONObject; const K, Def: string): string;
+var
+  d: TJSONData;
+begin
+  d := O.Find(K);
+  if (d <> nil) and (d.JSONType = jtString) then Result := Raw8(d.AsString)
+  else if (d <> nil) and (d.JSONType = jtNumber) then Result := d.AsString
+  else Result := Def;
+end;
+
+function JBool(O: TJSONObject; const K: string; Def: Boolean): Boolean;
+var
+  d: TJSONData;
+begin
+  d := O.Find(K);
+  if (d <> nil) and (d.JSONType = jtBoolean) then Result := d.AsBoolean
+  else if (d <> nil) and (d.JSONType = jtNumber) then Result := d.AsFloat <> 0
+  else Result := Def;
+end;
+
+function Has(O: TJSONObject; const K: string): Boolean;
+begin
+  Result := O.Find(K) <> nil;
+end;
+
+function DirOf(const s: string): Integer;
+begin
+  case UpperCase(Copy(s, 1, 1)) of
+    'E': Result := 0;
+    'S': Result := 1;
+    'W': Result := 2;
+    'N': Result := 3;
+  else
+    Result := -1;
+  end;
+end;
+
+function CellKindOf(const s: string; out CK: TCellKind): Boolean;
+const
+  Names: array[0..12] of string = ('pipe', 'feeder', 'blower', 'suction', 'nozzle', 'drop', 'check', 'valve2', 'valve3', 'valve4',
+    'hopper', 'silo', 'vfeeder');
+  Kinds: array[0..12] of TCellKind = (ckPipe, ckSource, ckBlower, ckSuction, ckNozzle, ckDrop, ckCheck, ckValve2, ckValve3,
+    ckValve4, ckHopper, ckSilo, ckVFeeder);
+var
+  k: Integer;
+begin
+  for k := 0 to High(Names) do
+    if SameText(s, Names[k]) then
+    begin
+      CK := Kinds[k];
+      Exit(True);
+    end;
+  CK := ckPipe;
+  Result := False;
+end;
+
+function StateOf(const s: string): Integer;
+const
+  N: array[0..5] of string = ('stop', 'run', 'fault', 'mstart', 'mstop', 'disable');
+var
+  k: Integer;
+begin
+  for k := 0 to 5 do
+    if SameText(s, N[k]) then Exit(k);
+  Result := -1;
+end;
+
+function InGridXY(x, y: Integer): Boolean;
+begin
+  Result := (x >= 0) and (x < GW) and (y >= 0) and (y < GH);
+end;
+
+{ one build op; its result in R ('error' when it could not) }
+procedure AIBuildOp(O: TJSONObject; R: TJSONObject);
+var
+  op, s: string;
+  x, y, x2, y2, i, k: Integer;
+  ck: TCellKind;
+  ek: TEKind;
+  fk: TFKind;
+  d: TJSONData;
+  found: Boolean;
+begin
+  op := LowerCase(JStr(O, 'op', ''));
+  R.Add('op', op);
+  x := JInt(O, 'x', -1);
+  y := JInt(O, 'y', -1);
+  if op = 'pipe' then
+  begin
+    x := JInt(O, 'x1', -1);
+    y := JInt(O, 'y1', -1);
+    x2 := JInt(O, 'x2', -1);
+    y2 := JInt(O, 'y2', -1);
+    if not (InGridXY(x, y) and InGridXY(x2, y2)) then raise Exception.Create('pipe ends outside the grid');
+    if (x <> x2) and (y <> y2) then
+    begin
+      PipeLine(x, y, x2, y, EnsureRange(JInt(O, 'dia', 3), 1, MAX_DIA));
+      PipeLine(x2, y, x2, y2, EnsureRange(JInt(O, 'dia', 3), 1, MAX_DIA));
+    end
+    else
+      PipeLine(x, y, x2, y2, EnsureRange(JInt(O, 'dia', 3), 1, MAX_DIA));
+  end
+  else if op = 'device' then
+  begin
+    if not InGridXY(x, y) then raise Exception.Create('outside the grid');
+    if not CellKindOf(JStr(O, 'kind', ''), ck) then raise Exception.Create('unknown device ' + JStr(O, 'kind', ''));
+    if Grid[x, y].Kind = ckEmpty then MakePipe(x, y, 3);
+    SetKind(x, y, ck);
+    if Has(O, 'strength') then Grid[x, y].Strength := fclamp(JNum(O, 'strength', 50), 0, 100);
+    if Has(O, 'dir') then Grid[x, y].Dir := DirOf(JStr(O, 'dir', ''));
+    if Has(O, 'feed') then Grid[x, y].Feed := fclamp(JNum(O, 'feed', 50), 0, 100);
+  end
+  else if op = 'feeder' then
+  begin
+    if not InGridXY(x, y) then raise Exception.Create('outside the grid');
+    MakePipe(x, y, 4);
+    SetKind(x, y, ckSource);
+    Grid[x, y].Stock[mWater] := fclamp(JNum(O, 'water', 0), 0, STOCK_MAX);
+    Grid[x, y].Stock[mOil] := fclamp(JNum(O, 'oil', 0), 0, STOCK_MAX);
+    Grid[x, y].Stock[mFluff] := fclamp(JNum(O, 'fluff', 0), 0, STOCK_MAX);
+    Grid[x, y].Stock[mSand] := fclamp(JNum(O, 'sand', 0), 0, STOCK_MAX);
+    Grid[x, y].AirPct := fclamp(JNum(O, 'air', 10), 0, 100);
+    Grid[x, y].Feed := fclamp(JNum(O, 'feed', 60), 0, 100);
+  end
+  else if op = 'bucket' then
+  begin
+    if Has(O, 'col') then
+      i := AddBucket(JInt(O, 'col', 0) * CELL + HALF, FLOOR_Y - WALL_T - JNum(O, 'h', 90), JNum(O, 'w', 140), JNum(O, 'h', 90))
+    else
+      i := AddBucket(JNum(O, 'x', 500), JNum(O, 'y', 600), JNum(O, 'w', 140), JNum(O, 'h', 90));
+    if i < 0 then raise Exception.Create(Format('too many buckets (max %d)', [MAX_BUCKETS]));
+    R.Add('index', i);
+  end
+  else if op = 'equip' then
+  begin
+    s := JStr(O, 'kind', '');
+    k := -1;
+    for i := 0 to EQ_KINDS - 1 do
+      if SameText(s, EquipTags[i]) or SameText(s, EquipNames[i]) then k := i;
+    if k < 0 then raise Exception.Create('unknown equipment ' + s);
+    i := AddEquip(k, JNum(O, 'x', 100), JNum(O, 'y', 100));
+    if i < 0 then raise Exception.Create(Format('too much equipment on this page (max %d)', [MAX_EQUIP]));
+    with Equips[i] do
+    begin
+      if Has(O, 'w') then W := fmax(8, JNum(O, 'w', W));
+      if Has(O, 'h') then H := fmax(8, JNum(O, 'h', H));
+      if Has(O, 'name') then Name := Copy(JStr(O, 'name', Name), 1, 24);
+      if Has(O, 'state') and (StateOf(JStr(O, 'state', '')) >= 0) then State := StateOf(JStr(O, 'state', ''));
+      if Has(O, 'flip') then Flip := JBool(O, 'flip', False);
+      d := O.Find('link');
+      if (d <> nil) and (d.JSONType = jtArray) and (d.Count >= 2) then
+      begin
+        LinkX := Round(d.Items[0].AsFloat);
+        LinkY := Round(d.Items[1].AsFloat);
+      end;
+      if Has(O, 'level') then Level := JNum(O, 'level', Level);
+      if Has(O, 'src') then Src := Copy(JStr(O, 'src', ''), 1, 24);
+      if Has(O, 'src2') then Src2 := Copy(JStr(O, 'src2', ''), 1, 24);
+      if Has(O, 'mode') then Mode := EnsureRange(JInt(O, 'mode', 0), 0, 255);
+      if Has(O, 'rmin') then RMin := JNum(O, 'rmin', RMin);
+      if Has(O, 'rmax') then RMax := JNum(O, 'rmax', RMax);
+      if Has(O, 'delay') then Delay := JNum(O, 'delay', Delay);
+    end;
+    R.Add('index', i);
+    R.Add('name', U8(Equips[i].Name));
+  end
+  else if op = 'ecell' then
+  begin
+    if not InGridXY(x, y) then raise Exception.Create('outside the grid');
+    s := JStr(O, 'kind', '');
+    found := False;
+    for ek := Succ(ekNone) to High(TEKind) do
+      if SameText(s, EKindTags[ek]) then
+      begin
+        found := True;
+        Break;
+      end;
+    if not found then raise Exception.Create('unknown electrical part ' + s);
+    EPlace(x, y, ek);
+    with EGrid[x, y] do
+    begin
+      if Has(O, 'tag') then Tag := Copy(JStr(O, 'tag', ''), 1, 12);
+      if Has(O, 'ref') then Ref := Copy(JStr(O, 'ref', ''), 1, 24);
+      if Has(O, 'on') then On := JBool(O, 'on', False);
+      if Has(O, 'p1') then P1 := JNum(O, 'p1', P1);
+      if Has(O, 'p2') then P2 := JNum(O, 'p2', P2);
+      if Has(O, 'p3') then P3 := JNum(O, 'p3', P3);
+      if Has(O, 'pos') then Pos := EnsureRange(JInt(O, 'pos', Pos), 0, 9);
+      if Has(O, 'npos') then NPos := EnsureRange(JInt(O, 'npos', NPos), 2, 9);
+      if Has(O, 'src') then Src := Copy(JStr(O, 'src', ''), 1, 24);
+    end;
+  end
+  else if op = 'wire' then
+  begin
+    x := JInt(O, 'x1', -1);
+    y := JInt(O, 'y1', -1);
+    x2 := JInt(O, 'x2', -1);
+    y2 := JInt(O, 'y2', -1);
+    if not (InGridXY(x, y) and InGridXY(x2, y2)) then raise Exception.Create('wire ends outside the grid');
+    EWireLine(x, y, x2, y2);
+  end
+  else if op = 'fcell' then
+  begin
+    if not InGridXY(x, y) then raise Exception.Create('outside the grid');
+    s := JStr(O, 'kind', '');
+    found := False;
+    for fk := Succ(fkNone) to High(TFKind) do
+      if SameText(s, FKindTags[fk]) then
+      begin
+        found := True;
+        Break;
+      end;
+    if not found then raise Exception.Create('unknown fluid power part ' + s);
+    FPlace(x, y, fk, EnsureRange(JInt(O, 'dir', 0), 0, 3));
+    with FGrid[x, y] do
+    begin
+      if Has(O, 'tag') then Tag := Copy(JStr(O, 'tag', ''), 1, 12);
+      if Has(O, 'ref') then Ref := Copy(JStr(O, 'ref', ''), 1, 24);
+      if Has(O, 'sola') then SolA := Copy(JStr(O, 'sola', ''), 1, 12);
+      if Has(O, 'solb') then SolB := Copy(JStr(O, 'solb', ''), 1, 12);
+      if Has(O, 'act') then Act := EnsureRange(JInt(O, 'act', 0), 0, 3);
+      if Has(O, 'p1') then P1 := JNum(O, 'p1', P1);
+    end;
+  end
+  else if op = 'fline' then
+  begin
+    x := JInt(O, 'x1', -1);
+    y := JInt(O, 'y1', -1);
+    x2 := JInt(O, 'x2', -1);
+    y2 := JInt(O, 'y2', -1);
+    if not (InGridXY(x, y) and InGridXY(x2, y2)) then raise Exception.Create('line ends outside the grid');
+    FLineRun(x, y, x2, y2);
+  end
+  else if op = 'flow' then
+  begin
+    s := JStr(O, 'kind', '');
+    k := -1;
+    for i := 0 to FN_KINDS - 1 do
+      if SameText(s, FlowKindTags[i]) then k := i;
+    if k < 0 then raise Exception.Create('unknown flow chart node ' + s);
+    i := FlowAdd(k, JNum(O, 'x', 100), JNum(O, 'y', 100));
+    if i < 0 then raise Exception.Create(Format('too many flow chart nodes (max %d)', [MAX_FLOW]));
+    with FlowNodes[i] do
+    begin
+      if Has(O, 'caption') then Caption := Copy(JStr(O, 'caption', ''), 1, 40);
+      if Has(O, 'src') then Src := Copy(JStr(O, 'src', ''), 1, 24);
+      if Has(O, 'value') then Value := JNum(O, 'value', 0);
+      if Has(O, 'target') then Target := Copy(JStr(O, 'target', ''), 1, 24);
+      s := JStr(O, 'test', '');
+      for k := 0 to FLOW_OPS - 1 do
+        if (s <> '') and (SameText(s, FlowOpNames[k]) or SameText('is ' + s, FlowOpNames[k])) then Op := k;
+      s := JStr(O, 'act', '');
+      if s <> '' then
+        for k := 0 to FLOW_ACTS - 1 do
+          if SameText(s, Trim(Copy('run   stop  set   sp    tag   reset on    off   pos   ', k * 6 + 1, 6))) then Act := k;
+      if Has(O, 'rtype') then RType := EnsureRange(JInt(O, 'rtype', 0), 0, 3);
+      if Has(O, 'value2') then Value2 := JNum(O, 'value2', 0);
+      if Has(O, 'period') then Period := JNum(O, 'period', 1);
+    end;
+    R.Add('index', i);
+  end
+  else if op = 'connect' then
+    FlowConnect(JInt(O, 'a', -1), JInt(O, 'b', -1), JBool(O, 'no', False))
+  else if op = 'label' then
+  begin
+    { a "\n" as written in .mflow files is a new line too }
+    i := AddLabel(JNum(O, 'x', 100), JNum(O, 'y', 100), Copy(StringReplace(JStr(O, 'text', ''), '\n', #10, [rfReplaceAll]), 1, 255));
+    if i < 0 then raise Exception.Create(Format('too many labels (max %d)', [MAX_LABELS]));
+    R.Add('index', i);
+  end
+  else if op = 'table' then
+  begin
+    i := AddTable(JNum(O, 'x', 100), JNum(O, 'y', 100), JInt(O, 'rows', 3), JInt(O, 'cols', 3), JNum(O, 'colw', 100),
+      JNum(O, 'rowh', 40), Copy(JStr(O, 'title', ''), 1, 60));
+    if i < 0 then raise Exception.Create(Format('too many tables on this page (max %d)', [MAX_TABLES]));
+    d := O.Find('colws');
+    if (d <> nil) and (d.JSONType = jtArray) then
+      for k := 0 to Min(d.Count, TBL_COLS) - 1 do Tables[i].ColW[k] := fclamp(d.Items[k].AsFloat, TBL_MIN, CANVAS_W);
+    d := O.Find('rowhs');
+    if (d <> nil) and (d.JSONType = jtArray) then
+      for k := 0 to Min(d.Count, TBL_ROWS) - 1 do Tables[i].RowH[k] := fclamp(d.Items[k].AsFloat, TBL_MIN, CANVAS_H);
+    s := LowerCase(JStr(O, 'across', 'centre'));
+    if s = 'left' then Tables[i].HAlign := 0 else if s = 'right' then Tables[i].HAlign := 2 else Tables[i].HAlign := 1;
+    s := LowerCase(JStr(O, 'down', 'middle'));
+    if s = 'top' then Tables[i].VAlign := 0 else if s = 'bottom' then Tables[i].VAlign := 2 else Tables[i].VAlign := 1;
+    if Has(O, 'header') then Tables[i].Header := JBool(O, 'header', True);
+    if Has(O, 'color') then Tables[i].Color := EnsureRange(JInt(O, 'color', 0), 0, 5);
+    if Has(O, 'textsize') then Tables[i].TextScale := fclamp(JNum(O, 'textsize', 1), 0.5, 4);
+    d := O.Find('cells');
+    if (d <> nil) and (d.JSONType = jtArray) then
+      for x := 0 to Min(d.Count, Tables[i].NR) - 1 do
+        if d.Items[x].JSONType = jtArray then
+          for y := 0 to Min(d.Items[x].Count, Tables[i].NC) - 1 do
+            if d.Items[x].Items[y].JSONType in [jtString, jtNumber] then
+              Tables[i].Cells[x, y] := Copy(Raw8(d.Items[x].Items[y].AsString), 1, 40);
+    R.Add('index', i);
+  end
+  else if op = 'erase' then
+  begin
+    if not InGridXY(x, y) then raise Exception.Create('outside the grid');
+    ResetCell(x, y);
+    FillChar(EGrid[x, y], SizeOf(TECell), 0);
+    EGrid[x, y].Kind := ekNone;
+    FillChar(FGrid[x, y], SizeOf(TFCell), 0);
+    FGrid[x, y].Kind := fkNone;
+  end
+  else if op = 'clear_page' then
+    ClearAll
+  else if op = 'layer' then
+    SetActiveLayer(EnsureRange(JInt(O, 'n', 1) - 1, 0, Pages[CurPage].NLayers - 1))
+  else if op = 'add_layer' then
+  begin
+    if Pages[CurPage].NLayers >= MAX_LAYERS then raise Exception.Create(Format('a page has up to %d layers', [MAX_LAYERS]));
+    Inc(Pages[CurPage].NLayers);
+    Pages[CurPage].Layers[Pages[CurPage].NLayers - 1].Name := Copy(JStr(O, 'name', 'Layer'), 1, 24);
+    Pages[CurPage].Layers[Pages[CurPage].NLayers - 1].Visible := True;
+    SetActiveLayer(Pages[CurPage].NLayers - 1);
+  end
+  else
+    raise Exception.Create('unknown op "' + op + '"');
+end;
+
+function ReadTextFile(const FileName: string): string;
+var
+  st: TFileStream;
+begin
+  st := TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone);
+  try
+    SetLength(Result, st.Size);
+    if st.Size > 0 then st.ReadBuffer(Result[1], st.Size);
+  finally
+    st.Free;
+  end;
+end;
+
+procedure WriteTextFile(const FileName, Text: string);
+var
+  st: TFileStream;
+begin
+  st := TFileStream.Create(FileName, fmCreate);
+  try
+    if Text <> '' then st.WriteBuffer(Text[1], Length(Text));
+  finally
+    st.Free;
+  end;
+end;
+
+function AILayoutLoad(const FileName: string; out Err: string): Boolean;
+begin
+  Result := LoadLayout(U8ToU(FileName), Err);
+  if Result then
+  begin
+    CurrentFile := '';
+    AfterLayoutChange;
+  end;
+end;
+
+{ answers one request (a JSON object with "cmd"); '' when the answer comes later (a PDF) }
+function AIExec(const Body: string; Id: Integer): string;
+var
+  data: TJSONData;
+  Q, R, O, V: TJSONObject;
+  A, RA: TJSONArray;
+  cmd, err, path, s: string;
+  i, n, okn: Integer;
+  val: Single;
+  u: string;
+  b: Boolean;
+  surf: PSDL_Surface;
+begin
+  Result := '';
+  R := nil;
+  data := nil;
+  try
+    try
+      data := GetJSON(U8(Body));
+    except
+      on E: Exception do Exit(Raw8(ErrObj('bad JSON: ' + E.Message).AsJSON));
+    end;
+    if not (data is TJSONObject) then Exit(Raw8(ErrObj('a JSON object please').AsJSON));
+    Q := TJSONObject(data);
+    cmd := LowerCase(JStr(Q, 'cmd', ''));
+    try
+      if cmd = 'status' then
+      begin
+        R := OkObj;
+        R.Add('program', 'Material Flow SDL3');
+        R.Add('layout', U8(LayoutName));
+        R.Add('file', U8(CurrentFile));
+        R.Add('page', CurPage + 1);
+        A := TJSONArray.Create;
+        for i := 0 to PageCount - 1 do A.Add(U8(PageName(i)));
+        R.Add('pages', A);
+        R.Add('layer', CurLayer + 1);
+        A := TJSONArray.Create;
+        for i := 0 to Pages[CurPage].NLayers - 1 do A.Add(U8(Pages[CurPage].Layers[i].Name));
+        R.Add('layers', A);
+        R.Add('running', Running);
+        R.Add('grid', TJSONArray.Create([GW, GH]));
+        R.Add('cell', CELL);
+        R.Add('canvas', TJSONArray.Create([CANVAS_W, CANVAS_H]));
+        R.Add('floor_y', Round(FLOOR_Y));
+        n := 0;
+        for i := 0 to MAX_EQUIP - 1 do
+          if Equips[i].Active then Inc(n);
+        R.Add('equipment', n);
+        R.Add('particles', NPart);
+        R.Add('pieces', PieceCount);
+      end
+      else if cmd = 'help' then
+      begin
+        R := OkObj;
+        R.Add('text', U8(AIHelpText));
+      end
+      else if cmd = 'get_layout' then
+      begin
+        path := AIWorkDir + 'ai_layout.mflow';
+        if not SaveLayout(U8ToU(path), err) then raise Exception.Create(err);
+        R := OkObj;
+        R.Add('mflow', U8(ReadTextFile(path)));
+      end
+      else if (cmd = 'load_layout') or (cmd = 'restore_backup') or (cmd = 'load_example') then
+      begin
+        { keep what is there now }
+        if cmd <> 'restore_backup' then
+          if not SaveLayout(U8ToU(AIWorkDir + 'ai_backup.mflow'), err) then raise Exception.Create('no backup: ' + err);
+        if cmd = 'load_example' then
+        begin
+          n := JInt(Q, 'n', 0);
+          if (n < 1) or (n > EXAMPLE_COUNT) then raise Exception.Create(Format('an example is 1..%d', [EXAMPLE_COUNT]));
+          DoExample(n);
+        end
+        else
+        begin
+          if cmd = 'load_layout' then
+          begin
+            path := AIWorkDir + 'ai_load.mflow';
+            WriteTextFile(path, JStr(Q, 'mflow', ''));
+          end
+          else
+          begin
+            path := AIWorkDir + 'ai_backup.mflow';
+            if not FileExists(path) then raise Exception.Create('there is no backup yet');
+          end;
+          if not AILayoutLoad(path, err) then
+          begin
+            if cmd = 'load_layout' then AILayoutLoad(AIWorkDir + 'ai_backup.mflow', s);
+            raise Exception.Create(err);
+          end;
+        end;
+        R := OkObj;
+        R.Add('pages', PageCount);
+        R.Add('layout', U8(LayoutName));
+        SetStatus('AI: ' + cmd);
+      end
+      else if cmd = 'examples' then
+      begin
+        n := JInt(Q, 'n', 0);
+        R := OkObj;
+        if (n >= 1) and (n <= EXAMPLE_COUNT) then
+        begin
+          path := ExtractFilePath(ParamStr(0)) + 'examples' + PathDelim + ExampleFiles[n];
+          if not FileExists(path) then raise Exception.Create('no file ' + ExampleFiles[n]);
+          R.Add('title', U8(ExampleTitles[n]));
+          R.Add('mflow', U8(ReadTextFile(path)));
+        end
+        else
+        begin
+          A := TJSONArray.Create;
+          for i := 1 to EXAMPLE_COUNT do A.Add(U8(Format('%d: %s', [i, ExampleTitles[i]])));
+          R.Add('examples', A);
+        end;
+      end
+      else if cmd = 'build' then
+      begin
+        A := nil;
+        if (Q.Find('ops') <> nil) and (Q.Find('ops').JSONType = jtArray) then A := TJSONArray(Q.Find('ops'));
+        if A = nil then raise Exception.Create('"ops": an array of build steps');
+        RA := TJSONArray.Create;
+        okn := 0;
+        for i := 0 to A.Count - 1 do
+        begin
+          V := TJSONObject.Create;
+          try
+            if A.Items[i].JSONType <> jtObject then raise Exception.Create('a step is an object');
+            AIBuildOp(TJSONObject(A.Items[i]), V);
+            V.Add('ok', True);
+            Inc(okn);
+          except
+            on E: Exception do
+            begin
+              V.Add('ok', False);
+              V.Add('error', U8(E.Message));
+            end;
+          end;
+          RA.Add(V);
+        end;
+        ArrangeTables;   { what was put in a table's cells lines up }
+        HistCheck;    { the AI's work: one undo step }
+        R := OkObj;
+        R.Add('done', okn);
+        R.Add('failed', A.Count - okn);
+        R.Add('results', RA);
+        SetStatus(Format('AI built %d step(s) - Ctrl+Z undoes them', [okn]));
+      end
+      else if cmd = 'run' then
+      begin
+        Running := JBool(Q, 'on', True);
+        R := OkObj;
+        R.Add('running', Running);
+      end
+      else if cmd = 'read' then
+      begin
+        R := OkObj;
+        O := TJSONObject.Create;
+        if (Q.Find('names') <> nil) and (Q.Find('names').JSONType = jtArray) then
+          for i := 0 to TJSONArray(Q.Find('names')).Count - 1 do
+          begin
+            s := Raw8(TJSONArray(Q.Find('names')).Items[i].AsString);
+            V := TJSONObject.Create;
+            b := False;
+            if FlowRead(s, val, u, b) then
+            begin
+              V.Add('known', True);
+              V.Add('value', val);
+              V.Add('unit', U8(u));
+              V.Add('on', b);
+            end
+            else
+              V.Add('known', False);
+            O.Add(U8(s), V);
+          end;
+        R.Add('values', O);
+      end
+      else if cmd = 'write' then
+      begin
+        s := JStr(Q, 'name', '');
+        if s = '' then raise Exception.Create('"name" please');
+        b := WriteValue(s, JNum(Q, 'value', 0));
+        R := OkObj;
+        R.Add('part', b);
+        if not b then R.Add('note', 'no such part: it is now a value / tag of its own for a frame');
+      end
+      else if cmd = 'page' then
+      begin
+        if Has(Q, 'new') then
+        begin
+          n := AddPage(Copy(JStr(Q, 'new', 'Page'), 1, 40));
+          if n < 0 then raise Exception.Create(Format('up to %d pages', [MAX_PAGES]));
+          AppGoToPage(n);
+        end
+        else
+        begin
+          n := JInt(Q, 'n', CurPage + 1) - 1;
+          if (n < 0) or (n >= PageCount) then raise Exception.Create(Format('a page is 1..%d', [PageCount]));
+          AppGoToPage(n);
+        end;
+        R := OkObj;
+        R.Add('page', CurPage + 1);
+        R.Add('name', U8(PageName(CurPage)));
+      end
+      else if cmd = 'screenshot' then
+      begin
+        Render;
+        surf := SDL_RenderReadPixels(Ren, nil);
+        if surf = nil then raise Exception.Create('no picture');
+        path := AIWorkDir + 'ai_shot.bmp';
+        SDL_SaveBMP(surf, PAnsiChar(AnsiString(path)));
+        SDL_DestroySurface(surf);
+        R := OkObj;
+        R.Add('bmp', EncodeStringBase64(ReadTextFile(path)));
+      end
+      else if cmd = 'print_pdf' then
+      begin
+        if AIPdfId <> 0 then raise Exception.Create('a PDF is being made already');
+        path := AIWorkDir + 'chat_print.html';
+        WriteTextFile(path, JStr(Q, 'html', ''));
+        AIPdfFile := AIWorkDir + 'chat_print.pdf';
+        AIPdfProc := StartPrintPDF(path, AIPdfFile);
+        if AIPdfProc = 0 then raise Exception.Create('no Edge / Chrome to print with');
+        AIPdfId := Id;
+        AIPdfT := 0;
+        Exit('');
+      end
+      else
+        R := ErrObj('unknown cmd "' + cmd + '"');
+    except
+      on E: Exception do
+      begin
+        FreeAndNil(R);
+        R := ErrObj(E.Message);
+      end;
+    end;
+    if R = nil then R := ErrObj('no answer');
+    Result := Raw8(R.AsJSON);
+  finally
+    R.Free;
+    data.Free;
+  end;
+end;
+
+{ for the tests: an answer through the bridge }
+function AIExecAnswer(const Body: string): string;
+begin
+  Result := AIExec(Body, 0);
+end;
+
+{ once a frame: the requests from the chat window, and a PDF being made }
+procedure AIBridgeStep(dt: Single);
+var
+  id: Integer;
+  body, ans: string;
+  R: TJSONObject;
+begin
+  if not BridgeRunning then Exit;
+  BridgePoll;
+  while BridgeNext(id, body) do
+  begin
+    ans := AIExec(body, id);
+    if ans <> '' then BridgeReply(id, ans);
+  end;
+  if AIPdfId <> 0 then
+  begin
+    AIPdfT := AIPdfT + dt;
+    if (AIPdfT > 40) or PrintDone(AIPdfProc) then
+    begin
+      AIPdfProc := 0;
+      if FileExists(AIPdfFile) then
+      begin
+        R := OkObj;
+        R.Add('pdf', EncodeStringBase64(ReadTextFile(AIPdfFile)));
+      end
+      else
+        R := ErrObj('Edge made no PDF');
+      BridgeReply(AIPdfId, Raw8(R.AsJSON));
+      R.Free;
+      AIPdfId := 0;
+    end;
+  end;
+  BridgePoll;
+end;
+
 { the network for some frames (the tests) }
 procedure NetSteps(n: Integer; dt: Single = 1 / 60);
 var
@@ -14673,6 +16305,7 @@ var
   port: Integer;
   ga, gb, gc, gd: string;
   ci, ci2: TIPCConnInfo;
+  data0: TJSONData;
 
   { open menu m and click item i through the real mouse path; m = -1 clicks the Edit button on the bar }
   procedure ClickMenu(m, i: Integer);
@@ -15688,7 +17321,7 @@ begin
   begin
     RunMenuItem(MENU_EXAMPLES, k);
     Check(Format('example %d: pages Plant + About, layers Process + Notes, 2 popups', [k]),
-      ((PageCount = 2) or ((k in [24, 31, 32]) and (PageCount = 4)) or ((k = 27) and (PageCount = 3))) and
+      ((PageCount = 2) or ((k in [24, 31, 32]) and (PageCount = 4)) or ((k in [27, 36]) and (PageCount = 3))) and
       ((PageName(0) = 'Plant') or ((k = 31) and (PageName(0) = 'Dryer')) or ((k = 32) and (PageName(0) = 'Mixing plant'))) and (PageName(1) = 'About') and (LayerCount >= 2) and
       (Pages[0].Layers[0].Name = 'Process') and (Pages[0].Layers[1].Name = 'Notes') and
       (FramePopupCount = 2) and (CurPage = 0) and (CurLayer = 0));
@@ -15700,7 +17333,7 @@ begin
       if Pages[1].Links[i].Active then Inc(nb);
     end;
     { example 24 also links to its pages 3 and 4 }
-    Check(Format('example %d: 3 links on each page', [k]), ((np = 3) or ((k in [24, 31, 32]) and (np = 5)) or ((k = 27) and (np = 4))) and (nb = 3));
+    Check(Format('example %d: 3 links on each page', [k]), ((np = 3) or ((k in [24, 31, 32]) and (np = 5)) or ((k in [27, 36]) and (np = 4))) and (nb = 3));
     np := 0;
     for cy := 0 to GH - 1 do
       for cx := 0 to GW - 1 do
@@ -15728,7 +17361,7 @@ begin
 
   { ---- plant equipment: motor, blower, paddle, screw, cyclone, silo bin, stand, lamp, legend }
   Check('every equipment kind has a tool', (ToolNames[tEqMotor] = 'Motor') and (ToolNames[tEqBlower] = 'Blower') and
-    (ToolNames[tEqLegend] = 'Legend') and (Ord(tEqRack) - Ord(tEqMotor) + 1 = EQ_KINDS));
+    (ToolNames[tEqLegend] = 'Legend') and (Ord(tEqVibFeeder) - Ord(tEqMotor) + 1 = EQ_KINDS));
   DoNew;
   Zoom := 1;
   ViewX := 0;
@@ -15773,7 +17406,7 @@ begin
   Drag := dragNone;
   Check('double-click runs it', Equips[k].State = EQS_RUN);
   { the other kinds }
-  for i := Ord(tEqBlower) to Ord(tEqRack) do
+  for i := Ord(tEqBlower) to Ord(tEqVibFeeder) do
   begin
     Tool := TTool(i);
     MX := 25 * CELL;
@@ -18321,9 +19954,242 @@ begin
   Check(Format('example 35: the pickers load, the conveyor carries, the dock worker fills the van (%d shipped, %d in the van)',
     [Round(EGrid[cx, cy].Acc), np]), (EGrid[cx, cy].Acc >= 4) and (np >= 8));
   DoNew;
+  { the AI Chat: its menu, its page, its own window }
+  OpenMenu := MENU_AI;
+  BuildMenu(MENU_AI);
+  Check('the AI Chat menu: open its window, or in the default browser, the Claude Code link', (MenuNames[MENU_AI] = 'AI Chat') and (MCount = 3) and
+    MItems[0].Enabled and (MItems[0].Key = 'Ctrl+I'));
+  OpenMenu := -1;
+  Check('the chat page is next to the program', FileExists(AIChatPage));
+  Check('its window: an app window of its own, with its own profile', (Pos('--app="file:///', AIChatArgs) = 1) and
+    (Pos('/aichat/index.html"', AIChatArgs) > 0) and (Pos(' ', AIChatURL) = 0) and (Pos('--user-data-dir="', AIChatArgs) > 0) and
+    (Pos('aichat\profile"', AIChatArgs) > 0));
+  { the AI bridge: the chat window works the program over HTTP on this PC, with a token }
+  Check('the AI bridge listens on 127.0.0.1 with a token', BridgeStart and BridgeRunning and (BridgePort >= 5047) and (Length(BridgeToken) = 32));
+  Check('the chat window gets the bridge in its URL', Pos(Format('#bridge=%d&token=%s', [BridgePort, BridgeToken]), AIChatURL(BridgePort, BridgeToken)) > 0);
+  ga := BridgeSelfRequest(BridgeToken, '{"cmd":"status"}', @AIExecAnswer);
+  Check('bridge: status over HTTP', (Pos('200', ga) > 0) and (Pos('Material Flow SDL3', ga) > 0) and (Pos('"ok" : true', ga) > 0));
+  ga := BridgeSelfRequest('0123', '{"cmd":"status"}', @AIExecAnswer);
+  Check('bridge: a wrong token is turned away', (Pos('403', ga) > 0) and (Pos('Material Flow SDL3', ga) = 0));
+  Check('bridge: bad JSON and unknown commands answer an error', (Pos('"ok" : false', AIExecAnswer('{oops')) > 0) and
+    (Pos('unknown cmd', AIExecAnswer('{"cmd":"fly"}')) > 0));
+  ga := AIExecAnswer('{"cmd":"build","ops":[{"op":"clear_page"},{"op":"pipe","x1":2,"y1":10,"x2":8,"y2":10},' +
+    '{"op":"device","kind":"feeder","x":2,"y":10},{"op":"equip","kind":"motor","x":300,"y":200,"name":"AIM1"},' +
+    '{"op":"label","x":120,"y":80,"text":"AI test label ทดสอบ"},{"op":"warp"}]}');
+  Check('bridge: build pipes, a feeder, equipment and a label (a bad step is reported, the rest done)', (Pos('"done" : 5', ga) > 0) and
+    (Pos('"failed" : 1', ga) > 0) and (Grid[5, 10].Kind <> ckEmpty) and (Grid[2, 10].Kind = ckSource));
+  ga := AIExecAnswer('{"cmd":"read","names":["AIM1","NOPE9"]}');
+  Check('bridge: read values by name', (Pos('"AIM1" : { "known" : true', ga) > 0) and (Pos('"NOPE9" : { "known" : false', ga) > 0));
+  Check('bridge: write a value', Pos('"ok" : true', AIExecAnswer('{"cmd":"write","name":"AIM1","value":1}')) > 0);
+  data0 := GetJSON(U8(AIExecAnswer('{"cmd":"get_layout"}')));
+  gb := Raw8(TJSONObject(data0).Get('mflow', ''));
+  data0.Free;
+  Check('bridge: get the layout as .mflow text (Thai text kept)', Pos('AI test label ทดสอบ', gb) > 0);
+  AIExecAnswer('{"cmd":"build","ops":[{"op":"clear_page"}]}');
+  data0 := TJSONObject.Create(['cmd', 'load_layout', 'mflow', U8(gb)]);
+  gc := Raw8(data0.AsJSON);
+  data0.Free;
+  ga := AIExecAnswer(gc);
+  Check('bridge: load a layout (the old one kept as a backup)', (Pos('"ok" : true', ga) > 0) and (Grid[5, 10].Kind <> ckEmpty) and
+    (Pos('AI test label ทดสอบ', Raw8(U8(AIExecAnswer('{"cmd":"get_layout"}')))) > 0) and
+    FileExists(AIWorkDir + 'ai_backup.mflow'));
+  ga := AIExecAnswer('{"cmd":"restore_backup"}');
+  Check('bridge: restore the backup', (Pos('"ok" : true', ga) > 0) and (Grid[5, 10].Kind = ckEmpty));
+  Check('bridge: a broken layout is refused', Pos('"ok" : false', AIExecAnswer('{"cmd":"load_layout","mflow":"nonsense"}')) > 0);
+  ga := AIExecAnswer('{"cmd":"examples"}');
+  Check('bridge: the examples list, and help', (Pos('1: ', ga) > 0) and (Pos('pipe', AIExecAnswer('{"cmd":"help"}')) > 0));
+  ga := AIExecAnswer('{"cmd":"screenshot"}');
+  Check('bridge: a screenshot', Pos('"bmp" : "Qk', ga) > 0);
+  BridgeStop;
+  Check('the AI bridge stops', not BridgeRunning);
+  { ---- tables: draw one, drop parts and labels in its cells, line them up, resize / move it all, values in cells }
+  DoNew;
+  HistCheck;
+  Zoom := 1;
+  ViewX := 0;
+  ViewY := 0;
+  Tool := tTable;
+  MX := 4 * CELL + 3;
+  MY := 6 * CELL + 3;
+  MouseDown(SDL_BUTTON_LEFT);
+  MX := 19 * CELL + 3;
+  MY := 15 * CELL + 3;
+  CanvasMotion;
+  TableDragEnd(Drag);
+  Drag := dragNone;
+  MDown := False;
+  MPressed := False;
+  Tool := tSelect;
+  b := SelTb;
+  Check(Format('Table tool draws a 3 x 3 table over the dragged box (%.0f x %.0f)', [TableW(b), TableH(b)]),
+    (SelKind = selTable) and (b >= 0) and Tables[b].Active and (Tables[b].NR = 3) and (Tables[b].NC = 3) and
+    (Tables[b].X = 4 * CELL) and (Tables[b].Y = 6 * CELL) and (Abs(TableW(b) - 15 * CELL) < 0.5) and (Abs(TableH(b) - 9 * CELL) < 0.5));
+  Check('a new table starts with its title being typed', (TxtEdit = 38) and (TxtIdx = b));
+  TxtTypeText(' data');
+  TxtKey(SDLK_RETURN);
+  Check('its title', (Tables[b].Title = 'Table 1 data') and (TxtEdit = 0));
+  { a motor and a label dropped into two cells line up in them (centred) }
+  k := AddEquip(EQ_MOTOR, TableColX(b, 1) + 3, TableRowY(b, 1) + 2);
+  Equips[k].Name := 'MT7';
+  lk := AddLabel(TableColX(b, 2) + 2, TableRowY(b, 2) + 2, 'L1');
+  TableDragEnd(dragEqMove);
+  LabelBox(lk, bx, by, fw, fh);
+  Check('a part in a cell is centred in it', (Abs(Equips[k].X + Equips[k].W / 2 - (TableColX(b, 1) + Tables[b].ColW[1] / 2)) < 0.6) and
+    (Abs(Equips[k].Y + Equips[k].H / 2 - (TableRowY(b, 1) + Tables[b].RowH[1] / 2)) < 0.6));
+  Check('a label in a cell is centred in it', (Abs(bx + fw / 2 - (TableColX(b, 2) + Tables[b].ColW[2] / 2)) < 0.6) and
+    (Abs(by + fh / 2 - (TableRowY(b, 2) + Tables[b].RowH[2] / 2)) < 0.6));
+  Tables[b].HAlign := 0;
+  Tables[b].VAlign := 2;
+  ArrangeTable(b);
+  LabelBox(lk, bx, by, fw, fh);
+  Check('lined up left / bottom', (Abs(Equips[k].X - (TableColX(b, 1) + TBL_PAD)) < 0.6) and
+    (Abs(Equips[k].Y + Equips[k].H - (TableRowY(b, 2) - TBL_PAD)) < 0.6) and (Abs(bx - (TableColX(b, 2) + TBL_PAD)) < 0.6));
+  Tables[b].HAlign := 1;
+  Tables[b].VAlign := 1;
+  ArrangeTable(b);
+  { resize it by its corner square: the columns, rows, cell text, the motor and the label all grow 1.5 times }
+  w2 := Tables[b].ColW[0];
+  h2 := Equips[k].W;
+  x2 := TableW(b);
+  y2 := TableH(b);
+  MX := Tables[b].X + x2 - 3;
+  MY := Tables[b].Y + y2 - 3;
+  LastClicks := 1;
+  MouseDown(SDL_BUTTON_LEFT);
+  Check('a press on the corner square resizes the table', (Drag = dragTblSize) and (SelKind = selTable) and (SelTb = b));
+  MX := Tables[b].X + x2 * 1.5;
+  MY := Tables[b].Y + y2 * 1.5;
+  CanvasMotion;
+  TableDragEnd(Drag);
+  Drag := dragNone;
+  MDown := False;
+  MPressed := False;
+  LabelBox(lk, bx, by, fw, fh);
+  Check(Format('resized: columns x1.5 (%.1f), the motor (%.1f) and the label (%.2f) too', [Tables[b].ColW[0], Equips[k].W, LScale(lk)]),
+    (Abs(Tables[b].ColW[0] - w2 * 1.5) < 0.5) and (Abs(Equips[k].W - h2 * 1.5) < 0.5) and (Abs(LScale(lk) - 1.5) < 0.01) and
+    (Abs(Tables[b].TextScale - 1.5) < 0.01));
+  Check('and they stay centred in their cells', (Abs(Equips[k].X + Equips[k].W / 2 - (TableColX(b, 1) + Tables[b].ColW[1] / 2)) < 0.6) and
+    (Abs(bx + fw / 2 - (TableColX(b, 2) + Tables[b].ColW[2] / 2)) < 0.6));
+  { move it by its title: what is in it goes along }
+  bx := Tables[b].X;
+  by := Equips[k].X;
+  MX := Tables[b].X + 10;
+  MY := Tables[b].Y - 5;
+  MouseDown(SDL_BUTTON_LEFT);
+  Check('a press on the title moves the table', Drag = dragTblMove);
+  MX := MX + 48;
+  MY := MY + 24;
+  CanvasMotion;
+  TableDragEnd(Drag);
+  Drag := dragNone;
+  MDown := False;
+  MPressed := False;
+  Check('moved with what is in it', (Tables[b].X = bx + 48) and (Abs(Equips[k].X - (by + 48)) < 0.6));
+  { a cell: click picks it, double-click types it, Tab goes on, {NAME} shows a live value }
+  MX := TableColX(b, 0) + 20;
+  MY := TableRowY(b, 0) + 20;
+  LastClicks := 2;
+  MouseDown(SDL_BUTTON_LEFT);
+  Drag := dragNone;
+  MDown := False;
+  MPressed := False;
+  LastClicks := 1;
+  Check('a double-click on a cell picks it and types its text', (SelKind = selTable) and (SelTbR = 0) and (SelTbC = 0) and
+    (TxtEdit = 37) and (TxtIdx = TblIdx(b, 0, 0)));
+  TxtTypeText('Speed');
+  TxtKey(SDLK_TAB);
+  TxtTypeText('{MT7} {NOPE}');
+  TxtKey(SDLK_RETURN);
+  Check(Format('Tab: the next cell; {MT7} shows its value (%s)', [CellShow(b, 0, 1)]), (Tables[b].Cells[0, 0] = 'Speed') and
+    (Tables[b].Cells[0, 1] = '{MT7} {NOPE}') and (Pos('{', CellShow(b, 0, 1)) = 0) and (Copy(CellShow(b, 0, 1), Length(CellShow(b, 0, 1)), 1) = '?'));
+  { rows and columns }
+  TableAddRow(b);
+  TableAddCol(b);
+  Check('add a row and a column', (Tables[b].NR = 4) and (Tables[b].NC = 4) and (Tables[b].ColW[3] = Tables[b].ColW[2]));
+  TableChangeBegin(b);
+  TableDelCol(b);
+  TableChangeEnd(b);
+  Check('take the last column away', Tables[b].NC = 3);
+  Render;
+  { saved with the layout, with the label's size }
+  Check('save a table', SaveLayout(UnicodeString(FileName + '.tbl.mflow'), err));
+  DoNew;
+  Check('load it', LoadLayout(UnicodeString(FileName + '.tbl.mflow'), err));
+  lk := -1;
+  for i := 0 to MAX_LABELS - 1 do
+    if Labels[i].Active and (Labels[i].Text = 'L1') then lk := i;
+  Check('it comes back: rows, columns, sizes, texts, alignment, the label''s size', Tables[0].Active and (Tables[0].NR = 4) and
+    (Tables[0].NC = 3) and (Abs(Tables[0].ColW[0] - w2 * 1.5) < 0.05) and (Tables[0].Cells[0, 1] = '{MT7} {NOPE}') and
+    (Tables[0].Title = 'Table 1 data') and (Tables[0].HAlign = 1) and (lk >= 0) and (Abs(LScale(lk) - 1.5) < 0.01));
+  { undo, and a page of its own }
+  HistCheck;
+  TableAddRow(0);
+  HistCheck;
+  DoUndo;
+  Check('undo a table change', Tables[0].NR = 4);
+  i := AddPage('Tables 2');
+  AppGoToPage(i);
+  Check('another page has no table', not Tables[0].Active);
+  AppGoToPage(0);
+  Check('back on its page it is there', Tables[0].Active and (Tables[0].NR = 4));
+  { the AI builds one: a part put in a cell lines up }
+  ga := AIExecAnswer('{"cmd":"build","ops":[{"op":"clear_page"},{"op":"table","x":120,"y":120,"rows":2,"cols":2,"colw":120,' +
+    '"rowh":72,"across":"left","title":"AI table","cells":[["A","B"],["{AM1}","2"]]},{"op":"equip","kind":"motor","x":260,"y":200,"name":"AM1"}]}');
+  k := EquipByName('AM1');
+  Check('bridge: build a table with texts, a part in it lines up', (Pos('"done" : 3', ga) > 0) and Tables[0].Active and
+    (Tables[0].NC = 2) and (Tables[0].Cells[0, 1] = 'B') and (Tables[0].HAlign = 0) and (k >= 0) and
+    (Abs(Equips[k].X - (TableColX(0, 1) + TBL_PAD)) < 0.6));
+  DoNew;
+
+  { ---- the vibratory feeder: shaking, it carries the sand off its tray; its chute is choked by it }
+  DoNew;
+  ga := AIExecAnswer('{"cmd":"build","ops":[{"op":"feeder","x":5,"y":8,"sand":800,"feed":40},' +
+    '{"op":"pipe","x1":5,"y1":8,"x2":5,"y2":11},{"op":"device","kind":"drop","x":5,"y":11},' +
+    '{"op":"equip","kind":"vibfeeder","x":96,"y":276,"name":"VF9","state":"stop"},{"op":"bucket","col":17,"w":170,"h":110}]}');
+  k := EquipByName('VF9');
+  Check('a vibratory feeder (Equip tab)', (Pos('"done" : 5', ga) > 0) and (k >= 0) and (Equips[k].Kind = EQ_VIBFEEDER) and
+    (ToolNames[tEqVibFeeder] = 'Vib. feeder') and (Abs(VibDeckY(k) - 300) < 0.5));
+  for i := 1 to 600 do SimFrame(1 / 60, True);
+  np := 0;
+  nb := 0;
+  for i := 0 to NPart - 1 do
+    if (Parts[i].Life > 0) and (Parts[i].Mat = mSand) then
+      if Parts[i].InPipe then Inc(np) else if Parts[i].Y > 320 then Inc(nb);
+  Check(Format('stopped, it holds the chute full: nothing falls (%d in the chute, %d below)', [np, nb]),
+    (np >= 20) and (nb = 0) and (Buckets[0].Count = 0));
+  Equips[k].State := EQS_RUN;
+  Equips[k].Level := 20;
+  for i := 1 to 900 do SimFrame(1 / 60, True);
+  b := Buckets[0].Count;
+  Equips[k].Level := 80;
+  for i := 1 to 900 do SimFrame(1 / 60, True);
+  Check(Format('running, it shakes the sand off its end into the bin; harder, faster (20 %%: %d, then 80 %%: %d more)',
+    [b, Buckets[0].Count - b]), (b > 20) and (Buckets[0].Count - b > b * 1.5));
+  Render;
+  { example 36: the two lines, and the page that compares them in tables }
+  RunMenuItem(MENU_EXAMPLES, 36);
+  for i := 1 to 60 * 25 do SimFrame(1 / 60, True);
+  Check(Format('example 36: VF02 (80 %%) fills its bin faster than VF01 (30 %%): %.1f / %.1f kg',
+    [EGrid[39, 33].Val, EGrid[17, 33].Val]), (PageCount = 3) and (EGrid[39, 33].Val > EGrid[17, 33].Val * 1.4) and
+    (EGrid[17, 33].Val > 2));
+  AppGoToPage(2);
+  for i := 1 to 10 do SimAllPages(1 / 60, True);   { the values of the other page come over the plant bus }
+  Check('example 36: the Compare page: a table of live values, the meters in a second table', Tables[0].Active and
+    Tables[1].Active and (Tables[0].Cells[2, 2] = '{VF02}') and (Pos('80.0', CellShow(0, 2, 2)) > 0) and (Pos('?', CellShow(0, 3, 1)) = 0));
+  { a switch's state is read on another page too }
+  ga := CellShow(0, 4, 1);
+  AppGoToPage(0);
+  EGrid[32, 3].On := False;
+  for i := 1 to 10 do SimAllPages(1 / 60, True);
+  AppGoToPage(2);
+  for i := 1 to 10 do SimAllPages(1 / 60, True);
+  Check(Format('a switch''s state on another page: S1 on = %s, off = %s; S2 = %s', [ga, CellShow(0, 4, 1), CellShow(0, 4, 2)]),
+    (ga = '1') and (CellShow(0, 4, 1) = '0') and (CellShow(0, 4, 2) = '1'));
+  AppGoToPage(0);
+  DoNew;
+
   { themes }
-  for i := 0 to THEME_COUNT - 1 do
-  begin
+  for i := 0 to THEME_COUNT - 1 do  begin
     SelectTheme(i);
     Check('theme ' + Th.Name, (ThemeIndex = i) and (Th.Name = Themes[i].Name));
   end;
@@ -18448,6 +20314,9 @@ begin
   { the IPC network and its points: their own files (not in test runs) }
   if SettingsFile <> '' then
   begin
+    { the Claude Code link: the bridge and its bridge.json (not in test runs) }
+    BridgeInfoFile := ExtractFilePath(ParamStr(0)) + 'aichat' + PathDelim + 'bridge.json';
+    if ClaudeLink then BridgeStart;
     IPCNetPath := ExtractFilePath(ParamStr(0)) + IPC_NET_FILE;
     IPCIOPath := ExtractFilePath(ParamStr(0)) + IPC_IO_FILE;
     IPCReloadFiles;
@@ -18475,6 +20344,10 @@ begin
     SDL_Quit;
     Exit;
   end;
+
+  { --bridge-test <file>: the AI bridge on from the start, its port and token written to the file (testing the chat page) }
+  if (ParamCount >= 2) and (ParamStr(1) = '--bridge-test') and BridgeStart then
+    WriteTextFile(ParamStr(2), Format('%d %s', [BridgePort, BridgeToken]));
 
   { --shot <frames> <out.bmp> [layout.mflow|-] [file|edit|theme] [theme#] }
   if shotFrames > 0 then
@@ -18871,6 +20744,7 @@ begin
               else if Drag = dragFrameNew then FinishFrameNew
               else if Drag = dragFrameMove then FinishFrameMove
               else if Drag = dragFlowArrow then FinishFlowArrow;
+              TableDragEnd(Drag);
             end
             else if ev.button.button = SDL_BUTTON_RIGHT then
             begin
@@ -18922,6 +20796,7 @@ begin
         else if Drag = dragMove then FinishMove
         else if Drag = dragFrameNew then FinishFrameNew
         else if Drag = dragFrameMove then FinishFrameMove;
+        TableDragEnd(Drag);
       end;
       MDown := False;
       RDown := False;
@@ -18948,6 +20823,7 @@ begin
 
     SimAllPages(fmin(FrameDt, 1 / 30), Running);
     IPCStep(fmin(FrameDt, 1 / 30));
+    AIBridgeStep(FrameDt);
     if IPCChanged and (TxtEdit = 0) then IPCSaveFiles;
     Render;
     SDL_RenderPresent(Ren);
@@ -18957,6 +20833,7 @@ begin
   SaveSettings;   { panel places and theme for next time }
   if IPCChanged then IPCSaveFiles;
   IPCStopAll;
+  BridgeStop;
   SDL_DestroyRenderer(Ren);
   SDL_DestroyWindow(Win);
   SDL_Quit;

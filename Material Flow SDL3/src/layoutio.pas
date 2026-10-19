@@ -31,6 +31,9 @@ unit layoutio;
   BUCKET <x> <y> <w> <h>
   LABEL <x> <y> <text>            (\n = new line in the text)
   FRAME <x> <y> <w> <h> <colour> <dashed> <fill> <carry> <title>
+  TABLE <x> <y> <rows> <cols> <across> <down> <colour> <header> <text size> <title>
+    then TCOLS <widths...>, TROWS <heights...>, TCELL <row> <col> <text> (rows / columns from 1)
+  LSCALE <size>   (after a LABEL / LABEL2 line: its text size, 1 = normal)
   LABEL2 <kind> <x> <y> <colour> <box> <format> <caption>
                                   (kind text/date/time; format: FormatDateTime
                                    codes, \s = space, - = none; box 1/0)
@@ -67,8 +70,8 @@ const
   EquipStates: array[0..EQS_COUNT - 1] of string = ('stop', 'run', 'fault', 'mstart', 'mstop', 'disable');
   LinkKinds: array[0..1] of string = ('page', 'popup');
   { the app's selection kinds, in their order }
-  PinKinds: array[0..10] of string = ('none', 'cell', 'bucket', 'multi', 'label', 'frame', 'link', 'equip', 'ecell',
-    'fcell', 'flow');
+  PinKinds: array[0..11] of string = ('none', 'cell', 'bucket', 'multi', 'label', 'frame', 'link', 'equip', 'ecell',
+    'fcell', 'flow', 'table');
 
 var
   FS: TFormatSettings;
@@ -163,8 +166,9 @@ procedure WritePageBody(var f: TextFile; L, NL: Integer);
   end;
 
 var
-  x, y, i, k: Integer;
+  x, y, i, k, k2: Integer;
   c: PCell;
+  s: string;
 begin
   WriteLn(f, 'ON ', L + 1);
   for y := 0 to GH - 1 do
@@ -191,6 +195,22 @@ begin
       WriteLn(f, Format('FRAME %s %s %s %s %d %d %d %d %s', [F2S(Frames[i].X), F2S(Frames[i].Y),
         F2S(Frames[i].W), F2S(Frames[i].H), Frames[i].Color, Ord(Frames[i].Dashed), Ord(Frames[i].Fill),
         Ord(Frames[i].Carry), EscapeText(Frames[i].Title)]));
+  for i := 0 to MAX_TABLES - 1 do
+    if Tables[i].Active and Mine(Tables[i].Layer) then
+      with Tables[i] do
+      begin
+        WriteLn(f, Format('TABLE %s %s %d %d %d %d %d %d %s %s', [F2S(X), F2S(Y), NR, NC, HAlign, VAlign, Color,
+          Ord(Header), F2S(TextScale), EscapeText(Title)]));
+        s := 'TCOLS';
+        for k := 0 to NC - 1 do s := s + ' ' + F2S(ColW[k]);
+        WriteLn(f, s);
+        s := 'TROWS';
+        for k := 0 to NR - 1 do s := s + ' ' + F2S(RowH[k]);
+        WriteLn(f, s);
+        for k := 0 to NR - 1 do
+          for k2 := 0 to NC - 1 do
+            if Cells[k, k2] <> '' then WriteLn(f, Format('TCELL %d %d %s', [k + 1, k2 + 1, EscapeText(Cells[k, k2])]));
+      end;
   for i := 0 to MAX_LABELS - 1 do
     if Labels[i].Active and Mine(Labels[i].Layer) then
     begin
@@ -200,6 +220,7 @@ begin
         WriteLn(f, Format('LABEL2 %s %s %s %d %d %s %s', [LabelKinds[Labels[i].Kind], F2S(Labels[i].X),
           F2S(Labels[i].Y), Labels[i].Color, Ord(not Labels[i].NoBox), EscapeToken(Labels[i].Fmt),
           EscapeText(Labels[i].Text)]));
+      if (Labels[i].Scale > 0) and (Abs(Labels[i].Scale - 1) > 0.001) then WriteLn(f, 'LSCALE ' + F2S(Labels[i].Scale));
     end;
   for i := 0 to MAX_LINKS - 1 do
     if Links[i].Active and Mine(Links[i].Layer) then
@@ -304,6 +325,7 @@ begin
       WriteLn(f, '# LABEL x y text   (\n = new line)');
       WriteLn(f, '# LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)');
       WriteLn(f, '# FRAME x y w h colour dashed fill carry title');
+      WriteLn(f, '# TABLE x y rows cols across down colour header textsize title / TCOLS w.. / TROWS h.. / TCELL r c text / LSCALE size');
       WriteLn(f, '# LINK x y colour page|popup n caption');
       WriteLn(f, '# EQUIP kind x y w h state flip linkx linky level name');
       WriteLn(f, '# ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3');
@@ -430,7 +452,7 @@ var
   f: TextFile;
   line, name: string;
   Tok: array[0..16] of string;
-  n, lineNo, x, y, i, q, ver, pageActive, oldCount, oldCur, lastEq: Integer;
+  n, lineNo, x, y, i, q, ver, pageActive, oldCount, oldCur, lastEq, lastTbl, lastLbl: Integer;
   gotHeader, opened, gotPage: Boolean;
   c: PCell;
   K: TCellKind;
@@ -489,6 +511,8 @@ begin
   name := '';
   ver := 1;
   lastEq := -1;
+  lastTbl := -1;
+  lastLbl := -1;
   LayoutBg := -1;
   try
     AssignFile(f, FileName);
@@ -631,7 +655,41 @@ begin
         Frames[i].Fill := Int(7) <> 0;
         Frames[i].Carry := Int(8) <> 0;
       end
-      else if SameText(Tok[0], 'LINK') then
+      else if SameText(Tok[0], 'TABLE') then
+      begin
+        Need(10);
+        lastTbl := AddTable(Num(1), Num(2), Int(3), Int(4), 80, 30, Copy(UnescapeText(AfterTokens(line, 10)), 1, 60));
+        if lastTbl < 0 then Fail(Format('too many tables (max %d)', [MAX_TABLES]));
+        Tables[lastTbl].HAlign := EnsureRange(Int(5), 0, 2);
+        Tables[lastTbl].VAlign := EnsureRange(Int(6), 0, 2);
+        Tables[lastTbl].Color := EnsureRange(Int(7), 0, 5);
+        Tables[lastTbl].Header := Int(8) <> 0;
+        Tables[lastTbl].TextScale := fclamp(Num(9), 0.5, 4);
+      end
+      else if SameText(Tok[0], 'TCOLS') or SameText(Tok[0], 'TROWS') then
+      begin
+        if lastTbl < 0 then Fail(Tok[0] + ' without a TABLE');
+        for i := 1 to n - 1 do
+          if SameText(Tok[0], 'TCOLS') then
+          begin
+            if i <= TBL_COLS then Tables[lastTbl].ColW[i - 1] := fclamp(Num(i), TBL_MIN, CANVAS_W);
+          end
+          else if i <= TBL_ROWS then Tables[lastTbl].RowH[i - 1] := fclamp(Num(i), TBL_MIN, CANVAS_H);
+      end
+      else if SameText(Tok[0], 'TCELL') then
+      begin
+        Need(3);
+        if lastTbl < 0 then Fail('TCELL without a TABLE');
+        x := Int(1) - 1;
+        y := Int(2) - 1;
+        if (x >= 0) and (x < TBL_ROWS) and (y >= 0) and (y < TBL_COLS) then
+          Tables[lastTbl].Cells[x, y] := Copy(UnescapeText(AfterTokens(line, 3)), 1, 40);
+      end
+      else if SameText(Tok[0], 'LSCALE') then
+      begin
+        Need(2);
+        if (lastLbl >= 0) and Labels[lastLbl].Active then Labels[lastLbl].Scale := fclamp(Num(1), 0.25, 6);
+      end      else if SameText(Tok[0], 'LINK') then
       begin
         Need(6);
         for i := 0 to 1 do v[i] := Num(1 + i);
@@ -836,6 +894,7 @@ begin
         for i := 0 to 1 do v[i] := Num(2 + i);
         i := AddLabel(v[0], v[1], UnescapeText(AfterTokens(line, 7)));
         if i < 0 then Fail(Format('too many labels (max %d)', [MAX_LABELS]));
+        lastLbl := i;
         Labels[i].Kind := k2;
         Labels[i].Color := EnsureRange(Int(4), 0, 5);
         Labels[i].NoBox := Int(5) = 0;
@@ -846,7 +905,8 @@ begin
         Need(3);
         for i := 0 to 1 do v[i] := Num(1 + i);
         { the text is everything after "LABEL x y" }
-        if AddLabel(v[0], v[1], UnescapeText(AfterTokens(line, 3))) < 0 then
+        lastLbl := AddLabel(v[0], v[1], UnescapeText(AfterTokens(line, 3)));
+        if lastLbl < 0 then
           Fail(Format('too many labels (max %d)', [MAX_LABELS]));
       end
       else if SameText(Tok[0], 'TANK') or SameText(Tok[0], 'STOCK') then

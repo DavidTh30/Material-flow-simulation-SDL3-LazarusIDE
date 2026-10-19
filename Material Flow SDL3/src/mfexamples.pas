@@ -20,7 +20,7 @@ unit mfexamples;
 interface
 
 const
-  EXAMPLE_COUNT = 35;
+  EXAMPLE_COUNT = 36;
   ExampleTitles: array[1..EXAMPLE_COUNT] of string = (
     'Gravity merge/overflow',
     'Pneumatic conveyor',
@@ -56,7 +56,8 @@ const
     'PVC dry blend plant',
     'Belt conveyor system',
     'Bottles, boxes & toys',
-    'Shipping dock & order pickers');
+    'Shipping dock & order pickers',
+    'Vibratory feeders compared');
   ExampleFiles: array[1..EXAMPLE_COUNT] of string = (
     'example1_gravity_merge.mflow',
     'example2_pneumatic_conveyor.mflow',
@@ -92,7 +93,8 @@ const
     'example32_pvc_dry_blend.mflow',
     'example33_belt_conveyor.mflow',
     'example34_bottles_boxes_toys.mflow',
-    'example35_shipping_dock.mflow');
+    'example35_shipping_dock.mflow',
+    'example36_vibratory_feeders.mflow');
 
 const
   { the Examples menu: one sub-menu per category, examples CatFirst..CatLast }
@@ -101,7 +103,7 @@ const
     'Electrical circuits', 'Pneumatic systems', 'Hydraulic systems', 'Control & sensors',
     'Plant systems');
   CatFirst: array[1..EXAMPLE_CATS] of Integer = (1, 5, 10, 15, 19, 22, 31);
-  CatLast: array[1..EXAMPLE_CATS] of Integer = (4, 9, 14, 18, 21, 30, 35);
+  CatLast: array[1..EXAMPLE_CATS] of Integer = (4, 9, 14, 18, 21, 30, 36);
 
 procedure BuildExample(n: Integer);
 
@@ -281,7 +283,12 @@ const
     'racks and put them on the roller conveyor.'#10 +
     'Click SB1: it carries them to the dock; the'#10 +
     'dock worker lifts each one into the box van.'#10 +
-    'PE1 counts what is shipped.');
+    'PE1 counts what is shipped.',
+    'Each feeder drops sand on a vibratory tray'#10 +
+    'feeder; shaking, the tray throws it up and'#10 +
+    'forward, so it hops along and falls off the'#10 +
+    'end into a bin on a weight sensor. VF01'#10 +
+    'shakes at 30 %, VF02 at 80 %: B feeds faster.');
 
   { "Try this" popup text }
   TryText: array[1..EXAMPLE_COUNT] of string = (
@@ -401,7 +408,11 @@ const
     'Click SB0: the line stops and the boxes wait'#10 +
     'at the pickers. Select a picker: Every s,'#10 +
     'what it loads. Make the dock worker a slow'#10 +
-    'one (Carry s): the line backs up.');
+    'one (Carry s): the line backs up.',
+    'Switch S2 off: tray B stops and holds its'#10 +
+    'sand. Select VF01, Amplitude % up to 80: it'#10 +
+    'catches up. Open page 3 (Compare): the table'#10 +
+    'shows both lines live; type {M1} in a cell.');
 
   { the About page: what the example is for }
   AboutText: array[1..EXAMPLE_COUNT] of string = (
@@ -538,7 +549,12 @@ const
     'EXAMPLE 35 - SHIPPING DOCK'#10 +
     'Workers (order pickers) load boxes from'#10 +
     'standard racks onto a roller conveyor; a dock'#10 +
-    'worker loads them into the box van.');
+    'worker loads them into the box van.',
+    'EXAMPLE 36 - VIBRATORY FEEDERS COMPARED'#10 +
+    'Two vibratory tray feeders shake the same'#10 +
+    'sand at 30 % and 80 %; page 3 compares the'#10 +
+    'lines in a table of live values, with the'#10 +
+    'bin meters lined up in a second table.');
 
 procedure Feeder(x, y: Integer; Water, Oil, Fluff, Sand, Air, Feed: Single);
 begin
@@ -2196,7 +2212,7 @@ var
 begin
   ElecLayers;
   CurLayer := LAYER_PROCESS;
-  Feeder(4, 6, 2500, 0, 0, 900, 10, 60);
+  Feeder(4, 6, 1250, 0, 0, 450, 10, 30);    { half the material, fed at half the rate: as long a run, half the particles }
   PipeLine(4, 6, 20, 6, 3);
   Device(7, 6, ckBlower, 70, 0);
   PipeLine(20, 6, 20, 10, 3);
@@ -2265,14 +2281,14 @@ begin
   ElecLayers;
   CurLayer := LAYER_PROCESS;
   { line 1: hot wet sand }
-  Feeder(3, 4, 2000, 0, 0, 700, 10, 60);
+  Feeder(3, 4, 1000, 0, 0, 350, 10, 30);
   PipeLine(3, 4, 22, 4, 3);
   Device(6, 4, ckBlower, 45, 0);
   PipeLine(22, 4, 22, 9, 3);
   Device(22, 9, ckDrop, 100);
   FloorBucket(22, 170, 110);
   { line 2: water and fluff }
-  Feeder(3, 14, 2000, 0, 300, 0, 10, 35);
+  Feeder(3, 14, 1000, 0, 150, 0, 10, 18);
   PipeLine(3, 14, 13, 14, 3);
   Device(5, 14, ckBlower, 45, 0);
   PipeLine(13, 14, 13, 18, 3);
@@ -3573,6 +3589,112 @@ begin
   AddLabel(450, 440, 'ORDER PICKERS AT THE RACKS  ->  ROLLER CONVEYOR  ->  DOCK');
 end;
 
+{ 36. Vibratory feeders, compared. Two lines of the same sand: each feeder drops it on a vibratory
+      tray feeder (VF01 shaking at 30 %, VF02 at 80 %), which shakes it along its tray and off its end
+      into a bin on a weight sensor (WT1, WT2). S1 / S2 switch them. Page 3 "Compare" sets the two
+      lines side by side in a table of live values (VF01, WT1... in braces), with their bin meters lined up
+      in a second table and a trend of both bins. }
+procedure Example36;
+var
+  e: Integer;
+begin
+  ElecLayers;
+  CurLayer := LAYER_PROCESS;
+  { line A }
+  Feeder(6, 2, 0, 0, 0, 1500, 0, 30);
+  PipeLine(6, 2, 6, 6, 3);
+  Device(6, 6, ckDrop, 100);
+  FloorBucket(17, 150, 110);
+  { line B }
+  Feeder(26, 2, 0, 0, 0, 1500, 0, 30);
+  PipeLine(26, 2, 26, 6, 3);
+  Device(26, 6, ckDrop, 100);
+  FloorBucket(39, 190, 110);
+
+  CurLayer := 2;
+  { each tray's deck just under its outlet: the pile there chokes it (the tray sets the rate) }
+  e := Eq2(EQ_VIBFEEDER, 120, 156, 264, 96, 'VF01', EQS_STOP);
+  Equips[e].Level := 30;
+  e := Eq2(EQ_VIBFEEDER, 600, 156, 264, 96, 'VF02', EQS_STOP);
+  Equips[e].Level := 80;
+  e := Eq2(EQ_DIGITAL, 120, 330, 160, 52, 'VF01 amplitude %', EQS_STOP);
+  Equips[e].Src := 'VF01';
+  e := Eq2(EQ_DIGITAL, 600, 330, 160, 52, 'VF02 amplitude %', EQS_STOP);
+  Equips[e].Src := 'VF02';
+
+  CurLayer := 3;
+  Ladder(29, 43, 36, 1, 6);
+  EWireLine(29, 3, 43, 3);
+  EP(32, 3, ekSwitch, 'S1');
+  EGrid[32, 3].On := True;
+  EP(40, 3, ekMotor, 'M1', 'VF01');
+  EWireLine(29, 5, 43, 5);
+  EP(32, 5, ekSwitch, 'S2');
+  EGrid[32, 5].On := True;
+  EP(40, 5, ekMotor, 'M2', 'VF02');
+  EP(17, 33, ekWeightTx, 'WT1');
+  EP(39, 33, ekWeightTx, 'WT2');
+
+  Notes;
+  AddLabel(300, 120, 'LINE A'#10'VF01 shakes at 30 %');
+  AddLabel(700, 120, 'LINE B'#10'VF02 shakes at 80 %');
+  AddLabel(420, 420, 'VIBRATORY FEEDERS'#10'Each tray shakes the sand along and off'#10 +
+    'its end into the bin (WT1, WT2 weigh it).'#10'The harder it shakes, the faster it feeds.'#10 +
+    'HOW TO USE: S1 / S2 switch them; select a'#10'feeder: Amplitude % sets how hard it shakes.');
+  Link(420, 540, 'Compare (page 3)', False, 2, 2);
+end;
+
+{ page 3 of example 36: the two lines side by side }
+procedure Example36Pages;
+var
+  p, e, t: Integer;
+
+  procedure Row(r: Integer; const A, B, C: string);
+  begin
+    Tables[t].Cells[r, 0] := A;
+    Tables[t].Cells[r, 1] := B;
+    Tables[t].Cells[r, 2] := C;
+  end;
+
+begin
+  ParkPage(PAGE_PLANT);
+  p := AddPage('Compare');
+  CurPage := p;
+  UnparkPage(p);
+  Pages[p].Layers[0].Name := 'Tables';
+  CurLayer := 0;
+  { the table of live values: a NAME in braces in a cell shows NAME's value now }
+  t := AddTable(48, 72, 5, 3, 200, 44, 'LINE A vs LINE B (live)');
+  Tables[t].ColW[0] := 220;
+  Tables[t].HAlign := 1;
+  Tables[t].Color := 1;
+  Row(0, 'Value', 'Line A', 'Line B');
+  Row(1, 'Vibratory feeder', 'VF01', 'VF02');
+  Row(2, 'Amplitude %', '{VF01}', '{VF02}');
+  Row(3, 'Sand in the bin', '{WT1}', '{WT2}');
+  Row(4, 'Switch (1 on, 0 off)', '{S1}', '{S2}');
+  { the bins' meters, lined up in the cells of a second table }
+  t := AddTable(48, 380, 1, 2, 310, 100, 'BIN METERS');
+  Tables[t].Header := False;
+  Tables[t].Color := 2;
+  e := Eq2(EQ_DIGITAL, 48 + (310 - 196) / 2, 380 + (100 - 56) / 2, 196, 56, 'Bin A kg', EQS_STOP);
+  Equips[e].Src := 'WT1';
+  Equips[e].RMax := 100;
+  e := Eq2(EQ_DIGITAL, 358 + (310 - 196) / 2, 380 + (100 - 56) / 2, 196, 56, 'Bin B kg', EQS_STOP);
+  Equips[e].Src := 'WT2';
+  Equips[e].RMax := 100;
+  e := Eq2(EQ_TREND, 48, 520, 620, 230, 'Bins A and B', EQS_STOP);
+  Equips[e].Delay := 120;
+  Equips[e].Src := 'WT1';
+  Equips[e].Src2 := 'WT2';
+  AddLabel(700, 72, 'COMPARE (page 3)'#10'The same sand on two feeders:'#10'VF01 shakes at 30 %, VF02 at 80 %.'#10 +
+    'A table cell with {NAME} shows the'#10'live value of NAME; the meters sit'#10'in the cells of the second table.');
+  Link(700, 200, 'Feeders (page 1)', False, PAGE_PLANT, 1);
+  ParkPage(p);
+  CurPage := PAGE_PLANT;
+  UnparkPage(PAGE_PLANT);
+end;
+
 procedure BuildExample(n: Integer);
 begin
   if (n < 1) or (n > EXAMPLE_COUNT) then Exit;
@@ -3613,6 +3735,7 @@ begin
     33: Example33;
     34: Example34;
     35: Example35;
+    36: Example36;
   end;
   if n = 7 then PlantLinks(24, 660)
   else if n = 27 then PlantLinks(900, 450)
@@ -3631,6 +3754,7 @@ begin
   if n = 27 then Example27Pages;
   if n = 31 then Example31Pages;
   if n = 32 then Example32Pages;
+  if n = 36 then Example36Pages;
   { new parts the user draws go on the Process layer }
   SetActiveLayer(LAYER_PROCESS);
 end;

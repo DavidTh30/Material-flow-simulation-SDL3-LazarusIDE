@@ -37,6 +37,10 @@ const
   MAX_BUCKETS = 8;
   MAX_LABELS = 64;
   MAX_FRAMES = 32;
+  MAX_TABLES = 8;
+  TBL_ROWS = 16;      { the most rows / columns a table has }
+  TBL_COLS = 8;
+  TBL_MIN = 12;       { the smallest cell, canvas pixels }
   MAX_LINKS = 32;
   MAX_EQUIP = 48;
   STEAM_MARK = 7;     { ExitDir of a free steam wisp }
@@ -82,15 +86,16 @@ const
   EQ_WORKER = 38;
   EQ_VAN = 39;
   EQ_RACK = 40;
-  EQ_KINDS = 41;
+  EQ_VIBFEEDER = 41;   { a vibratory tray feeder: shaking, it carries bulk material along its tray }
+  EQ_KINDS = 42;
   EquipNames: array[0..EQ_KINDS - 1] of string = ('Motor', 'Blower', 'Paddle', 'Screw', 'Cyclone',
     'Silo bin', 'Silo stand', 'Lamp', 'Legend', 'Sequence', 'Diverter valve', 'Shutter valve', 'Slide valve',
     'Heater', 'IR heater', 'Rain', 'Fire', 'Pond', 'Pool', 'Well', 'Pump',
     'Electrical cabinet', 'Roller conveyor', 'Belt conveyor', 'Analog gauge', 'Digital display',
-    'Cylinder', 'Air compressor', 'Hydraulic power unit', 'Air receiver', 'Controller faceplate', 'Heat exchanger', 'Cooling tower', 'Chiller', 'Trend chart', 'Timeline', 'Rotary dryer', 'Item feeder', 'Worker', 'Box van', 'Standard rack');
+    'Cylinder', 'Air compressor', 'Hydraulic power unit', 'Air receiver', 'Controller faceplate', 'Heat exchanger', 'Cooling tower', 'Chiller', 'Trend chart', 'Timeline', 'Rotary dryer', 'Item feeder', 'Worker', 'Box van', 'Standard rack', 'Vibratory feeder');
   EquipTags: array[0..EQ_KINDS - 1] of string = ('motor', 'blower', 'paddle', 'screw', 'cyclone',
     'silo', 'stand', 'lamp', 'legend', 'sequence', 'diverter', 'shutter', 'slide', 'heater', 'irheater',
-    'rain', 'fire', 'pond', 'pool', 'well', 'pump', 'panel', 'conveyor', 'belt', 'gauge', 'digital', 'cylinder', 'compressor', 'hpu', 'receiver', 'faceplate', 'heatex', 'coolingtower', 'chiller', 'trend', 'timeline', 'dryer', 'itemfeeder', 'worker', 'van', 'rack');
+    'rain', 'fire', 'pond', 'pool', 'well', 'pump', 'panel', 'conveyor', 'belt', 'gauge', 'digital', 'cylinder', 'compressor', 'hpu', 'receiver', 'faceplate', 'heatex', 'coolingtower', 'chiller', 'trend', 'timeline', 'dryer', 'itemfeeder', 'worker', 'van', 'rack', 'vibfeeder');
   { equipment states }
   EQS_STOP = 0;
   EQS_RUN = 1;
@@ -200,6 +205,24 @@ type
     Fmt: string[40];       { date / time format (FormatDateTime codes) }
     Color: Byte;           { 0 theme, 1 blue, 2 green, 3 amber, 4 red, 5 white }
     NoBox: Boolean;        { no frame / background behind the text }
+    Layer: Byte;
+    Scale: Single;         { the size of its text, 1 = normal (a table resized scales it) }
+  end;
+
+  { a table on the canvas: rows and columns that line up the parts and labels in its cells (a part or
+    label is in the cell its centre is in), each cell with a text of its own ({NAME} shows a live value) }
+  TTableObj = record
+    Active: Boolean;
+    X, Y: Single;                                  { top-left corner, canvas pixels }
+    NR, NC: Byte;                                  { rows, columns }
+    ColW: array[0..TBL_COLS - 1] of Single;        { column widths, canvas pixels }
+    RowH: array[0..TBL_ROWS - 1] of Single;        { row heights }
+    HAlign, VAlign: Byte;                          { what is in a cell: 0 left / top, 1 centre, 2 right / bottom }
+    Title: string[60];
+    Color: Byte;                                   { 0 theme, 1 blue, 2 green, 3 amber, 4 red, 5 white }
+    Header: Boolean;                               { the first row is a heading }
+    TextScale: Single;                             { the size of the cells' text }
+    Cells: array[0..TBL_ROWS - 1, 0..TBL_COLS - 1] of string[40];
     Layer: Byte;
   end;
 
@@ -311,8 +334,12 @@ var
   Buckets: array[0..MAX_BUCKETS - 1] of TBucket;
   Labels: array[0..MAX_LABELS - 1] of TLabelObj;
   Frames: array[0..MAX_FRAMES - 1] of TFrameObj;
+  Tables: array[0..MAX_TABLES - 1] of TTableObj;
   Links: array[0..MAX_LINKS - 1] of TLinkObj;
   Equips: array[0..MAX_EQUIP - 1] of TEquipObj;
+  DropMetered: array[0..GW - 1, 0..GH - 1] of Boolean;   { a drop outlet over a vibratory feeder: it sets the rate }
+  DropCredit: array[0..GW - 1, 0..GH - 1] of Single;     { ... how many particles may come out now }
+  ChuteFull: array[0..GW - 1, 0..GH - 1] of Boolean;     { ... and it holds its chute full }
   CurLayer: Byte = 0;      { new parts, buckets, labels, frames and links go on this layer }
   Intakes: array[0..63] of TIntake;
   NIntake: Integer = 0;
@@ -387,6 +414,15 @@ function AddLabel(X, Y: Single; const Text: string): Integer;
 procedure DeleteLabel(i: Integer);
 function AddFrame(X, Y, W, H: Single; const Title: string): Integer;
 procedure DeleteFrame(i: Integer);
+{ tables }
+function AddTable(X, Y: Single; NR, NC: Integer; CW, RH: Single; const Title: string): Integer;
+procedure DeleteTable(i: Integer);
+function TableW(i: Integer): Single;
+function TableH(i: Integer): Single;
+function TableColX(i, c: Integer): Single;     { the left edge of column c }
+function TableRowY(i, r: Integer): Single;     { the top edge of row r }
+{ the cell under wx, wy (False: not in the table) }
+function TableCellAt(i: Integer; wx, wy: Single; out R, C: Integer): Boolean;
 function AddLink(X, Y: Single; const Caption: string; ToPopup: Boolean; Target: Integer): Integer;
 procedure DeleteLink(i: Integer);
 
@@ -408,6 +444,7 @@ function WaterCap(i: Integer): Single;
 { the pond / pool / well a pump draws from: the nearest one, or -1 }
 function PumpSource(i: Integer): Integer;
 { a belt / roller conveyor's incline in degrees (RMin; + its right end higher) and the top of its deck }
+function VibDeckY(i: Integer): Single;
 function ConveyorTilt(i: Integer): Single;
 procedure ConveyorDeck(i: Integer; out x1, y1, x2, y2: Single);
 { a free particle at px, py would be inside something solid }
@@ -656,6 +693,8 @@ begin
     Labels[i].Active := False;
   for i := 0 to MAX_FRAMES - 1 do
     Frames[i].Active := False;
+  for i := 0 to MAX_TABLES - 1 do
+    Tables[i].Active := False;
   for i := 0 to MAX_LINKS - 1 do
     Links[i].Active := False;
   for i := 0 to MAX_EQUIP - 1 do
@@ -682,6 +721,7 @@ begin
       Labels[i].Color := 0;
       Labels[i].NoBox := False;
       Labels[i].Layer := CurLayer;
+      Labels[i].Scale := 1;
       Exit(i);
     end;
   Result := -1;
@@ -720,6 +760,95 @@ begin
   if (i >= 0) and (i < MAX_FRAMES) then Frames[i].Active := False;
 end;
 
+function AddTable(X, Y: Single; NR, NC: Integer; CW, RH: Single; const Title: string): Integer;
+var
+  i, k, r: Integer;
+begin
+  for i := 0 to MAX_TABLES - 1 do
+    if not Tables[i].Active then
+    begin
+      FillChar(Tables[i], SizeOf(TTableObj), 0);
+      Tables[i].Active := True;
+      Tables[i].NR := EnsureRange(NR, 1, TBL_ROWS);
+      Tables[i].NC := EnsureRange(NC, 1, TBL_COLS);
+      for k := 0 to TBL_COLS - 1 do Tables[i].ColW[k] := fmax(TBL_MIN, CW);
+      for k := 0 to TBL_ROWS - 1 do Tables[i].RowH[k] := fmax(TBL_MIN, RH);
+      Tables[i].X := fclamp(X, 0, CANVAS_W - 16);
+      Tables[i].Y := fclamp(Y, 0, CANVAS_H - 16);
+      Tables[i].HAlign := 1;
+      Tables[i].VAlign := 1;
+      Tables[i].Title := Title;
+      Tables[i].Header := True;
+      Tables[i].TextScale := 1;
+      for r := 0 to TBL_ROWS - 1 do
+        for k := 0 to TBL_COLS - 1 do Tables[i].Cells[r, k] := '';
+      Tables[i].Layer := CurLayer;
+      Exit(i);
+    end;
+  Result := -1;
+end;
+
+procedure DeleteTable(i: Integer);
+begin
+  if (i >= 0) and (i < MAX_TABLES) then Tables[i].Active := False;
+end;
+
+function TableColX(i, c: Integer): Single;
+var
+  k: Integer;
+begin
+  Result := Tables[i].X;
+  for k := 0 to Min(c, Tables[i].NC) - 1 do Result := Result + Tables[i].ColW[k];
+end;
+
+function TableRowY(i, r: Integer): Single;
+var
+  k: Integer;
+begin
+  Result := Tables[i].Y;
+  for k := 0 to Min(r, Tables[i].NR) - 1 do Result := Result + Tables[i].RowH[k];
+end;
+
+function TableW(i: Integer): Single;
+begin
+  Result := TableColX(i, Tables[i].NC) - Tables[i].X;
+end;
+
+function TableH(i: Integer): Single;
+begin
+  Result := TableRowY(i, Tables[i].NR) - Tables[i].Y;
+end;
+
+function TableCellAt(i: Integer; wx, wy: Single; out R, C: Integer): Boolean;
+var
+  x, y: Single;
+begin
+  R := -1;
+  C := -1;
+  Result := False;
+  if not Tables[i].Active then Exit;
+  if (wx < Tables[i].X) or (wy < Tables[i].Y) then Exit;
+  x := Tables[i].X;
+  C := 0;
+  while (C < Tables[i].NC) and (wx >= x + Tables[i].ColW[C]) do
+  begin
+    x := x + Tables[i].ColW[C];
+    Inc(C);
+  end;
+  y := Tables[i].Y;
+  R := 0;
+  while (R < Tables[i].NR) and (wy >= y + Tables[i].RowH[R]) do
+  begin
+    y := y + Tables[i].RowH[R];
+    Inc(R);
+  end;
+  Result := (C < Tables[i].NC) and (R < Tables[i].NR);
+  if not Result then
+  begin
+    R := -1;
+    C := -1;
+  end;
+end;
 function AddLink(X, Y: Single; const Caption: string; ToPopup: Boolean; Target: Integer): Integer;
 var
   i: Integer;
@@ -755,7 +884,7 @@ end;
 function EquipActuated(Kind: Integer): Boolean;
 begin
   Result := Kind in [EQ_MOTOR, EQ_BLOWER, EQ_PADDLE, EQ_SCREW, EQ_DIVERTER, EQ_SHUTTER, EQ_SLIDE, EQ_HEATER, EQ_IRHEATER,
-    EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER, EQ_DRYER, EQ_ITEMFEEDER, EQ_WORKER];
+    EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_HEATEX, EQ_COOLTOWER, EQ_CHILLER, EQ_DRYER, EQ_ITEMFEEDER, EQ_WORKER, EQ_VIBFEEDER];
 end;
 
 function EquipIsValve(Kind: Integer): Boolean;
@@ -883,6 +1012,7 @@ begin
     EQ_WORKER: begin W := 56; H := 150; end;
     EQ_VAN: begin W := 312; H := 250; end;
     EQ_RACK: begin W := 110; H := 340; end;
+    EQ_VIBFEEDER: begin W := 264; H := 96; end;
   else
     begin W := 232; H := 136; end;
   end;
@@ -933,6 +1063,7 @@ begin
       else if Kind = EQ_WORKER then Equips[i].Name := 'Worker' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
       else if Kind = EQ_VAN then Equips[i].Name := 'Van' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
       else if Kind = EQ_RACK then Equips[i].Name := 'Rack' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
+      else if Kind = EQ_VIBFEEDER then Equips[i].Name := 'VF' + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10)
       else if n < 10 then Equips[i].Name := EquipNames[Kind] + '0' + Chr(Ord('0') + n)
       else Equips[i].Name := EquipNames[Kind] + Chr(Ord('0') + n div 10) + Chr(Ord('0') + n mod 10);
       if Kind = EQ_SILO then Equips[i].Name := 'Silo' + Copy(Equips[i].Name, 9, 2);
@@ -942,7 +1073,7 @@ begin
       Equips[i].LinkY := -1;
       Equips[i].Level := 50;
       if Kind in [EQ_HEATER, EQ_IRHEATER, EQ_FIRE] then Equips[i].Level := 100;
-      if Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT] then Equips[i].Level := 60;   { flow / speed % }
+      if Kind in [EQ_PUMP, EQ_CONVEYOR, EQ_BELT, EQ_VIBFEEDER] then Equips[i].Level := 60;   { flow / speed / amplitude % }
       if Kind = EQ_WELL then Equips[i].Level := 80;
       Equips[i].RMax := 100;
       Equips[i].DivA := -1;
@@ -1175,6 +1306,12 @@ begin
     else if E^.Kind <> EQ_SEQUENCE then
       E^.RunTime := 0;
   end;
+end;
+
+{ the top of a vibratory feeder's tray deck }
+function VibDeckY(i: Integer): Single;
+begin
+  Result := Equips[i].Y + Equips[i].H * 0.25;
 end;
 
 function ConveyorTilt(i: Integer): Single;
@@ -1678,6 +1815,21 @@ begin
       Bodies[NBody].Y2 := Equips[i].Y + Equips[i].H * 0.5;
       Inc(NBody);
     end;
+  { a vibratory feeder's tray: its deck, and the wall at its inlet end }
+  for i := 0 to MAX_EQUIP - 1 do
+    if Equips[i].Active and (Equips[i].Kind = EQ_VIBFEEDER) and (NBody + 1 <= High(Bodies)) then
+    begin
+      Bodies[NBody].X1 := Equips[i].X;
+      Bodies[NBody].X2 := Equips[i].X + Equips[i].W;
+      Bodies[NBody].Y1 := VibDeckY(i);
+      Bodies[NBody].Y2 := VibDeckY(i) + 20;    { thick enough that nothing slips through it }
+      Inc(NBody);
+      if Equips[i].Flip then Bodies[NBody].X1 := Equips[i].X + Equips[i].W - 5 else Bodies[NBody].X1 := Equips[i].X;
+      Bodies[NBody].X2 := Bodies[NBody].X1 + 5;
+      Bodies[NBody].Y1 := VibDeckY(i) - 16;
+      Bodies[NBody].Y2 := VibDeckY(i);
+      Inc(NBody);
+    end;
 end;
 
 { ---------------------------------------------------------------- pipe geometry }
@@ -2076,7 +2228,7 @@ end;
 
 procedure EmitSources(dt: Single);
 var
-  i, x, y, d: Integer;
+  i, x, y, d, j, k: Integer;
   c: PCell;
   q, rate, tot, r: Single;
   m, chosen: TMat;
@@ -2088,6 +2240,11 @@ begin
     c := @Grid[x, y];
     if IsStore(c^.Kind) then
     begin
+      { over a chute a vibratory feeder has choked full: it waits }
+      k := 0;
+      for j := y + 1 to Min(GH - 1, y + 12) do
+        if ChuteFull[x, j] then k := 1;
+      if k > 0 then Continue;
       q := 0;
       for d := 0 to 3 do
         if c^.F[d] > 0 then q := q + c^.F[d];
@@ -2213,12 +2370,25 @@ begin
   begin
     if d = c^.Mouth then
     begin
-      p.X := ccx + lx;
-      p.Y := ccy + ly;
-      p.InPipe := False;
-      p.Bucket := -1;
-      if p.Mat = mAir then p.Life := fmin(p.Life, 0.5);
-      Exit;
+      if (c^.Kind = ckDrop) and DropMetered[p.CX, p.CY] and (p.Mat <> mAir) and (DropCredit[p.CX, p.CY] < 1) then
+      begin
+        { choked by the vibratory feeder under it: the material waits in the chute }
+        if DXS[d] <> 0 then lx := fclamp(lx, -HALF + 0.01, HALF - 0.01)
+        else ly := fclamp(ly, -HALF + 0.01, HALF - 0.01);
+        p.VX := 0;
+        p.VY := 0;
+      end
+      else
+      begin
+        if (c^.Kind = ckDrop) and DropMetered[p.CX, p.CY] and (p.Mat <> mAir) then
+          DropCredit[p.CX, p.CY] := DropCredit[p.CX, p.CY] - 1;
+        p.X := ccx + lx;
+        p.Y := ccy + ly;
+        p.InPipe := False;
+        p.Bucket := -1;
+        if p.Mat = mAir then p.Life := fmin(p.Life, 0.5);
+        Exit;
+      end;
     end
     else if c^.EPf[d] then
     begin
@@ -2945,6 +3115,55 @@ begin
   end;
 end;
 
+{ a drop outlet over a vibratory feeder's tray is choked by it, as under a real hopper: the material
+  only comes out as fast as the tray carries the bed under the outlet away (its speed times the depth of
+  the gap) - the harder the tray shakes, the more it feeds; a stopped tray holds the chute full }
+procedure VibChokes(dt: Single);
+var
+  i, x, y, k: Integer;
+  Held: array[0..GW - 1, 0..GH - 1] of Word;
+  mx, my, top, cap: Single;
+  p: PParticle;
+begin
+  FillChar(DropMetered, SizeOf(DropMetered), 0);
+  FillChar(ChuteFull, SizeOf(ChuteFull), 0);
+  for i := 0 to MAX_EQUIP - 1 do
+  begin
+    if not (Equips[i].Active and (Equips[i].Kind = EQ_VIBFEEDER)) then Continue;
+    top := VibDeckY(i);
+    { what got into the tray's deck goes back on top of it (never out under it) }
+    for k := 0 to NPart - 1 do
+    begin
+      p := @Parts[k];
+      if (p^.Life > 0) and not p^.InPipe and (p^.X > Equips[i].X) and (p^.X < Equips[i].X + Equips[i].W) and (p^.Y > top) and
+        (p^.Y < top + 20) then
+      begin
+        p^.Y := top - 0.3;
+        p^.VY := fmin(p^.VY, 0);
+      end;
+    end;
+    if EquipRunning(i) then cap := (6 + Equips[i].Level * 0.9) * 0.3 else cap := 0;   { particles / s }
+    for y := 0 to GH - 1 do
+      for x := 0 to GW - 1 do
+        if (Grid[x, y].Kind = ckDrop) and (Grid[x, y].Mouth >= 0) and (DYS[Grid[x, y].Mouth] = 1) then
+        begin
+          mx := x * CELL + HALF;
+          my := (y + 1) * CELL;
+          if (mx < Equips[i].X) or (mx > Equips[i].X + Equips[i].W) or (my > top) or (top - my > 160) then Continue;
+          DropMetered[x, y] := True;
+          DropCredit[x, y] := fmin(3, DropCredit[x, y] + cap * dt);
+        end;
+  end;
+  { a choked chute that is full: its feeder waits (see EmitSources) }
+  FillChar(Held, SizeOf(Held), 0);
+  for k := 0 to NPart - 1 do
+    if (Parts[k].Life > 0) and Parts[k].InPipe and DropMetered[Parts[k].CX, Parts[k].CY] then
+      Inc(Held[Parts[k].CX, Parts[k].CY]);
+  for y := 0 to GH - 1 do
+    for x := 0 to GW - 1 do
+      if Held[x, y] > 30 then ChuteFull[x, y] := True;
+end;
+
 { a running conveyor carries the free material lying on its deck }
 procedure Conveyors(dt: Single);
 var
@@ -2956,8 +3175,27 @@ begin
   for i := 0 to MAX_EQUIP - 1 do
   begin
     E := @Equips[i];
-    if not (E^.Active and (E^.Kind in [EQ_CONVEYOR, EQ_BELT]) and EquipRunning(i)) then Continue;
-    top := E^.Y + E^.H * 0.2;
+    if not (E^.Active and (E^.Kind in [EQ_CONVEYOR, EQ_BELT, EQ_VIBFEEDER]) and EquipRunning(i)) then Continue;
+    if E^.Kind = EQ_VIBFEEDER then
+    begin
+      { a vibratory feeder: each shake throws what lies on the tray up and forward, so it hops along to the
+        open end (faster the harder it shakes: Level is its amplitude %) and falls off there }
+      top := VibDeckY(i);
+      v := 6 + E^.Level * 0.9;
+      if E^.Flip then v := -v;
+      for k := 0 to NPart - 1 do
+      begin
+        p := @Parts[k];
+        if (p^.Life <= 0) or p^.InPipe or (p^.Mat = mAir) then Continue;
+        if (p^.X >= E^.X) and (p^.X <= E^.X + E^.W) and (p^.Y >= top - 14) and (p^.Y <= top + 1) then
+        begin
+          p^.VX := v * (0.7 + 0.6 * Random);
+          p^.X := p^.X + p^.VX * dt * 0.5;
+          if Random < 7 * dt then p^.VY := -(12 + E^.Level * 0.45) * (0.4 + 0.6 * Random);
+        end;
+      end;
+      Continue;
+    end;    top := E^.Y + E^.H * 0.2;
     v := 20 + E^.Level * 1.4;
     if E^.Flip then v := -v;
     if ConveyorTilt(i) <> 0 then
@@ -3011,6 +3249,7 @@ begin
   BuildDeviceLists;
   if not Running then Exit;
   LimitHit := False;
+  VibChokes(dt);     { this page's chutes over vibratory feeders, before its particles move }
   EmitSources(dt);
   n := EnsureRange(Ceil(dt * 240), 1, 8);
   for s := 1 to n do

@@ -7,6 +7,7 @@
 # LABEL x y text   (\n = new line)
 # LABEL2 kind x y colour box format caption   (kind text/date/time, \s = space)
 # FRAME x y w h colour dashed fill carry title
+# TABLE x y rows cols across down colour header textsize title / TCOLS w.. / TROWS h.. / TCELL r c text / LSCALE size
 # LINK x y colour page|popup n caption
 # EQUIP kind x y w h state flip linkx linky level name
 # ECELL x y kind conn dir pos npos sel on tripped p1 p2 tag ref src p3

@@ -61,6 +61,7 @@ type
     Bkts: array[0..MAX_BUCKETS - 1] of TBucketLite;
     Lbls: array[0..MAX_LABELS - 1] of TLabelObj;
     Frms: array[0..MAX_FRAMES - 1] of TFrameObj;
+    Tbls: array[0..MAX_TABLES - 1] of TTableObj;
     Lnks: array[0..MAX_LINKS - 1] of TLinkObj;
     Eqs: array[0..MAX_EQUIP - 1] of TEquipObj;
     ECells: array[0..GW - 1, 0..GH - 1] of TECell;
@@ -139,6 +140,7 @@ begin
   end;
   s^.Lbls := Labels;
   s^.Frms := Frames;
+  s^.Tbls := Tables;
   s^.Lnks := Links;
   s^.Eqs := Equips;
   s^.ECells := EGrid;
@@ -196,7 +198,7 @@ begin
     if Labels[i].Active and ((Labels[i].X <> s^.Lbls[i].X) or (Labels[i].Y <> s^.Lbls[i].Y) or
       (Labels[i].Text <> s^.Lbls[i].Text) or (Labels[i].Kind <> s^.Lbls[i].Kind) or
       (Labels[i].Fmt <> s^.Lbls[i].Fmt) or (Labels[i].Color <> s^.Lbls[i].Color) or
-      (Labels[i].NoBox <> s^.Lbls[i].NoBox) or (Labels[i].Layer <> s^.Lbls[i].Layer)) then Exit;
+      (Labels[i].NoBox <> s^.Lbls[i].NoBox) or (Labels[i].Layer <> s^.Lbls[i].Layer) or (Labels[i].Scale <> s^.Lbls[i].Scale)) then Exit;
   end;
   for i := 0 to MAX_FRAMES - 1 do
   begin
@@ -206,6 +208,8 @@ begin
       (Frames[i].Color <> s^.Frms[i].Color) or (Frames[i].Dashed <> s^.Frms[i].Dashed) or
       (Frames[i].Fill <> s^.Frms[i].Fill) or (Frames[i].Carry <> s^.Frms[i].Carry) or (Frames[i].Layer <> s^.Frms[i].Layer)) then Exit;
   end;
+  { tables: all of it (it is only ever copied whole) }
+  if CompareByte(Tables, s^.Tbls, SizeOf(Tables)) <> 0 then Exit;
   for i := 0 to MAX_LINKS - 1 do
   begin
     if Links[i].Active <> s^.Lnks[i].Active then Exit;
@@ -293,6 +297,7 @@ begin
       DeleteBucket(i);
   Labels := s^.Lbls;
   Frames := s^.Frms;
+  Tables := s^.Tbls;
   Links := s^.Lnks;
   for y := 0 to GH - 1 do
     for x := 0 to GW - 1 do
