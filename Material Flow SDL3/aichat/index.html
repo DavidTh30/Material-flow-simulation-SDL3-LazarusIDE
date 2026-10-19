@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material Flow - AI Chat</title>
+<style id="chat-style">
+:root {
+  --bg: #f4f6f9; --panel: #ffffff; --text: #1d2430; --dim: #667085; --line: #d9dee7;
+  --accent: #2f6fdb; --accent-text: #ffffff; --user: #dfe9fb; --bot: #ffffff; --code: #f0f2f6;
+  --err: #c0392b; --ok: #1e8e3e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14171c; --panel: #1d2127; --text: #e6e9ef; --dim: #98a1b3; --line: #2e343d;
+    --accent: #5b8def; --accent-text: #ffffff; --user: #233452; --bot: #1d2127; --code: #262b33;
+    --err: #ff7b6b; --ok: #6fcf87;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font: 14px/1.5 "Segoe UI", Tahoma, "Leelawadee UI", sans-serif; }
+body { display: flex; flex-direction: column; }
+header { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 12px;
+  background: var(--panel); border-bottom: 1px solid var(--line); }
+header h1 { font-size: 11.25px; margin: 0 8px 0 0; white-space: nowrap; }
+header .grow { flex: 1; }
+button, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+/* the buttons 40% smaller than the text */
+/* the model list box: 20% lower (31 -> 25 px), then 10% smaller (25 -> 22.5 px) */
+select { height: 20.25px; font-size: 11.3px; padding: 0 6px; }
+button { font-size: 8.4px; line-height: 1.2; padding: 2.4px 6px; border-radius: 4px; vertical-align: middle; }
+/* Attach and Send 30% larger than the other buttons */
+#attach, #send { font-size: 10.9px; padding: 3.1px 7.8px; }
+/* the chat's buttons together on one row, level with each other */
+.hbtns { display: flex; flex-wrap: nowrap; gap: 4px; align-items: center; margin-left: auto; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+.menu { position: relative; display: flex; align-items: center; }   /* Export sits level with the other buttons */
+.menu-list { display: none; position: absolute; right: 0; top: 100%; z-index: 5; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px; min-width: 150px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+.menu.open .menu-list { display: block; }
+.menu-list button { display: block; width: 100%; text-align: left; border: 0; background: none; }
+.menu-list button:hover { background: var(--bg); }
+/* the three states, always shown: Material Flow, the API key, the AI */
+#states { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: var(--dim); }
+#states span { white-space: nowrap; }
+#states .on { color: var(--ok); }
+#states .off { color: var(--err); }
+#states .busy { color: var(--accent); }
+#saver.on { background: var(--ok); color: #fff; border-color: var(--ok); }
+.bubble blockquote.act { font-size: 12px; border-left-color: var(--accent); }
+#chat { flex: 1; overflow-y: auto; padding: 16px 12px; }
+#log { max-width: 860px; margin: 0 auto; background: var(--bg); padding: 4px; }
+.msg { display: flex; margin: 10px 0; }
+.msg.user { justify-content: flex-end; }
+.bubble { position: relative; max-width: 88%; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--bot); overflow-wrap: anywhere; }
+.msg.user .bubble { background: var(--user); }
+.who { font-size: 11px; color: var(--dim); margin-bottom: 2px; }
+.bubble p { margin: 6px 0; }
+.bubble h1, .bubble h2, .bubble h3, .bubble h4 { margin: 10px 0 6px; line-height: 1.25; }
+.bubble h1 { font-size: 19px; } .bubble h2 { font-size: 17px; } .bubble h3 { font-size: 15px; }
+.bubble pre { background: var(--code); padding: 8px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+.bubble code { background: var(--code); padding: 1px 4px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
+.bubble pre code { background: none; padding: 0; }
+.bubble table { border-collapse: collapse; margin: 6px 0; }
+.bubble th, .bubble td { border: 1px solid var(--line); padding: 3px 8px; }
+.bubble blockquote { margin: 6px 0; padding-left: 10px; border-left: 3px solid var(--line); color: var(--dim); }
+.bubble ul, .bubble ol { margin: 6px 0; padding-left: 22px; }
+.bubble a { color: var(--accent); }
+.bubble hr { border: 0; border-top: 1px solid var(--line); }
+.files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.file { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 8px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel); }
+.file img { max-width: 160px; max-height: 120px; border-radius: 4px; display: block; }
+.tools { position: absolute; top: 4px; right: 6px; display: none; gap: 4px; }
+.bubble:hover .tools { display: flex; }
+.tools button { padding: 0 3.6px; font-size: 6.6px; }
+.error { color: var(--err); }
+/* how an answer ended: shown under it, in the chat and in the PDF */
+.outcome { margin-top: 6px; padding-top: 4px; border-top: 1px dashed var(--line); font-size: 12px; font-weight: 600; }
+.outcome.done { color: var(--ok); } .outcome.working { color: var(--accent); } .outcome.bad { color: var(--err); }
+.pstates { font-size: 11px; margin: 0 0 4px; } .pstates span { margin-right: 14px; } .pstates .on { color: #1e8e3e; } .pstates .off { color: #c0392b; } .pstates .busy { color: #2f6fdb; }
+.presult { font-size: 13px; font-weight: 600; margin: 0 0 10px; padding: 4px 8px; border-radius: 6px; border: 1px solid #d9dee7; }
+.presult.done { color: #1e8e3e; } .presult.working { color: #2f6fdb; } .presult.bad { color: #c0392b; }
+.typing::after { content: "\2588"; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.empty { text-align: center; color: var(--dim); margin-top: 40px; }
+footer { background: var(--panel); border-top: 1px solid var(--line); padding: 8px 12px; }
+#pending { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+#pending .file button { padding: 0 3.6px; }
+.row { display: flex; gap: 8px; align-items: flex-end; max-width: 860px; margin: 0 auto; }
+#input { flex: 1; resize: none; min-height: 40px; max-height: 200px; font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+#status { font-size: 12px; color: var(--dim); max-width: 860px; margin: 4px auto 0; min-height: 16px; }
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); width: min(460px, 92vw); }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+dialog input { width: 100%; font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); }
+dialog .btns { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+.note { font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Material Flow &middot; AI Chat</h1>
+  <select id="model" title="Model">
+    <option value="claude-opus-5-5">Claude Opus 5.5</option>
+    <option value="claude-sonnet-5-5">Claude Sonnet 5.5</option>
+    <option value="claude-haiku-5-5">Claude Haiku 5.5 (cheapest)</option>
+    <option value="claude-fable-5-1">Claude Fable 5.1</option>
+  </select>
+  <button id="keybtn" title="ANTHROPIC_API_KEY: add, edit or delete">API key</button>
+  <span class="grow"></span>
+
+  <div class="hbtns">
+  <button id="saver" title="Saver: fewer tool rounds, smaller pictures and answers, a token budget per answer - cheaper tests">Saver</button>
+  <button id="newchat" title="Start a new chat">New chat</button>
+  <button id="copytext" title="Copy the chat as text">Copy text</button>
+  <button id="copyimage" title="Copy the chat as an image">Copy image</button>
+  <button id="saveimage" title="Save the chat as a PNG image">Save as image</button>
+  <div class="menu" id="exportmenu">
+    <button id="exportbtn" title="Export the chat">Export &#9662;</button>
+    <div class="menu-list">
+      <button data-fmt="txt">Text (.txt)</button>
+      <button data-fmt="bmp">Bitmap (.bmp)</button>
+      <button data-fmt="png">PNG image (.png)</button>
+      <button data-fmt="pdf">PDF (.pdf)</button>
+    </div>
+  </div>
+  </div>
+  <div id="states">
+    <span id="mfstate">○ Material Flow SDL3: …</span>
+    <span id="keystate">○ Key: …</span>
+    <span id="aistate">AI: …</span>
+    <span id="tokstate" title="Tokens this answer / this chat (cached: read from the prompt cache at a tenth of the price)">Tokens: 0</span>
+  </div>
+</header>
+
+<div id="chat"><div id="log"></div></div>
+
+<footer>
+  <div id="pending"></div>
+  <div class="row">
+    <button id="attach" title="Attach a file: BMP, PNG, TXT, PDF">&#128206; Attach</button>
+    <input id="file" type="file" accept=".bmp,.png,.txt,.pdf,image/bmp,image/png,text/plain,application/pdf" multiple hidden>
+    <textarea id="input" rows="1" placeholder="Ask about your layout, a process, a circuit... (Enter: send, Shift+Enter: new line)"></textarea>
+    <button id="send" class="primary">Send</button>
+  </div>
+  <div id="status"></div>
+</footer>
+
+<dialog id="keydlg">
+  <h3 style="margin-top:0">ANTHROPIC_API_KEY</h3>
+  <p id="keyinfo" class="note"></p>
+  <input id="keyinput" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+  <label class="note"><input id="keyshow" type="checkbox" style="width:auto"> show</label>
+  <p class="note">Kept only in this chat window's own profile on this PC, and sent only to api.anthropic.com.</p>
+  <div class="btns">
+    <button id="keydel" title="Delete the key">Delete</button>
+    <span class="grow"></span>
+    <button id="keycancel">Cancel</button>
+    <button id="keysave" class="primary">Save</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+const KEY_NAME = "mf_anthropic_api_key";
+const MODEL_NAME = "mf_ai_model";
+const SYSTEM = "You are the AI assistant built into Material Flow, a 2D simulator of material flow and plants: " +
+  "pipes, blowers, feeders, hoppers, silos, buckets, conveyors, item feeders, workers, electrical ladder circuits, " +
+  "pneumatic and hydraulic circuits, sensors, PID controllers, flow charts, timelines, trend charts and IPC. " +
+  "Help the user design, understand and troubleshoot layouts, circuits and processes. Answer in the user's language. " +
+  "Use Markdown: headings, lists, tables and code blocks where they help.";
+const SYSTEM_LINKED = "\n\nYou are connected to the running Material Flow program through the mf_* tools: you can look at it, " +
+  "read and write values, load examples and layouts, and build on its pages yourself. When the user asks you to make or change " +
+  "something, do it in the program rather than only describing it. Before your first build call mf_help (coordinates, build steps, " +
+  "part names) and mf_status; to learn the .mflow format, read one example close to the task with mf_examples {n} (one or two at most: each is long and the input tokens per minute are limited). Build in steps, then check with " +
+  "mf_screenshot and fix what is wrong. A build is one undo step for the user (Ctrl+Z); loading a layout or an example keeps the " +
+  "old one as a backup (mf_restore_backup). Tell the user briefly what you built and how to use it.";
+const MAX_FILE = 20 * 1024 * 1024;
+const MAX_TURNS = 60;        // tool rounds in one answer
+/* Saver (on by default): what one answer may use. Every tool round sends the whole chat again, so rounds,
+   pictures and long tool answers are what cost; a budget stops an answer that has used too much. */
+const LIMITS = {
+  saver: { turns: 12, maxTokens: 4000, shotW: 640, toolChars: 8000, budget: 150000 },
+  full: { turns: MAX_TURNS, maxTokens: 16000, shotW: 1024, toolChars: 25000, budget: 2000000 }
+};
+let saver = true;
+try { saver = localStorage.getItem("mf_saver") !== "0"; } catch (e) {}
+const lim = () => saver ? LIMITS.saver : LIMITS.full;
+const SYSTEM_SAVER = "\n\nSaver mode: the user pays per token, so be economical. Do not read whole examples unless you really need " +
+  "the format; one mf_help is enough; build in few, large mf_build calls; take a screenshot only to check the result at the end; " +
+  "keep answers short.";
+// tokens: this answer and this chat; "billed" counts cached reads at a tenth
+const tok = { aIn: 0, aOut: 0, aCache: 0, cIn: 0, cOut: 0, cCache: 0 };
+const kfmt = (n) => n >= 10000 ? Math.round(n / 1000) + "k" : n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+const billed = (i, o, c) => i + o + Math.round(c * 0.1);
+function showTokens() {
+  const s = $("tokstate");
+  s.textContent = "Tokens: " + kfmt(tok.aIn + tok.aOut) + (tok.aCache ? " (+" + kfmt(tok.aCache) + " cached)" : "") +
+    " · chat " + kfmt(tok.cIn + tok.cOut) + (tok.cCache ? " (+" + kfmt(tok.cCache) + " cached)" : "");
+  s.className = billed(tok.aIn, tok.aOut, tok.aCache) > lim().budget * 0.8 ? "off" : "";
+}
+function showSaver() {
+  const b = $("saver");
+  b.textContent = saver ? "Saver: on" : "Saver: off";
+  b.className = saver ? "on" : "";
+}
+
+const $ = (id) => document.getElementById(id);
+const log = $("log"), chat = $("chat"), input = $("input");
+let history = [];        // [{role, content:[blocks]}] as sent to the API
+let view = [];           // [{role, text, files:[{name, kind, url}]}] as shown
+let pending = [];        // files to send: {name, kind, mime, data(base64)|text, url}
+let busy = null;         // AbortController while an answer streams
+
+/* ------------------------------------------------------------ key */
+let memKey = "", stored = true;   // the key in memory too: it still works where nothing can be kept
+function getKey() { try { const k = localStorage.getItem(KEY_NAME); if (k !== null) return k; } catch (e) { stored = false; } return memKey; }
+function setKey(k) { memKey = k || ""; try { if (k) localStorage.setItem(KEY_NAME, k); else localStorage.removeItem(KEY_NAME); stored = true; } catch (e) { stored = false; } }
+function maskKey(k) { return k.length > 14 ? k.slice(0, 10) + "…" + k.slice(-4) : "••••"; }
+let keyOk = null, keyAt = 0;   // null: not checked yet; true / false: the API took it or not; "net": no answer
+function showKeyState() {
+  const k = getKey(), s = $("keystate");
+  if (!k) { s.textContent = "○ Key: none"; s.className = "off"; }
+  else if (keyOk === true) { s.textContent = "● Key: Online"; s.className = "on"; }
+  else if (keyOk === false) { s.textContent = "○ Key: Offline (not accepted)"; s.className = "off"; }
+  else if (keyOk === "net") { s.textContent = "○ Key: Offline (no connection)"; s.className = "off"; }
+  else { s.textContent = "◌ Key: checking..."; s.className = ""; }
+  s.title = k ? "ANTHROPIC_API_KEY " + maskKey(k) + (stored ? "" : " (kept until this window closes)") : "No API key: add one with the API key button";
+  $("keybtn").textContent = k ? "API key ✎" : "Add API key";
+}
+async function checkKey() {
+  const k = getKey();
+  keyAt = Date.now();
+  if (!k) { keyOk = null; showKeyState(); return; }
+  keyOk = null; showKeyState();
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/models?limit=1", { headers: { "x-api-key": k, "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true" } });
+    keyOk = r.ok ? true : (r.status === 401 || r.status === 403) ? false : "net";
+  } catch (e) { keyOk = "net"; }
+  showKeyState();
+}
+// the AI: its name, and what it is doing
+let aiDoing = "ready";
+function showAI(doing) {
+  if (doing) aiDoing = doing;
+  const s = $("aistate"), o = $("model").selectedOptions[0];
+  s.textContent = "🤖 AI: " + (o ? o.text : $("model").value) + " · " + aiDoing;
+  s.className = aiDoing === "ready" ? "on" : aiDoing.startsWith("error") ? "off" : "busy";
+  s.title = "Model id: " + $("model").value;
+}
+$("keybtn").onclick = () => {
+  const k = getKey();
+  $("keyinfo").textContent = k ? "A key is set (" + maskKey(k) + "). Type a new one to change it, or delete it." :
+    "No key yet. Paste your Anthropic API key to add it.";
+  $("keyinput").value = "";
+  $("keyinput").type = "password";
+  $("keyshow").checked = false;
+  $("keydlg").showModal();
+  $("keyinput").focus();
+};
+$("keyshow").onchange = () => { $("keyinput").type = $("keyshow").checked ? "text" : "password"; };
+$("keycancel").onclick = () => $("keydlg").close();
+$("keysave").onclick = () => {
+  const v = $("keyinput").value.trim();
+  if (!v) { $("keyinfo").textContent = "Type or paste a key first."; return; }
+  setKey(v); $("keydlg").close(); showKeyState(); checkKey(); status("API key saved.");
+};
+$("keydel").onclick = () => {
+  if (!getKey()) { $("keydlg").close(); return; }
+  if (confirm("Delete the saved API key?")) { setKey(""); $("keydlg").close(); showKeyState(); status("API key deleted."); }
+};
+
+/* ------------------------------------------------------------ markdown -> HTML (escaped first: safe) */
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function inline(s) {
+  // s is already escaped
+  const codes = [];
+  s = s.replace(/`([^`]+)`/g, (m, c) => { codes.push(c); return "\u0000" + (codes.length - 1) + "\u0000"; });
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  s = s.replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+  s = s.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  s = s.replace(/\u0000(\d+)\u0000/g, (m, i) => "<code>" + codes[+i] + "</code>");
+  return s;
+}
+function markdown(src) {
+  const lines = esc(src.replace(/\r\n?/g, "\n")).split("\n");
+  let out = "", i = 0, para = [];
+  const flush = () => { if (para.length) { out += "<p>" + inline(para.join("<br>")) + "</p>"; para = []; } };
+  while (i < lines.length) {
+    let l = lines[i];
+    let m;
+    if ((m = l.match(/^```\s*([\w+-]*)/))) {
+      flush(); i++; const code = [];
+      while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]);
+      i++; out += "<pre><code>" + code.join("\n") + "</code></pre>"; continue;
+    }
+    if ((m = l.match(/^(#{1,6})\s+(.*)$/))) { flush(); const n = Math.min(4, m[1].length); out += "<h" + n + ">" + inline(m[2]) + "</h" + n + ">"; i++; continue; }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) { flush(); out += "<hr>"; i++; continue; }
+    if (/^\s*&gt;\s?/.test(l)) {
+      flush(); const q = [];
+      while (i < lines.length && /^\s*&gt;\s?/.test(lines[i])) q.push(lines[i++].replace(/^\s*&gt;\s?/, ""));
+      const act = q.length && q[0].startsWith("🔧");   // a tool the AI used in the program
+      out += (act ? "<blockquote class=\"act\">" : "<blockquote>") + inline(q.join("<br>")) + "</blockquote>"; continue;
+    }
+    if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+      flush(); const row = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      out += "<table><tr>" + row(l).map((c) => "<th>" + inline(c) + "</th>").join("") + "</tr>"; i += 2;
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) out += "<tr>" + row(lines[i++]).map((c) => "<td>" + inline(c) + "</td>").join("") + "</tr>";
+      out += "</table>"; continue;
+    }
+    if (/^\s*([-*+]|\d+[.)])\s+/.test(l)) {
+      flush(); const ordered = /^\s*\d/.test(l); out += ordered ? "<ol>" : "<ul>";
+      while (i < lines.length && /^\s*([-*+]|\d+[.)])\s+/.test(lines[i])) out += "<li>" + inline(lines[i++].replace(/^\s*([-*+]|\d+[.)])\s+/, "")) + "</li>";
+      out += ordered ? "</ol>" : "</ul>"; continue;
+    }
+    if (l.trim() === "") { flush(); i++; continue; }
+    para.push(l); i++;
+  }
+  flush();
+  return out;
+}
+
+/* ------------------------------------------------------------ the view */
+function status(s, isErr) { const e = $("status"); e.textContent = s || ""; e.className = isErr ? "error" : ""; }
+function fileChip(f) {
+  const d = document.createElement("div"); d.className = "file";
+  if (f.kind === "image" && f.url) { const im = document.createElement("img"); im.src = f.url; im.alt = f.name; d.appendChild(im); }
+  else d.append((f.kind === "pdf" ? "📄 " : "📝 ") + f.name);
+  return d;
+}
+const OUTCOME = {
+  working: { cls: "working", text: "⏳ Working... (not finished yet)" },
+  done: { cls: "done", text: "✔ Complete - the answer is finished" },
+  cut: { cls: "bad", text: "✖ Incomplete - the answer was too long and was cut" },
+  limit: { cls: "bad", text: "✖ Incomplete - stopped at the tool round limit (say \"continue\")" },
+  budget: { cls: "bad", text: "✖ Incomplete - stopped at the token budget (say \"continue\")" },
+  stopped: { cls: "bad", text: "✖ Incomplete - stopped (Stop / New chat)" },
+  error: { cls: "bad", text: "✖ Incomplete - ended by an error (see the message)" },
+};
+function render() {
+  log.innerHTML = "";
+  if (!view.length) {
+    const e = document.createElement("div"); e.className = "empty";
+    e.innerHTML = "<p><strong>Ask anything about Material Flow.</strong></p><p>Attach a screenshot (PNG, BMP), a text file or a PDF.</p>" +
+      (linked ? "<p>Connected to Material Flow: ask Claude to build or change something and it works in the program (Ctrl+Z undoes it).</p>" : "") +
+      (getKey() ? "" : "<p class=\"error\">Add your ANTHROPIC_API_KEY first (button at the top).</p>");
+    log.appendChild(e); return;
+  }
+  view.forEach((m, idx) => log.appendChild(bubble(m, idx)));
+  chat.scrollTop = chat.scrollHeight;
+}
+function bubble(m, idx) {
+  const row = document.createElement("div"); row.className = "msg " + m.role;
+  const b = document.createElement("div"); b.className = "bubble"; row.appendChild(b);
+  const who = document.createElement("div"); who.className = "who"; who.textContent = m.role === "user" ? "You" : "Claude"; b.appendChild(who);
+  const body = document.createElement("div"); body.className = "body";
+  if (m.role === "user") body.innerHTML = "<p>" + esc(m.text).replace(/\n/g, "<br>") + "</p>";
+  else body.innerHTML = m.error ? "<p class=\"error\">" + esc(m.text) + "</p>" : markdown(m.text);
+  if (m.streaming) body.lastElementChild ? body.lastElementChild.classList.add("typing") : body.classList.add("typing");
+  b.appendChild(body);
+  if (m.files && m.files.length) { const fs = document.createElement("div"); fs.className = "files"; m.files.forEach((f) => fs.appendChild(fileChip(f))); b.appendChild(fs); }
+  const tools = document.createElement("div"); tools.className = "tools";
+  const ct = document.createElement("button"); ct.textContent = "Copy"; ct.title = "Copy this message's text";
+  ct.onclick = () => copyText(m.text);
+  const ci = document.createElement("button"); ci.textContent = "Image"; ci.title = "Copy this message as an image";
+  ci.onclick = () => copyImage(b);
+  if (m.role === "assistant" && m.outcome) {
+    const o = OUTCOME[m.outcome] || OUTCOME.done, d = document.createElement("div");
+    d.className = "outcome " + o.cls; d.textContent = o.text; b.appendChild(d);
+  }
+  tools.append(ct, ci); b.appendChild(tools);
+  return row;
+}
+function renderPending() {
+  const p = $("pending"); p.innerHTML = "";
+  pending.forEach((f, i) => {
+    const c = fileChip(f); const x = document.createElement("button"); x.textContent = "×"; x.title = "Remove";
+    x.onclick = () => { pending.splice(i, 1); renderPending(); }; c.appendChild(x); p.appendChild(c);
+  });
+}
+
+/* ------------------------------------------------------------ attachments */
+$("attach").onclick = () => $("file").click();
+$("file").onchange = async () => { for (const f of $("file").files) await addFile(f); $("file").value = ""; };
+function readAs(file, how) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error);
+    if (how === "text") r.readAsText(file); else r.readAsDataURL(file); });
+}
+async function bmpToPng(file) {
+  const bmp = await createImageBitmap(file);
+  const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+  c.getContext("2d").drawImage(bmp, 0, 0);
+  return c.toDataURL("image/png");
+}
+async function addFile(file) {
+  const name = file.name, ext = name.split(".").pop().toLowerCase();
+  if (file.size > MAX_FILE) { status(name + ": larger than 20 MB", true); return; }
+  try {
+    if (ext === "png" || ext === "bmp") {
+      const url = ext === "bmp" ? await bmpToPng(file) : await readAs(file, "url");
+      pending.push({ name, kind: "image", mime: "image/png", data: url.split(",")[1], url });
+    } else if (ext === "txt") {
+      pending.push({ name, kind: "text", text: await readAs(file, "text") });
+    } else if (ext === "pdf") {
+      const url = await readAs(file, "url");
+      pending.push({ name, kind: "pdf", mime: "application/pdf", data: url.split(",")[1] });
+    } else { status(name + ": only BMP, PNG, TXT and PDF files", true); return; }
+    renderPending(); status("Attached " + name);
+  } catch (e) { status(name + ": cannot read it (" + e.message + ")", true); }
+}
+// files dropped or pasted in
+chat.ondragover = (e) => e.preventDefault();
+document.body.ondrop = async (e) => { e.preventDefault(); for (const f of e.dataTransfer.files) await addFile(f); };
+input.onpaste = async (e) => { for (const it of e.clipboardData.items) if (it.kind === "file") { e.preventDefault(); const f = it.getAsFile(); if (f) await addFile(new File([f], f.name || "pasted.png", { type: f.type })); } };
+
+/* ------------------------------------------------------------ talking to Claude */
+function blocksFor(text, files) {
+  const blocks = [];
+  files.forEach((f) => {
+    if (f.kind === "image") blocks.push({ type: "image", source: { type: "base64", media_type: f.mime, data: f.data } });
+    else if (f.kind === "pdf") blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: f.data }, title: f.name });
+    else blocks.push({ type: "text", text: "Attached file " + f.name + ":\n```\n" + f.text + "\n```" });
+  });
+  blocks.push({ type: "text", text: text || "(see the attached files)" });
+  return blocks;
+}
+/* ------------------------------------------------------------ the bridge to the program
+   The program opens this window with #bridge=<port>&token=<token>: a small server on this PC only (127.0.0.1)
+   through which Claude works the running program. */
+const BRIDGE = (() => { const h = new URLSearchParams(location.hash.slice(1)); return { port: parseInt(h.get("bridge"), 10) || 0, token: h.get("token") || "" }; })();
+let linked = false;
+async function mf(cmd, args) {
+  if (!BRIDGE.port) throw new Error("not connected to Material Flow: open this window from the program (menu AI Chat, Ctrl+I)");
+  const r = await fetch("http://127.0.0.1:" + BRIDGE.port + "/api", { method: "POST",
+    headers: { "content-type": "application/json", "x-mf-token": BRIDGE.token }, body: JSON.stringify(Object.assign({ cmd }, args || {})) });
+  try { return await r.json(); } catch (e) { return { ok: false, error: "HTTP " + r.status }; }
+}
+async function checkLink() {
+  try { linked = !!(await mf("status")).ok; } catch (e) { linked = false; }
+  const s = $("mfstate");
+  s.textContent = linked ? "● Material Flow SDL3: Online" : "○ Material Flow SDL3: Offline";
+  s.className = linked ? "on" : "off";
+  if (!view.length) render();
+  s.title = linked ? "Claude can look at, read, write and build in the running program" :
+    "Open this window from Material Flow (menu AI Chat, Ctrl+I) so Claude can work in the program";
+  return linked;
+}
+
+const obj = (props, req) => ({ type: "object", properties: props || {}, required: req || [] });
+const TOOLS = [
+  { name: "mf_help", description: "How to build in Material Flow: coordinates, every build step (op) with its fields, the part and equipment names. Read it before building.", input_schema: obj() },
+  { name: "mf_status", description: "The program now: layout, pages, current page and layer, grid size, canvas, running or not, counts.", input_schema: obj() },
+  { name: "mf_get_layout", description: "The whole layout (all pages) as .mflow text.", input_schema: obj() },
+  { name: "mf_load_layout", description: "Replace the layout with .mflow text (the old one is kept as a backup).", input_schema: obj({ mflow: { type: "string" } }, ["mflow"]) },
+  { name: "mf_restore_backup", description: "Go back to the layout from before the last load.", input_schema: obj() },
+  { name: "mf_examples", description: "Without n: the list of built-in examples. With n: that example's .mflow text (to learn the format or copy from).", input_schema: obj({ n: { type: "integer" } }) },
+  { name: "mf_load_example", description: "Open built-in example n (the old layout is kept as a backup).", input_schema: obj({ n: { type: "integer" } }, ["n"]) },
+  { name: "mf_build", description: "Build on the current page: a list of steps done in order, e.g. {op:'pipe',x1,y1,x2,y2}, {op:'device',kind,x,y}, {op:'equip',kind,x,y,name}, {op:'label',x,y,text}. See mf_help for every op. Each step answers ok or its error. All of it is one undo step.",
+    input_schema: obj({ ops: { type: "array", items: { type: "object" } } }, ["ops"]) },
+  { name: "mf_run", description: "Start (on=true) or stop (on=false) the simulation.", input_schema: obj({ on: { type: "boolean" } }, ["on"]) },
+  { name: "mf_read", description: "Read values by name (equipment, tags, sensors, plant bus names).", input_schema: obj({ names: { type: "array", items: { type: "string" } } }, ["names"]) },
+  { name: "mf_write", description: "Write a value to a part by name (a set point, a valve %, 1/0 for on/off...).", input_schema: obj({ name: { type: "string" }, value: { type: "number" } }, ["name", "value"]) },
+  { name: "mf_page", description: "Go to page n (1-based), or make a new page with the name in 'new'.", input_schema: obj({ n: { type: "integer" }, new: { type: "string" } }) },
+  { name: "mf_screenshot", description: "A picture of the program window now (to check your work).", input_schema: obj() },
+];
+const TOOL_CMD = { mf_help: "help", mf_status: "status", mf_get_layout: "get_layout", mf_load_layout: "load_layout",
+  mf_restore_backup: "restore_backup", mf_examples: "examples", mf_load_example: "load_example", mf_build: "build",
+  mf_run: "run", mf_read: "read", mf_write: "write", mf_page: "page", mf_screenshot: "screenshot" };
+
+// a BMP (base64) from the program as a PNG data URL, at most maxW wide
+async function bmpToPngUrl(b64, maxW) {
+  const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+  const bmp = await createImageBitmap(new Blob([bytes], { type: "image/bmp" }));
+  const k = Math.min(1, maxW / bmp.width), c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL("image/png");
+}
+// one line for the chat about a tool and what it did
+function toolLine(name, input, res) {
+  let s = "🔧 **" + name + "**";
+  if (name === "mf_build" && res.ok) s += " - " + res.done + " step(s) done" + (res.failed ? ", " + res.failed + " failed" : "");
+  else if (name === "mf_load_example" || name === "mf_examples" && input.n) s += " " + input.n;
+  else if (name === "mf_read" && res.ok) s += " " + (input.names || []).join(", ");
+  else if (name === "mf_write") s += " " + input.name + " = " + input.value;
+  else if (name === "mf_run") s += input.on ? " (start)" : " (stop)";
+  if (!res.ok) s += " - error: " + (res.error || "?");
+  return s;
+}
+// run one tool: its tool_result block, and what to show
+async function runTool(use, answer) {
+  const name = use.name, input = use.input || {};
+  let res;
+  try { res = TOOL_CMD[name] ? await mf(TOOL_CMD[name], input) : { ok: false, error: "unknown tool " + name }; }
+  catch (e) { res = { ok: false, error: e.message }; }
+  answer.text += (answer.text && !answer.text.endsWith("\n") ? "\n\n" : "") + "> " + toolLine(name, input, res) + "\n\n";
+  let content;
+  if (name === "mf_screenshot" && res.ok && res.bmp) {
+    const url = await bmpToPngUrl(res.bmp, lim().shotW);
+    answer.files = answer.files || [];
+    answer.files.push({ name: "screenshot.png", kind: "image", url });
+    content = [{ type: "image", source: { type: "base64", media_type: "image/png", data: url.split(",")[1] } },
+      { type: "text", text: "The program window now." }];
+  } else {
+    let t = JSON.stringify(res);
+    if (t.length > lim().toolChars) t = t.slice(0, lim().toolChars) + "... (cut: ask for less at a time)";
+    content = [{ type: "text", text: t }];
+  }
+  return { type: "tool_result", tool_use_id: use.id, content, is_error: !res.ok };
+}
+
+/* Fewer input tokens per request (the API counts them per minute): every tool round sends the whole chat again.
+   The chat so far is never changed afterwards (Claude's thinking is signed with what came before it: a changed
+   past makes it invalid), so it is all cached: system, tools and the chat up to the last message. Cached tokens are
+   cheap and do not count toward the limit; only what is new in a round does. What is new is kept small instead:
+   screenshots at most 1024 px wide, a tool's answer at most 25,000 characters. */
+function lean(msgs) {
+  const out = msgs.slice();
+  const lm = out[out.length - 1];
+  if (lm && Array.isArray(lm.content) && lm.content.length) {
+    const blocks = lm.content.slice(), k = blocks.length - 1;
+    blocks[k] = Object.assign({}, blocks[k], { cache_control: { type: "ephemeral" } });
+    out[out.length - 1] = { role: lm.role, content: blocks };
+  }
+  return out;
+}function wait(ms) {
+  return new Promise((res, rej) => {
+    const t = setTimeout(res, ms);
+    busy.signal.addEventListener("abort", () => { clearTimeout(t); rej(new DOMException("stopped", "AbortError")); }, { once: true });
+  });
+}
+// one request to Claude, streamed: the content blocks and why it stopped
+async function ask(key, answer) {
+  const body = { model: $("model").value, max_tokens: lim().maxTokens, stream: true, messages: lean(history),
+    system: [{ type: "text", text: SYSTEM + (linked ? SYSTEM_LINKED : "") + (saver ? SYSTEM_SAVER : ""), cache_control: { type: "ephemeral" } }] };
+  if (linked) body.tools = TOOLS.map((t, i) => i === TOOLS.length - 1 ? Object.assign({}, t, { cache_control: { type: "ephemeral" } }) : t);
+  let r;
+  // over the rate limit (429) or overloaded (529): wait and try again by itself
+  for (let attempt = 1; ; attempt++) {
+    r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", signal: busy.signal,
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify(body)
+    });
+    if ((r.status !== 429 && r.status !== 529) || attempt > 6) break;
+    let s = parseInt(r.headers.get("retry-after"), 10);
+    if (!(s > 0)) s = Math.min(60, 15 * attempt);
+    for (let left = s; left > 0; left--) {
+      status((r.status === 429 ? "Rate limit reached" : "The API is busy") + " - trying again in " + left + " s (" + attempt + "/6)...");
+      showAI(r.status === 429 ? "waiting (rate limit)" : "waiting (API busy)");
+      await wait(1000);
+    }
+    status("Claude is answering..."); showAI("answering...");
+  }
+  // what the API says of the key
+  keyOk = r.ok || r.status === 429 || r.status === 529 || r.status === 400 ? true : (r.status === 401 || r.status === 403) ? false : keyOk;
+  if (!r.ok) {
+    let msg = r.status + " " + r.statusText;
+    try { const j = await r.json(); if (j.error && j.error.message) msg = j.error.message + " (" + r.status + ")"; } catch (e) {}
+    throw new Error(msg);
+  }
+  const reader = r.body.getReader(), dec = new TextDecoder();
+  const blocks = [], json = [];
+  let buf = "", last = 0, stop = "", outNow = 0;
+  if (answer.text && !answer.text.endsWith("\n")) answer.text += "\n\n";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let p;
+    while ((p = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, p).trim(); buf = buf.slice(p + 1);
+      if (!line.startsWith("data:")) continue;
+      let ev; try { ev = JSON.parse(line.slice(5)); } catch (e) { continue; }
+      if (ev.type === "message_start" && ev.message && ev.message.usage) {
+        const u = ev.message.usage;
+        const i = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), c = u.cache_read_input_tokens || 0;
+        tok.aIn += i; tok.cIn += i; tok.aCache += c; tok.cCache += c; outNow = u.output_tokens || 0;
+        tok.aOut += outNow; tok.cOut += outNow; showTokens();
+      }
+      else if (ev.type === "message_delta" && ev.usage && ev.usage.output_tokens) {
+        const d = ev.usage.output_tokens - outNow;
+        if (d > 0) { tok.aOut += d; tok.cOut += d; outNow = ev.usage.output_tokens; showTokens(); }
+        if (ev.delta && ev.delta.stop_reason) stop = ev.delta.stop_reason;
+      }
+      else if (ev.type === "content_block_start") { blocks[ev.index] = Object.assign({}, ev.content_block); json[ev.index] = ""; }
+      else if (ev.type === "content_block_delta" && ev.delta) {
+        const b = blocks[ev.index];
+        if (ev.delta.type === "text_delta") { b.text = (b.text || "") + ev.delta.text; answer.text += ev.delta.text; }
+        else if (ev.delta.type === "input_json_delta") json[ev.index] += ev.delta.partial_json;
+        // the model's thinking: it goes back to the API whole (with its signature) in the tool rounds
+        else if (ev.delta.type === "thinking_delta") b.thinking = (b.thinking || "") + ev.delta.thinking;
+        else if (ev.delta.type === "signature_delta") b.signature = (b.signature || "") + ev.delta.signature;
+      }
+      else if (ev.type === "content_block_stop") {
+        const b = blocks[ev.index];
+        if (b && b.type === "tool_use") { try { b.input = json[ev.index] ? JSON.parse(json[ev.index]) : {}; } catch (e) { b.input = {}; } }
+      }
+      else if (ev.type === "message_delta" && ev.delta && ev.delta.stop_reason) stop = ev.delta.stop_reason;
+      else if (ev.type === "error") throw new Error(ev.error ? ev.error.message : "stream error");
+    }
+    if (performance.now() - last > 60) { last = performance.now(); render(); }
+  }
+  return { blocks: blocks.filter((b) => b && !(b.type === "text" && !b.text) && !(b.type === "thinking" && !b.signature)), stop };
+}
+
+async function send() {
+  if (busy) { busy.abort(); return; }
+  const text = input.value.trim();
+  if (!text && !pending.length) return;
+  const key = getKey();
+  if (!key) { status("Add your ANTHROPIC_API_KEY first.", true); $("keybtn").click(); return; }
+  const files = pending; pending = []; renderPending();
+  const mark = history.length, userMsg = { role: "user", content: blocksFor(text, files) };
+  history.push(userMsg);
+  view.push({ role: "user", text, files: files.map((f) => ({ name: f.name, kind: f.kind, url: f.url })) });
+  const answer = { role: "assistant", text: "", streaming: true, outcome: "working" };
+  tok.aIn = 0; tok.aOut = 0; tok.aCache = 0; showTokens();
+  view.push(answer);
+  input.value = ""; autosize(); render();
+  busy = new AbortController(); $("send").textContent = "Stop"; status("Claude is answering..."); showAI("answering...");
+  if (BRIDGE.port) await checkLink();
+  try {
+    for (let turn = 0; ; turn++) {
+      const { blocks, stop } = await ask(key, answer);
+      history.push({ role: "assistant", content: blocks.length ? blocks : [{ type: "text", text: "(no answer)" }] });
+      const uses = blocks.filter((b) => b.type === "tool_use");
+      if (stop !== "tool_use" || !uses.length) { answer.outcome = stop === "max_tokens" ? "cut" : "done"; break; }
+      if (turn + 1 >= lim().turns) { answer.outcome = "limit"; answer.text += "\n\n*(stopped after " + lim().turns + " tool rounds - say \"continue\" to go on" + (saver ? ", or turn Saver off" : "") + ")*"; history.pop(); history.push({ role: "assistant", content: [{ type: "text", text: answer.text }] }); break; }
+      if (billed(tok.aIn, tok.aOut, tok.aCache) > lim().budget) { answer.outcome = "budget"; answer.text += "\n\n*(stopped: this answer has used about " + kfmt(billed(tok.aIn, tok.aOut, tok.aCache)) + " tokens, the " + (saver ? "Saver" : "") + " budget - say \"continue\" to go on" + (saver ? ", or turn Saver off" : "") + ")*"; history.pop(); history.push({ role: "assistant", content: [{ type: "text", text: answer.text }] }); break; }
+      status("Claude is working in Material Flow..."); showAI("working in Material Flow...");
+      const results = [];
+      for (const u of uses) { results.push(await runTool(u, answer)); render(); }
+      history.push({ role: "user", content: results });
+      status("Claude is answering..."); showAI("answering...");
+    }
+    answer.streaming = false;
+    status("");
+  } catch (e) {
+    answer.streaming = false;
+    history.length = mark;    // no half tool round left behind
+    if (e.name === "AbortError") {
+      answer.outcome = "stopped";
+      answer.text += answer.text ? "\n\n*(stopped)*" : "*(stopped)*";
+      history.push(userMsg, { role: "assistant", content: [{ type: "text", text: answer.text }] }); status("Stopped.");
+    }
+    else if (answer.text) {
+      // what was done in the program stays in the chat (and Claude knows it next time)
+      answer.outcome = "error";
+      answer.text += "\n\n**Error:** " + e.message;
+      history.push(userMsg, { role: "assistant", content: [{ type: "text", text: answer.text }] });
+      status("The request failed - see the message.", true);
+    }
+    else { answer.outcome = "error"; answer.error = true; answer.text = "Error: " + e.message; status("The request failed - see the message.", true); }
+  } finally {
+    busy = null; $("send").textContent = "Send"; render(); showAI(answer.error ? "error (see the message)" : "ready"); showKeyState();
+  }
+}
+$("send").onclick = send;
+input.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
+function autosize() { input.style.height = "auto"; input.style.height = Math.min(200, input.scrollHeight) + "px"; }
+input.oninput = autosize;
+$("newchat").onclick = () => { if (busy) busy.abort(); history = []; view = []; pending = []; for (const k in tok) tok[k] = 0; showTokens(); renderPending(); render(); status("New chat."); };
+$("model").onchange = () => { try { localStorage.setItem(MODEL_NAME, $("model").value); } catch (e) {} showAI(); };
+
+/* ------------------------------------------------------------ the chat as text and as an image */
+function chatText() {
+  return view.map((m) => (m.role === "user" ? "You" : "Claude") + ":\n" + m.text +
+    (m.files && m.files.length ? "\n[attached: " + m.files.map((f) => f.name).join(", ") + "]" : "")).join("\n\n") + "\n";
+}
+// draws an element (and what is in it) on a canvas: the HTML goes through an SVG foreignObject
+async function toCanvas(el) {
+  const scale = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.ceil(el.scrollWidth), h = Math.ceil(el.scrollHeight);
+  const clone = el.cloneNode(true);
+  clone.querySelectorAll(".tools").forEach((t) => t.remove());
+  clone.querySelectorAll(".typing").forEach((t) => t.classList.remove("typing"));
+  const cs = getComputedStyle(document.documentElement);
+  const vars = ["--bg", "--panel", "--text", "--dim", "--line", "--accent", "--accent-text", "--user", "--bot", "--code", "--err", "--ok"]
+    .map((v) => v + ":" + cs.getPropertyValue(v)).join(";");
+  const css = $("chat-style").textContent;
+  const xhtml = new XMLSerializer().serializeToString(clone);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '">' +
+    '<foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="' + vars +
+    ';background:var(--bg);color:var(--text);font:14px/1.5 Segoe UI,Tahoma,Leelawadee UI,sans-serif;width:' + w + 'px">' +
+    '<style>' + css.replace(/</g, "&lt;") + '</style>' + xhtml + '</div></foreignObject></svg>';
+  const img = new Image();
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  await img.decode();
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(w * scale)); c.height = Math.max(1, Math.round(Math.min(h, 30000 / scale) * scale));
+  const g = c.getContext("2d");
+  g.fillStyle = cs.getPropertyValue("--bg").trim() || "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+  g.scale(scale, scale); g.drawImage(img, 0, 0);
+  return c;
+}
+const chatCanvas = () => toCanvas(log);
+const toBlob = (c, type, q) => new Promise((res) => c.toBlob(res, type, q));
+
+function bmpBlob(c) {
+  const w = c.width, h = c.height, d = c.getContext("2d").getImageData(0, 0, w, h).data;
+  const rowSize = Math.ceil(w * 3 / 4) * 4, size = 54 + rowSize * h;
+  const buf = new ArrayBuffer(size), v = new DataView(buf), b = new Uint8Array(buf);
+  v.setUint16(0, 0x4d42, true); v.setUint32(2, size, true); v.setUint32(10, 54, true);
+  v.setUint32(14, 40, true); v.setInt32(18, w, true); v.setInt32(22, h, true); v.setUint16(26, 1, true);
+  v.setUint16(28, 24, true); v.setUint32(34, rowSize * h, true); v.setInt32(38, 2835, true); v.setInt32(42, 2835, true);
+  for (let y = 0; y < h; y++) {
+    let o = 54 + (h - 1 - y) * rowSize, s = y * w * 4;
+    for (let x = 0; x < w; x++, s += 4) { b[o++] = d[s + 2]; b[o++] = d[s + 1]; b[o++] = d[s]; }
+  }
+  return new Blob([buf], { type: "image/bmp" });
+}
+
+// the chat as a page of its own for printing: its text stays text, its pictures stay pictures (data URLs)
+const PRINT_CSS = "@page { size: A4; margin: 14mm 12mm; }" +
+  "html, body { height: auto; display: block; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }" +
+  "#log { max-width: none; margin: 0; padding: 0; background: #fff; }" +
+  ".bubble { max-width: 92%; } .tools { display: none !important; }" +
+  ".file img { max-width: 100%; max-height: 110mm; } .bubble img { break-inside: avoid; }" +
+  "pre, tr, blockquote, .file { break-inside: avoid; } h1, h2, h3, h4 { break-after: avoid; }" +
+  ".ptitle { font-size: 16px; font-weight: 600; margin: 0 0 2px; } .pdate { font-size: 11px; color: #667085; margin: 0 0 10px; }";
+function printHTML() {
+  const clone = log.cloneNode(true);
+  clone.querySelectorAll(".tools").forEach((t) => t.remove());
+  clone.querySelectorAll(".typing").forEach((t) => t.classList.remove("typing"));
+  // the pictures in full size for print (the chat shows them small)
+  clone.querySelectorAll(".file img").forEach((im) => { im.style.maxWidth = "100%"; im.style.maxHeight = "110mm"; });
+  return "<!DOCTYPE html><html lang=\"en\" data-theme=\"light\"><head><meta charset=\"utf-8\"><title>Material Flow - AI Chat " + stamp() + "</title>" +
+    "<style>" + $("chat-style").textContent + PRINT_CSS + "</style></head><body>" +
+    "<p class=\"ptitle\">Material Flow &middot; AI Chat</p><p class=\"pdate\">" + esc(new Date().toLocaleString()) + " &middot; " + esc($("model").selectedOptions[0].text) + "</p>" +
+    // the three states when it was exported, and how the last answer ended
+    "<p class=\"pstates\">" + ["mfstate", "keystate", "aistate"].map((id) => "<span class=\"" + $(id).className + "\">" + esc($(id).textContent) + "</span>").join("") + "</p>" +
+    (() => { const a = view.filter((m) => m.role === "assistant").pop(); if (!a) return "";
+      const o = OUTCOME[a.outcome || "done"]; return "<p class=\"presult " + o.cls + "\">Last answer: " + esc(o.text) + "</p>"; })() +
+    "<div id=\"log\">" + clone.innerHTML + "</div></body></html>";
+}
+// a real PDF (selectable text, pictures as pictures): the program prints the page with Edge in the background
+async function pdfBlob() {
+  const r = await mf("print_pdf", { html: printHTML() });
+  if (!r.ok) throw new Error(r.error || "no PDF");
+  const bytes = Uint8Array.from(atob(r.pdf), (ch) => ch.charCodeAt(0));
+  return new Blob([bytes], { type: "application/pdf" });
+}
+// without the program: the browser's own print dialog (choose "Save as PDF")
+function printDialog() {
+  const fr = document.createElement("iframe");
+  fr.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(fr);
+  fr.onload = () => { fr.contentWindow.focus(); fr.contentWindow.print(); setTimeout(() => fr.remove(), 1000); };
+  fr.srcdoc = printHTML();
+}
+async function exportBlob(fmt) {
+  if (fmt === "txt") return new Blob([chatText()], { type: "text/plain;charset=utf-8" });
+  if (fmt === "pdf") return pdfBlob();
+  const c = await chatCanvas();
+  if (fmt === "png") return toBlob(c, "image/png");
+  if (fmt === "bmp") return bmpBlob(c);
+  throw new Error("unknown format " + fmt);
+}
+const MIME = { txt: "text/plain", bmp: "image/bmp", png: "image/png", pdf: "application/pdf" };
+async function saveBlob(blob, name, fmt) {
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await showSaveFilePicker({ suggestedName: name, types: [{ description: fmt.toUpperCase(), accept: { [MIME[fmt]]: ["." + fmt] } }] });
+      const w = await h.createWritable(); await w.write(blob); await w.close(); status("Saved " + h.name); return;
+    } catch (e) { if (e.name === "AbortError") { status("Not saved."); return; } }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000); status("Saved " + name + " (Downloads)");
+}
+function stamp() { const d = new Date(), p = (n) => String(n).padStart(2, "0"); return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes()); }
+async function doExport(fmt) {
+  if (!view.length) { status("Nothing to export yet.", true); return; }
+  if (fmt === "pdf" && !(await checkLink())) { printDialog(); status("Not connected to Material Flow: in the print dialog choose \"Save as PDF\"."); return; }
+  try { status("Making the " + fmt.toUpperCase() + "..."); await saveBlob(await exportBlob(fmt), "ai-chat-" + stamp() + "." + fmt, fmt); }
+  catch (e) { status("Export failed: " + e.message, true); }
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); status("Text copied."); }
+  catch (e) { const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); status("Text copied."); }
+}
+async function copyImage(el) {
+  try { const c = await toCanvas(el); const b = await toBlob(c, "image/png");
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); status("Image copied."); }
+  catch (e) { status("Cannot copy the image: " + e.message, true); }
+}
+$("copytext").onclick = () => view.length ? copyText(chatText()) : status("Nothing to copy yet.", true);
+$("copyimage").onclick = () => view.length ? copyImage(log) : status("Nothing to copy yet.", true);
+$("saveimage").onclick = () => doExport("png");
+$("exportbtn").onclick = (e) => { e.stopPropagation(); $("exportmenu").classList.toggle("open"); };
+document.querySelectorAll("#exportmenu .menu-list button").forEach((b) => b.onclick = () => { $("exportmenu").classList.remove("open"); doExport(b.dataset.fmt); });
+document.addEventListener("click", () => $("exportmenu").classList.remove("open"));
+
+/* ------------------------------------------------------------ start */
+try { const m = localStorage.getItem(MODEL_NAME); if (m) $("model").value = m; } catch (e) {}
+showKeyState(); showAI("ready"); showSaver(); showTokens(); render(); input.focus(); checkLink(); checkKey();
+$("saver").onclick = () => { saver = !saver; try { localStorage.setItem("mf_saver", saver ? "1" : "0"); } catch (e) {} showSaver(); showTokens();
+  status(saver ? "Saver on: up to " + LIMITS.saver.turns + " tool rounds and about " + kfmt(LIMITS.saver.budget) + " tokens an answer." : "Saver off: up to " + MAX_TURNS + " tool rounds an answer."); };
+// the states kept up to date: the program every 5 s, the key every 5 minutes (and when the window comes back)
+setInterval(() => { if (!busy) checkLink(); }, 5000);
+setInterval(() => { if (!busy) checkKey(); }, 300000);
+window.addEventListener("focus", () => { if (!busy && Date.now() - keyAt > 60000) checkKey(); });
+// for the self test: the parts without the network
+window.MFChat = { markdown, chatText, exportBlob, bmpBlob, pdfBlob, printHTML, toCanvas, addFile, blocksFor, mf, checkLink, runTool, TOOLS, lean, bridge: BRIDGE,
+  setView: (v) => { view = v; render(); }, getKey, setKey, showKeyState, pending: () => pending };
+</script>
+</body>
+</html>
